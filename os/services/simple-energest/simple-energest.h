@@ -55,7 +55,7 @@
 #endif /* SIMPLE_ENERGEST_CONF_PERIOD */
 
 /**
- * Initialize the deployment module
+ * Initialize the energest module
  */
 void simple_energest_init(void);
 

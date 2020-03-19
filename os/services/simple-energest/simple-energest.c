@@ -52,9 +52,9 @@
 #define LOG_MODULE "Energest"
 #define LOG_LEVEL LOG_LEVEL_INFO
 
-static unsigned long last_tx, last_rx, last_time, last_cpu, last_lpm, last_deep_lpm;
-static unsigned long delta_tx, delta_rx, delta_time, delta_cpu, delta_lpm, delta_deep_lpm;
-static unsigned long curr_tx, curr_rx, curr_time, curr_cpu, curr_lpm, curr_deep_lpm;
+static unsigned long last_tx, last_rx, last_time, last_cpu;
+static unsigned long delta_tx, delta_rx, delta_time;
+static unsigned long curr_tx, curr_rx, curr_time, curr_cpu;
 
 PROCESS(simple_energest_process, "Simple Energest");
 /*---------------------------------------------------------------------------*/
@@ -72,31 +72,20 @@ simple_energest_step(void)
   energest_flush();
 
   curr_time = ENERGEST_GET_TOTAL_TIME();
-  curr_cpu = energest_type_time(ENERGEST_TYPE_CPU);
-  curr_lpm = energest_type_time(ENERGEST_TYPE_LPM);
-  curr_deep_lpm = energest_type_time(ENERGEST_TYPE_DEEP_LPM);
   curr_tx = energest_type_time(ENERGEST_TYPE_TRANSMIT);
   curr_rx = energest_type_time(ENERGEST_TYPE_LISTEN);
 
   delta_time = curr_time - last_time;
-  delta_cpu = curr_cpu - last_cpu;
-  delta_lpm = curr_lpm - last_lpm;
-  delta_deep_lpm = curr_deep_lpm - last_deep_lpm;
   delta_tx = curr_tx - last_tx;
   delta_rx = curr_rx - last_rx;
 
   last_time = curr_time;
   last_cpu = curr_cpu;
-  last_lpm = curr_lpm;
-  last_deep_lpm = curr_deep_lpm;
   last_tx = curr_tx;
   last_rx = curr_rx;
 
   LOG_INFO("--- Period summary #%u (%lu seconds)\n", count++, delta_time/ENERGEST_SECOND);
   LOG_INFO("Total time  : %10lu\n", delta_time);
-  LOG_INFO("CPU         : %10lu/%10lu (%lu permil)\n", delta_cpu, delta_time, to_permil(delta_cpu, delta_time));
-  LOG_INFO("LPM         : %10lu/%10lu (%lu permil)\n", delta_lpm, delta_time, to_permil(delta_lpm, delta_time));
-  LOG_INFO("Deep LPM    : %10lu/%10lu (%lu permil)\n", delta_deep_lpm, delta_time, to_permil(delta_deep_lpm, delta_time));
   LOG_INFO("Radio Tx    : %10lu/%10lu (%lu permil)\n", delta_tx, delta_time, to_permil(delta_tx, delta_time));
   LOG_INFO("Radio Rx    : %10lu/%10lu (%lu permil)\n", delta_rx, delta_time, to_permil(delta_rx, delta_time));
   LOG_INFO("Radio total : %10lu/%10lu (%lu permil)\n", delta_tx+delta_rx, delta_time, to_permil(delta_tx+delta_rx, delta_time));
@@ -121,10 +110,7 @@ simple_energest_init(void)
 {
   energest_flush();
   last_time = ENERGEST_GET_TOTAL_TIME();
-  last_cpu = energest_type_time(ENERGEST_TYPE_CPU);
-  last_lpm = energest_type_time(ENERGEST_TYPE_LPM);
   curr_tx = energest_type_time(ENERGEST_TYPE_TRANSMIT);
-  last_deep_lpm = energest_type_time(ENERGEST_TYPE_DEEP_LPM);
   last_rx = energest_type_time(ENERGEST_TYPE_LISTEN);
   process_start(&simple_energest_process, NULL);
 }
