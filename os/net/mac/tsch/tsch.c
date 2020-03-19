@@ -1138,9 +1138,9 @@ send_packet(mac_callback_t sent, void *ptr)
       ret = MAC_TX_ERR;
     } else {
       p->header_len = hdr_len;
-      LOG_INFO("send packet to ");
-      LOG_INFO_LLADDR(addr);
-      LOG_INFO_(" with seqno %u, queue %u/%u %u/%u, len %u %u\n",
+      LOG_WARN("TX to ");
+      LOG_WARN_LLADDR(addr);
+      LOG_WARN_(" seqno %u, queue %u/%u %u/%u, len %u %u\n",
              tsch_packet_seqno, tsch_queue_nbr_packet_count(n),
              TSCH_QUEUE_NUM_PER_NEIGHBOR, tsch_queue_global_packet_count(),
              QUEUEBUF_NUM, p->header_len, queuebuf_datalen(p->qb));
