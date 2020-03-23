@@ -10,10 +10,10 @@
 #define LOG_CONF_WITH_COMPACT_ADDR    1
 
 // Total queue buffer size
-#define QUEUEBUF_CONF_NUM             8
+#define QUEUEBUF_CONF_NUM             4
 
 // Max queue size per neighbor
-#define TSCH_QUEUE_CONF_NUM_PER_NEIGHBOR   8
+#define TSCH_QUEUE_CONF_NUM_PER_NEIGHBOR   4
 
 // Disable use of pending bit which allows nodes to use more slots
 #define TSCH_CONF_BURST_MAX_LEN       0
@@ -45,7 +45,7 @@
 
 /* Reduce ROM and RAM usage so that it builds on z1 */
 // No need for large packet support
-#define UIP_CONF_BUFFER_SIZE                  250
+#define UIP_CONF_BUFFER_SIZE                  140
 
 // Disable support for packet fragmentation
 #define SICSLOWPAN_CONF_FRAG                  0
