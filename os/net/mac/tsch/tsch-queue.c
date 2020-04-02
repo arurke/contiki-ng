@@ -407,6 +407,160 @@ tsch_queue_is_empty(const struct tsch_neighbor *n)
   return !tsch_is_locked() && n != NULL && ringbufindex_empty(&n->tx_ringbuf);
 }
 /*---------------------------------------------------------------------------*/
+
+#if BUILD_WITH_LAYERED
+static struct tsch_packet* hack(struct tsch_neighbor *n, uint16_t curr_timeslot) {
+  // Read entire buffer into an array
+  // Fetch our packet and put it in first
+  struct tsch_packet* packet_pointers[TSCH_QUEUE_NUM_PER_NEIGHBOR] = {0};
+  uint8_t packet_for_timeslot = 0xff;
+
+  // Get from queue
+  uint8_t num_packets = 0;
+  while(ringbufindex_elements(&n->tx_ringbuf)) {
+    int16_t index_of_packet = ringbufindex_get(&n->tx_ringbuf);
+    if(index_of_packet == -1) {
+      TSCH_LOG_ADD(tsch_log_message,
+                   snprintf(log->message, sizeof(log->message),
+                     "!asdERR1!"));
+      return NULL;
+    }
+
+    packet_pointers[num_packets] = n->tx_array[index_of_packet];
+    int packet_attr_timeslot = queuebuf_attr(n->tx_array[index_of_packet]->qb,
+                                             PACKETBUF_ATTR_TSCH_TIMESLOT);
+    if(packet_attr_timeslot == curr_timeslot) {
+      packet_for_timeslot = num_packets;
+    }
+    num_packets++;
+  }
+
+  // We now have an array of all the packets and their pointers
+
+  // If found packet for current timeslot, add it to front of queue
+  if(packet_for_timeslot != 0xff) {
+    int16_t new_index_of_packet = ringbufindex_peek_put(&n->tx_ringbuf);
+    if(new_index_of_packet != -1) {
+      n->tx_array[new_index_of_packet] = packet_pointers[packet_for_timeslot];
+      ringbufindex_put(&n->tx_ringbuf);
+    }
+    else {
+      TSCH_LOG_ADD(tsch_log_message,
+                   snprintf(log->message, sizeof(log->message),
+                     "asdERR2"));
+      return NULL;
+    }
+  }
+
+  // Now add all the other packets back in
+  uint8_t i = 0;
+  for(i = 0; i < num_packets; i++) {
+    // Don't add the timeslot-packet two times
+    if(i == packet_for_timeslot) {
+      continue;
+    }
+
+    int16_t new_index_of_packet = ringbufindex_peek_put(&n->tx_ringbuf);
+    if(new_index_of_packet != -1) {
+      n->tx_array[new_index_of_packet] = packet_pointers[i];
+      ringbufindex_put(&n->tx_ringbuf);
+    }
+    else {
+      TSCH_LOG_ADD(tsch_log_message,
+                   snprintf(log->message, sizeof(log->message),
+                     "asdERR3"));
+      return NULL;
+    }
+  }
+
+  if(packet_for_timeslot != 0xff) {
+    return packet_pointers[packet_for_timeslot];
+  }
+
+  return NULL;
+}
+
+/* Returns the first packet from a neighbor queue */
+struct tsch_packet *
+tsch_queue_get_packet_for_nbr(struct tsch_neighbor *n, struct tsch_link *link)
+{
+  if(!tsch_is_locked()) {
+    int is_shared_link = link != NULL && link->link_options & LINK_OPTION_SHARED;
+    if(n != NULL) {
+      int16_t get_index = ringbufindex_peek_get(&n->tx_ringbuf);
+      if(get_index != -1 &&
+          !(is_shared_link && !tsch_queue_backoff_expired(n))) {    /* If this is a shared link,
+                                                                    make sure the backoff has expired */
+#if TSCH_WITH_LINK_SELECTOR
+        int packet_attr_slotframe =
+            queuebuf_attr(n->tx_array[get_index]->qb, PACKETBUF_ATTR_TSCH_SLOTFRAME);
+        int packet_attr_timeslot =
+            queuebuf_attr(n->tx_array[get_index]->qb, PACKETBUF_ATTR_TSCH_TIMESLOT);
+//        uint8_t seq_no = queuebuf_attr(n->tx_array[get_index]->qb, PACKETBUF_ATTR_MAC_SEQNO);
+        uint8_t num_packets = ringbufindex_elements(&n->tx_ringbuf);
+
+        if(packet_attr_slotframe != 0xffff &&
+            packet_attr_slotframe != link->slotframe_handle) {
+//          TSCH_LOG_ADD(tsch_log_message,
+//                          snprintf(log->message, sizeof(log->message),
+//                              "!asd1 %u/%u",
+//                                link->timeslot,
+//                                link->channel_offset));
+          return NULL;
+        }
+        if(packet_attr_timeslot != 0xffff &&
+            packet_attr_timeslot != link->timeslot) {
+          // Found packet which is going to this neighbor, but it is
+          // designated for another slot so it is either an RPL packet,
+          // or application designated to other cells. If there are more than
+          // this packet in the queue we search through if we can find a
+          // packet for this timeslot.
+          // Don't do this if this is a shared or non-normal link, beacons and RPL packets can wait
+          // TODO only supports one slotframe
+          if(num_packets > 1 &&
+              !is_shared_link &&
+              link->link_type == LINK_TYPE_NORMAL) {
+
+            // Hack the queue
+            struct tsch_packet* packet_for_this_timeslot = NULL;
+            packet_for_this_timeslot = hack(n, link->timeslot);
+
+            if(packet_for_this_timeslot == NULL) {
+//              TSCH_LOG_ADD(tsch_log_message,
+//                          snprintf(log->message, sizeof(log->message),
+//                              "!asdNO get_i: %u, seq-no: %u, p-ts: %d, %u/%u",
+//                              get_index,
+//                              seq_no,
+//                              packet_attr_timeslot,
+//                                link->timeslot,
+//                                link->channel_offset));
+              return NULL;
+            }
+            else {
+//              int timeslot = queuebuf_attr(packet_for_this_timeslot->qb,
+//                                           PACKETBUF_ATTR_TSCH_TIMESLOT);
+//              uint8_t p_seq_no = queuebuf_attr(n->tx_array[get_index]->qb,
+//                                               PACKETBUF_ATTR_MAC_SEQNO);
+//              TSCH_LOG_ADD(tsch_log_message,
+//                              snprintf(log->message, sizeof(log->message),
+//                                  "!asdYES seq-no: %u, p-ts: %d, %u/%u",
+//                                  p_seq_no,
+//                                  timeslot,
+//                                    link->timeslot,
+//                                    link->channel_offset));
+              return packet_for_this_timeslot;
+            }
+          }
+          return NULL;
+        }
+#endif
+        return n->tx_array[get_index];
+      }
+    }
+  }
+  return NULL;
+}
+#else
 /* Returns the first packet from a neighbor queue */
 struct tsch_packet *
 tsch_queue_get_packet_for_nbr(const struct tsch_neighbor *n, struct tsch_link *link)
@@ -434,6 +588,7 @@ tsch_queue_get_packet_for_nbr(const struct tsch_neighbor *n, struct tsch_link *l
   }
   return NULL;
 }
+#endif
 /*---------------------------------------------------------------------------*/
 /* Returns the head packet from a neighbor queue (from neighbor address) */
 struct tsch_packet *

@@ -1036,6 +1036,16 @@ PT_THREAD(tsch_slot_operation(struct rtimer *t, void *ptr))
       /* Get a packet ready to be sent */
       current_packet = get_packet_and_neighbor_for_link(current_link, &current_neighbor);
       uint8_t do_skip_best_link = 0;
+//      if(current_packet == NULL) {
+//        TSCH_LOG_ADD(tsch_log_message,
+//                        snprintf(log->message, sizeof(log->message),
+//                            "!no packet for %u/%u",
+//                              current_link->timeslot,
+//                              current_link->channel_offset));
+//      }
+//              TSCH_LOG_ADD(tsch_log_message,
+//                              snprintf(log->message, sizeof(log->message),
+//                                  "!mem %d", tsch_queue_global_packet_count()));
       if(current_packet == NULL && backup_link != NULL) {
         /* There is no packet to send, and this link does not have Rx flag. Instead of doing
          * nothing, switch to the backup link (has Rx flag) if any
@@ -1138,6 +1148,11 @@ PT_THREAD(tsch_slot_operation(struct rtimer *t, void *ptr))
             /* Reset burst index now that the link was scheduled from
               normal schedule (as opposed to from ongoing burst) */
             tsch_current_burst_count = 0;
+//            TSCH_LOG_ADD(tsch_log_message,
+//                            snprintf(log->message, sizeof(log->message),
+//                                "!next active for ASN %u is %u/%u", tsch_current_asn.ls4b,
+//                                  current_link->timeslot,
+//                                  current_link->channel_offset));
           }
         }
 

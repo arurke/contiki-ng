@@ -143,7 +143,11 @@ int tsch_queue_is_empty(const struct tsch_neighbor *n);
  * \param link The link
  * \return The next packet to be sent for the neighbor on the given link, if any, else NULL
  */
+#if BUILD_WITH_LAYERED
+struct tsch_packet *tsch_queue_get_packet_for_nbr(struct tsch_neighbor *n, struct tsch_link *link);
+#else
 struct tsch_packet *tsch_queue_get_packet_for_nbr(const struct tsch_neighbor *n, struct tsch_link *link);
+#endif
 /**
  * \brief Returns the first packet that can be sent to a given address on a given link
  * \param addr The target link-layer address
