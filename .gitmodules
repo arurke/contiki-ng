@@ -31,3 +31,6 @@
 [submodule "arch/cpu/nrf52840/lib/nrf52-sdk"]
 	path = arch/cpu/nrf52840/lib/nrf52-sdk
 	url = https://github.com/contiki-ng/nrf-sdk-contiki-ng.git
+[submodule "sims/triscale"]
+	path = sims/triscale
+	url = https://github.com/arurke/triscale.git
