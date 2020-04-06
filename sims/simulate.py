@@ -10,7 +10,8 @@ from parse_log import parse_logs_scenarios
 from plot import plot_time_series
 from plot import plot_scenarios
 from plot import plot_duty_cycle
-from stats import stats_for_scenarios
+#from stats import stats_for_scenarios
+from stats_triscale import stats_for_scenarios
 from simxml import simxml_make_xml_for_all_scenarios
 
 # Constants
