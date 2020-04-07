@@ -8,8 +8,9 @@ from datetime import datetime
 from simconfig import simconfig_parse
 from parse_log import parse_logs_scenarios
 from plot import plot_time_series
-from plot import plot_scenarios
+from plot import plot_pdr_latency
 from plot import plot_duty_cycle
+from plot import plot_queue_util
 #from stats import stats_for_scenarios
 from stats_triscale import stats_for_scenarios
 from simxml import simxml_make_xml_for_all_scenarios
@@ -53,8 +54,9 @@ def process_results(scenarios, execution_dir):
 
     print("Scenarios stats:\n", scenarios_df)
 
-    plot_scenarios(scenarios_df, execution_dir)
+    plot_pdr_latency(scenarios_df, execution_dir)
     plot_duty_cycle(scenarios_df, execution_dir)
+    plot_queue_util(scenarios_df, execution_dir)
 
 # Create execution-id
 def create_execution_id(sim_name, executions_dir):

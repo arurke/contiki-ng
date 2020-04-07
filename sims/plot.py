@@ -9,10 +9,35 @@ import numpy as np
 
 plt.rcParams.update({'font.size': 8})
 
+def plot_queue_util(scenarios_df, execution_dir):
+    # Get a list of integers of equal length as number of scenarios
+    # To be used to position the bars
+    x = np.arange(len(scenarios_df.index))
+    width = 0.35 # width of bars
+
+    fig, ax = plt.subplots()
+    p1 = ax.bar(x - width/2, scenarios_df.ss2_queue_fill_mean, width, label='Node 2')
+    p2 = ax.bar(x + width/2, scenarios_df.ss3_queue_fill_mean, width, label='Node 3')
+
+    ax.legend()
+    ax.set_xticks(x)
+    ax.set_xticklabels(scenarios_df.index)
+    ax.autoscale_view()
+    plt.xlabel('traffic intensity, as % of node schedule capacity')
+    plt.ylabel('Queue utilization (%)')
+    fig.tight_layout()
+
+    fig_name = "queue_util_all_scenarios"
+    plt.title(fig_name)
+    fig_dir = execution_dir
+    fig_path = fig_dir + fig_name + '.pdf'
+    plt.savefig(fig_path, bbox_inches='tight')
+    plt.close()
+    print("Made figure", fig_path)
+
 def plot_duty_cycle(scenarios_df, execution_dir):
     # Duty cycle
     color = 'tab:red'
-    # TODO 1. Update naming in parse_log. 2. Update naming in stats.py(if still in use?)
     plt.plot(scenarios_df.index, scenarios_df["ss_duty_cycle_50"], color=color,
              marker='o', label="Duty cycle")
 
@@ -33,7 +58,12 @@ def plot_duty_cycle(scenarios_df, execution_dir):
     plt.close()
     print("Made figure", fig_path)
 
-def plot_pdr_and_latency(pdr_df, latency_df, fig_dir, fig_name):
+def plot_pdr_latency(scenarios_df, execution_dir):
+    pdr_df = scenarios_df
+    latency_df = scenarios_df
+    fig_name = "pdr_latency_all_scenarios"
+    fig_dir = execution_dir
+
     fig, ax1 = plt.subplots()
 
     # Latency
@@ -59,11 +89,6 @@ def plot_pdr_and_latency(pdr_df, latency_df, fig_dir, fig_name):
     plt.savefig(fig_path, bbox_inches='tight')
     plt.close()
     print("Made figure", fig_path)
-
-def plot_scenarios(scenarios_df, execution_dir):
-    fig_name = "pdr_latency_all_scenarios"
-    fig_dir = execution_dir
-    plot_pdr_and_latency(scenarios_df, scenarios_df, fig_dir, fig_name)
 
 def plot_time_series(scenario, nodeid, run_id, skip_end = 0):
     if run_id not in scenario['raw_packet_dfs']:
