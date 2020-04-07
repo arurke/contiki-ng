@@ -47,16 +47,19 @@ def process_results(scenarios, execution_dir):
 
     # Make time-series from the raw DFs
     for scenario in scenarios:
+        plot_time_series(scenario, 2, 'run1', 0)
         plot_time_series(scenario, 3, 'run1', 0)
 
     # Get stats from the DFs
     scenarios_df = stats_for_scenarios(scenarios)
 
-    print("Scenarios stats:\n", scenarios_df)
-
     plot_pdr_latency(scenarios_df, execution_dir)
     plot_duty_cycle(scenarios_df, execution_dir)
     plot_queue_util(scenarios_df, execution_dir)
+
+    # Print all columns
+    pd.set_option('display.max_columns', None)
+    print("Scenarios stats:\n", scenarios_df)
 
 # Create execution-id
 def create_execution_id(sim_name, executions_dir):
