@@ -127,28 +127,32 @@ def parseApp(log):
 def parseTSCH(log):
     res = re.compile('! overflow queue (\d+)\/(\d+) (\d+)\/(\d+)').match(log)
     if res:
-        queue_fill = int(res.group(3))
+        queue_num = int(res.group(3))
         queue_size = int(res.group(4))
-        return {'event': 'mac', 'type': 'overflow', 'queue_fill': queue_fill, 'queue_size': queue_size }
+        queue_fill = (queue_num / queue_size) * 100
+        return {'event': 'mac', 'type': 'overflow', 'queue_num': queue_num, 'queue_size': queue_size, 'queue_fill':queue_fill}
     
     res = re.compile('! can\'t send packet to LL-(\d+) with seqno (\d+), queue (\d+)\/(\d+) (\d+)\/(\d+)').match(log)
     if res:
-        queue_fill = int(res.group(5))
+        queue_num = int(res.group(5))
         queue_size = int(res.group(6))
-        return {'event': 'mac', 'type': 'drop', 'queue_fill': queue_fill, 'queue_size': queue_size }
+        queue_fill = (queue_num / queue_size) * 100
+        return {'event': 'mac', 'type': 'drop', 'queue_num': queue_num, 'queue_size': queue_size, 'queue_fill':queue_fill}
     
     # Also catch broadcast drops
     res = re.compile('! can\'t send packet to LL-ffff with seqno (\d+), queue (\d+)\/(\d+) (\d+)\/(\d+)').match(log)
     if res:
-        queue_fill = int(res.group(4))
+        queue_num = int(res.group(4))
         queue_size = int(res.group(5))
-        return {'event': 'mac', 'type': 'drop', 'queue_fill': queue_fill, 'queue_size': queue_size }
+        queue_fill = (queue_num / queue_size) * 100
+        return {'event': 'mac', 'type': 'drop', 'queue_num': queue_num, 'queue_size': queue_size, 'queue_fill':queue_fill}
     
     res = re.compile('send packet to LL-(\d+) with seqno (\d+), queue (\d+)\/(\d+) (\d+)\/(\d+)').match(log)
     if res:
-        queue_fill = int(res.group(5))
+        queue_num = int(res.group(5))
         queue_size = int(res.group(6))
-        return {'event': 'mac', 'type': 'send', 'queue_fill': queue_fill, 'queue_size': queue_size }
+        queue_fill = (queue_num / queue_size) * 100
+        return {'event': 'mac', 'type': 'send', 'queue_num': queue_num, 'queue_size': queue_size, 'queue_fill':queue_fill}
     return None
 
 def parseLine(line):
