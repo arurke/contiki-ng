@@ -124,6 +124,39 @@ def plot_time_series(scenario, nodeid, run_id, skip_end = 0):
     plt.close()
     print("Made figure", fig_path)
 
+
+    # Queue fill
+    queue_df = scenario['raw_queue_dfs'][run_id].copy()
+
+    # Switch timestamp from absolute to relative to first packet and
+    # convert to float (i.e. seconds since t0) using total_seconds()
+    queue_df.index = [(index - queue_df.index[0]).total_seconds() for index in queue_df.index]
+
+    # Get only the interesting node
+    if nodeid != 0:
+        queue_df = queue_df[queue_df.node == nodeid]
+
+    # Remove any rows containig Nan
+    # Lines in line plots are not drawn between values and Nan-values
+    queue_df = queue_df[queue_df['queue_fill'].notna()].copy()
+
+    color = 'tab:red'
+    plt.xlabel('time (s)')
+    plt.ylabel('(%)')
+    #plt.legend()
+    fig_name = 'queue_fill_timeseries_node' + str(nodeid) + '_' + scenario['name'] + \
+        '_' + run_id
+    plt.title(fig_name)
+    plt.plot(queue_df.index,
+             queue_df['queue_fill'],
+             color=color,
+             marker='o', label="Queue fill")
+    fig_path = scenario['path'] + fig_name + '.pdf'
+    plt.savefig(fig_path, bbox_inches='tight')
+    plt.close()
+    print("Made figure", fig_path)
+
+
     # Duty cycle
     dc_df = scenario['raw_energest_dfs'][run_id].copy()
 
