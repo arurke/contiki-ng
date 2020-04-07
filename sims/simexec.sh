@@ -24,11 +24,11 @@ declare -i OKCOUNT=0
 # A list of seeds the resulted in failure
 FAILSEEDS=
 
-for (( SEED=$BASESEED; SEED<$(($BASESEED+$RUNCOUNT)); SEED++ )); do
+for (( SEED=$BASESEED; TESTCOUNT<RUNCOUNT; SEED+=50 )); do
 	echo -n "Running test $BASENAME with random Seed $SEED"
 
 	# run simulation
-	java -Xshare:on -jar $CONTIKI/tools/cooja/dist/cooja.jar -nogui=$CSC -contiki=$CONTIKI -random-seed=$SEED > $BASENAME.$SEED.coojalog &
+	java -Xshare:on -jar $CONTIKI/tools/cooja/dist/cooja.jar -nogui=$CSC -contiki=$CONTIKI -random-seed=$SEED > $BASENAME.$TESTCOUNT.coojalog &
 	JPID=$!
 
 	# Copy the log and only print "." if it changed
@@ -36,11 +36,11 @@ for (( SEED=$BASESEED; SEED<$(($BASESEED+$RUNCOUNT)); SEED++ )); do
 	while kill -0 $JPID 2> /dev/null
 	do
 		sleep 1
-		diff $BASENAME.$SEED.coojalog progress.log > /dev/null
+		diff $BASENAME.$TESTCOUNT.coojalog progress.log > /dev/null
 		if [ $? -ne 0 ]
 		then
 		  echo -n "."
-		  cp $BASENAME.$SEED.coojalog progress.log
+		  cp $BASENAME.$TESTCOUNT.coojalog progress.log
 		fi
 	done
 	rm progress.log
@@ -51,9 +51,9 @@ for (( SEED=$BASESEED; SEED<$(($BASESEED+$RUNCOUNT)); SEED++ )); do
 
 	# Save testlog
 	touch COOJA.testlog;
-	mkdir run$SEED
-	mv COOJA.testlog run$SEED/$BASENAME.$SEED.scriptlog
-	mv $BASENAME.$SEED.coojalog run$SEED/$BASENAME.$SEED.coojalog
+	mkdir run$TESTCOUNT
+	mv COOJA.testlog run$TESTCOUNT/$BASENAME.$TESTCOUNT.scriptlog
+	mv $BASENAME.$TESTCOUNT.coojalog run$TESTCOUNT/$BASENAME.$TESTCOUNT.coojalog
 	rm COOJA.log
 
   TESTCOUNT+=1
@@ -63,8 +63,8 @@ for (( SEED=$BASESEED; SEED<$(($BASESEED+$RUNCOUNT)); SEED++ )); do
 	else
 		FAILSEEDS+=" $BASESEED"
 		echo " FAIL"
-		echo "==== $BASENAME.$SEED.coojalog ====" ; cat $BASENAME.$SEED.coojalog;
-		echo "==== $BASENAME.$SEED.scriptlog ====" ; cat $BASENAME.$SEED.scriptlog;
+		echo "==== $BASENAME.$TESTCOUNT.coojalog ====" ; cat $BASENAME.$TESTCOUNT.coojalog;
+		echo "==== $BASENAME.$TESTCOUNT.scriptlog ====" ; cat $BASENAME.$TESTCOUNT.scriptlog;
 	fi
 done
 
