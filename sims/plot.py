@@ -23,6 +23,7 @@ def plot_queue_util(scenarios_df, execution_dir):
     ax.set_xticks(x)
     ax.set_xticklabels(scenarios_df.index)
     ax.autoscale_view()
+    ax.set_ylim(top=100)
     plt.xlabel('traffic intensity, as % of node schedule capacity')
     plt.ylabel('Queue utilization (%)')
     fig.tight_layout()
