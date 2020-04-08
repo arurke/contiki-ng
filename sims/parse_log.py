@@ -99,18 +99,18 @@ def parseEnergest(log):
     return None
 
 def parseApp(log):
-    res = re.compile('Sending (.+?) num (\d+) at ASN (\d+) tick (\d+) to 6G-(\d+)').match(log)
+    res = re.compile('Sending (.+?) num (\d+) at ASN (\d+) tick (\d+) to 6G-([0-9a-fA-F]+)').match(log)
     if res:
         type = res.group(1)
         id = int(res.group(2))
         asn = int(res.group(3))
         tick = int(res.group(4))
-        dest = int(res.group(5))
+        dest = int(res.group(5), 16)
         # Don't use ASN for the moment as we don't trust it on z1 (see other comment)
         #return {'event': 'send', 'type': type, 'asn': asn, 'tick':tick, 'id': id, 'node': dest }
         return {'event': 'send', 'type': type, 'tick':tick, 'id': id, 'node': dest }
 
-    res = re.compile('Received (.+?) num (\d+) oASN (\d+) oTick (\d+) at ASN (\d+) tick (\d+) from 6G-(\d+)').match(log)
+    res = re.compile('Received (.+?) num (\d+) oASN (\d+) oTick (\d+) at ASN (\d+) tick (\d+) from 6G-([0-9a-fA-F]+)').match(log)
     if res:
         type = res.group(1)
         id = int(res.group(2))
@@ -118,7 +118,7 @@ def parseApp(log):
         oTick = int(res.group(4))
         asn = int(res.group(5))
         tick = int(res.group(6))
-        src = int(res.group(7))
+        src = int(res.group(7), 16)
         # Don't use ASN for the moment as we don't trust it on z1 (see other comment)
         #return {'event': 'recv', 'type': type, 'oAsn': oAsn, 'oTick': oTick, 'asn':asn, 'tick':tick, 'id': id, 'src': src }
         return {'event': 'recv', 'type': type, 'oTick': oTick, 'tick':tick, 'id': id, 'src': src }
