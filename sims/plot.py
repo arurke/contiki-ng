@@ -16,8 +16,8 @@ def plot_queue_util(scenarios_df, execution_dir):
     width = 0.35 # width of bars
 
     fig, ax = plt.subplots()
-    p1 = ax.bar(x - width/2, scenarios_df.ss2_queue_fill_mean, width, label='Node 2')
-    p2 = ax.bar(x + width/2, scenarios_df.ss3_queue_fill_mean, width, label='Node 3')
+    p1 = ax.bar(x - width/2, scenarios_df.ss2_queue_fill_mean, width, label='Node 1')
+    p2 = ax.bar(x + width/2, scenarios_df.ss3_queue_fill_mean, width, label='Node 2')
 
     ax.legend()
     ax.set_xticks(x)
