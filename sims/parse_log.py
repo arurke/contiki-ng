@@ -99,7 +99,7 @@ def parseEnergest(log):
     return None
 
 def parseApp(log):
-    res = re.compile('Sending (.+?) num (\d+) at ASN (\d+) tick (\d+) to 6G-([0-9a-fA-F]+)').match(log)
+    res = re.compile('TX (.+?) num (\d+) at ASN (\d+) tick (\d+) to 6G-([0-9a-fA-F]+)').match(log)
     if res:
         type = res.group(1)
         id = int(res.group(2))
@@ -110,7 +110,7 @@ def parseApp(log):
         #return {'event': 'send', 'type': type, 'asn': asn, 'tick':tick, 'id': id, 'node': dest }
         return {'event': 'send', 'type': type, 'tick':tick, 'id': id, 'node': dest }
 
-    res = re.compile('Received (.+?) num (\d+) oASN (\d+) oTick (\d+) at ASN (\d+) tick (\d+) from 6G-([0-9a-fA-F]+)').match(log)
+    res = re.compile('RX (.+?) num (\d+) oASN (\d+) oTick (\d+) at ASN (\d+) tick (\d+) from 6G-([0-9a-fA-F]+)').match(log)
     if res:
         type = res.group(1)
         id = int(res.group(2))
@@ -147,7 +147,7 @@ def parseTSCH(log):
         queue_fill = (queue_num / queue_size) * 100
         return {'event': 'mac', 'type': 'drop', 'queue_num': queue_num, 'queue_size': queue_size, 'queue_fill':queue_fill}
     
-    res = re.compile('send packet to LL-(\d+) with seqno (\d+), queue (\d+)\/(\d+) (\d+)\/(\d+)').match(log)
+    res = re.compile('TX to LL-(\d+) seqno (\d+), queue (\d+)\/(\d+) (\d+)\/(\d+)').match(log)
     if res:
         queue_num = int(res.group(5))
         queue_size = int(res.group(6))
