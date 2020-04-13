@@ -27,7 +27,7 @@
 #elif SEND_CONF_INTERVAL
 #define SEND_INTERVAL     ((uint16_t)SEND_CONF_INTERVAL)
 #else
-#define SEND_INTERVAL     ((uint16_t)(CLOCK_SECOND * 10))
+#define SEND_INTERVAL     ((uint16_t)(5 * CLOCK_SECOND))
 #endif
 
 #define NUM_PACKETS       1000
@@ -57,8 +57,8 @@ udp_rx_callback(struct simple_udp_connection *c,
 
   uint64_t local_time_clock_ticks = tsch_get_network_uptime_ticks();
 
-  LOG_INFO("RX data %.*s at ASN %"PRIu32" tick %"PRIu64" from ",
-      datalen, (char *) data, tsch_current_asn.ls4b, local_time_clock_ticks);
+  LOG_INFO("RX data %.*s tick %"PRIu64" from ",
+      datalen, (char *) data, local_time_clock_ticks);
   LOG_INFO_6ADDR(sender_addr);
   LOG_INFO_("\n");
 }
@@ -116,7 +116,7 @@ PROCESS_THREAD(app_process, ev, data)
 
   while(!is_coordinator && count < NUM_PACKETS) {
     // Uncomment to make only the specified node send packets
-//    if(node_id != 4) {
+//    if(node_id != 15) {
 //      break;
 //    }
 
@@ -130,15 +130,15 @@ PROCESS_THREAD(app_process, ev, data)
 
       // Send to root
       // NOTE! The ASN may not be precise (not updated by TSCH at this point)
-      LOG_INFO("TX data num %u at ASN %"PRIu32" tick %"PRIu64" to ",
-          count, tsch_current_asn.ls4b, network_uptime);
+      LOG_INFO("TX data num %u tick %"PRIu64" to ",
+          count, network_uptime);
       LOG_INFO_6ADDR(&dest_ipaddr);
       LOG_INFO_("\n");
       snprintf(
           str,
           sizeof(str),
-          "num %d oASN %"PRIu32" oTick %"PRIu64"",
-          count, tsch_current_asn.ls4b, network_uptime);
+          "num %04d oTick %09"PRIu64"",
+          count, network_uptime);
       simple_udp_sendto(&udp_conn, str, strlen(str), &dest_ipaddr);
       count++;
     }

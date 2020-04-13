@@ -57,8 +57,8 @@ udp_rx_callback(struct simple_udp_connection *c,
 
   uint64_t local_time_clock_ticks = tsch_get_network_uptime_ticks();
 
-  LOG_INFO("RX data %.*s at ASN %"PRIu32" tick %"PRIu64" from ",
-      datalen, (char *) data, tsch_current_asn.ls4b, local_time_clock_ticks);
+  LOG_INFO("RX data %.*s tick %"PRIu64" from ",
+      datalen, (char *) data, local_time_clock_ticks);
   LOG_INFO_6ADDR(sender_addr);
   LOG_INFO_("\n");
 }
@@ -92,17 +92,17 @@ PROCESS_THREAD(app_process, ev, data)
     uint32_t slotframe_duration_ms =
         (uint32_t)((uint32_t)SCHED_SLOTFRAME_LEN * \
         TSCH_DEFAULT_TIMESLOT_TIMING[tsch_ts_timeslot_length]) / 1000;
-    LOG_INFO("sizeof clock_time %u, sflen: %u. ts len: %u, sf dur ms: %lu\n",
-             sizeof(clock_time_t), SCHED_SLOTFRAME_LEN,
-             TSCH_DEFAULT_TIMESLOT_TIMING[tsch_ts_timeslot_length],
-             slotframe_duration_ms);
-    uint32_t random1 = random_rand();
+//    LOG_INFO("sizeof clock_time %u, sflen: %u. ts len: %u, sf dur ms: %lu\n",
+//                 sizeof(clock_time_t), SCHED_SLOTFRAME_LEN,
+//                 TSCH_DEFAULT_TIMESLOT_TIMING[tsch_ts_timeslot_length],
+//                 slotframe_duration_ms);
+    uint32_t random = random_rand();
     clock_time_t intra_slotframe_delay_ticks =
-        ((random1 % slotframe_duration_ms) * CLOCK_SECOND) / 1000;
-    LOG_INFO("rand: %lu, rand_ticsk_times_ms: %lu, delay: %"PRIu32"\n",
-             (random1),
-             ((random1 % slotframe_duration_ms) * CLOCK_SECOND) ,
-             intra_slotframe_delay_ticks);
+        ((random % slotframe_duration_ms) * CLOCK_SECOND) / 1000;
+//    LOG_INFO("rand: %lu, rand_ticsk_times_ms: %lu, delay: %"PRIu32"\n",
+//             (random),
+//             ((random % slotframe_duration_ms) * CLOCK_SECOND) ,
+//             intra_slotframe_delay_ticks);
 
     etimer_set(
         &periodic_timer,
@@ -116,7 +116,7 @@ PROCESS_THREAD(app_process, ev, data)
 
   while(!is_coordinator && count < NUM_PACKETS) {
     // Uncomment to make only the specified node send packets
-//    if(node_id != 2) {
+//    if(node_id != 15) {
 //      break;
 //    }
 
@@ -130,15 +130,15 @@ PROCESS_THREAD(app_process, ev, data)
 
       // Send to root
       // NOTE! The ASN may not be precise (not updated by TSCH at this point)
-      LOG_INFO("TX data num %u at ASN %"PRIu32" tick %"PRIu64" to ",
-          count, tsch_current_asn.ls4b, network_uptime);
+      LOG_INFO("TX data num %u tick %"PRIu64" to ",
+          count, network_uptime);
       LOG_INFO_6ADDR(&dest_ipaddr);
       LOG_INFO_("\n");
       snprintf(
           str,
           sizeof(str),
-          "num %d oASN %"PRIu32" oTick %"PRIu64"",
-          count, tsch_current_asn.ls4b, network_uptime);
+          "num %04d oTick %09"PRIu64"",
+          count, network_uptime);
       simple_udp_sendto(&udp_conn, str, strlen(str), &dest_ipaddr);
       count++;
     }
