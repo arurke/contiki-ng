@@ -50,7 +50,7 @@
 #define ORCHESTRA_CONF_COLLISION_FREE_HASH    1
 
 // Max hash output size (def. 0x7fff)
-#define ORCHESTRA_CONF_MAX_HASH               0x10
+#define ORCHESTRA_CONF_MAX_HASH               49
 
 // Sender or receiver based (def. receiver)
 #define ORCHESTRA_CONF_UNICAST_SENDER_BASED   1
@@ -59,14 +59,14 @@
 #define SCHED_SLOTFRAME_LEN                   ORCHESTRA_CONF_UNICAST_PERIOD
 #endif
 
-// Num nodes supported for layers (including sink
-#define LAYERED_CONF_MAX_NUM_NODES            50
+// Num nodes supported for layers (including sink)
+#define LAYERED_CONF_MAX_NUM_NODES            49
 #define LAYERED_CONF_NUM_LAYERS               2
-#define LAYERED_NUM_COMMON_SLOT_SPACING       37
+#define LAYERED_CONF_COMMON_SLOT_SPACING      31
 
 // Enable cell duty-cycle statistics
 // TODO this assumes cooja mote
-#define CELL_DUTY_CYCLE_STATS                 1
+#define CELL_DUTY_CYCLE_STATS                 0
 
 /* Reduce ROM and RAM usage so that it builds on z1 */
 // No need for large packet support
