@@ -99,28 +99,21 @@ def parseEnergest(log):
     return None
 
 def parseApp(log):
-    res = re.compile('TX (.+?) num (\d+) at ASN (\d+) tick (\d+) to 6G-([0-9a-fA-F]+)').match(log)
+    res = re.compile('TX (.+?) num (\d+) tick (\d+) to 6G-([0-9a-fA-F]+)').match(log)
     if res:
         type = res.group(1)
         id = int(res.group(2))
-        asn = int(res.group(3))
-        tick = int(res.group(4))
-        dest = int(res.group(5), 16)
-        # Don't use ASN for the moment as we don't trust it on z1 (see other comment)
-        #return {'event': 'send', 'type': type, 'asn': asn, 'tick':tick, 'id': id, 'node': dest }
+        tick = int(res.group(3))
+        dest = int(res.group(4), 16)
         return {'event': 'send', 'type': type, 'tick':tick, 'id': id, 'node': dest }
 
-    res = re.compile('RX (.+?) num (\d+) oASN (\d+) oTick (\d+) at ASN (\d+) tick (\d+) from 6G-([0-9a-fA-F]+)').match(log)
+    res = re.compile('RX (.+?) num (\d+) oTick (\d+) tick (\d+) from 6G-([0-9a-fA-F]+)').match(log)
     if res:
         type = res.group(1)
         id = int(res.group(2))
-        oAsn = int(res.group(3))
-        oTick = int(res.group(4))
-        asn = int(res.group(5))
-        tick = int(res.group(6))
-        src = int(res.group(7), 16)
-        # Don't use ASN for the moment as we don't trust it on z1 (see other comment)
-        #return {'event': 'recv', 'type': type, 'oAsn': oAsn, 'oTick': oTick, 'asn':asn, 'tick':tick, 'id': id, 'src': src }
+        oTick = int(res.group(3))
+        tick = int(res.group(4))
+        src = int(res.group(5), 16)
         return {'event': 'recv', 'type': type, 'oTick': oTick, 'tick':tick, 'id': id, 'src': src }
     return None
 
@@ -235,28 +228,23 @@ def doParse(file):
                     txElement['latency'] = (entry['timestamp'] - txElement['timestamp']).total_seconds()
                     txElement['pdr'] = 100.
 
-                    # Sanity check tick/ASN at transmission matches the packet oTick/oASN
+                    # Sanity check tick at transmission matches the packet oTick
                     if txElement['tick'] != ret['oTick']:
                         print("Tick mismatch. Tick " + str(txElement['tick']) + " sent at " +
                               str(txElement['timestamp']) + " vs. oTick " + str(ret['oTick']) +
                               " received at " + str(entry['timestamp']))
                         return -1
-                    # ASN cannot be trusted on z1
-                    # (most likely interrupts cause ASN to change between
-                    # printing and writing in packet)
-                    #if txElement['asn'] != ret['oAsn']:
-                    #    print("ASN mismatch. ASN " + str(txElement['asn']) + " sent at " +
-                    #          str(txElement['timestamp']) + " vs. oASN " + str(ret['oAsn']) +
-                    #          " received at " + str(entry['timestamp']))
-                    #    print("ASN cannot be trusted on Z1, so ignore for now")
-                    #    return -1
 
-                    # Add latency as ticks and ASN as well (we don't use it yet)
-                    # Don't add ASN as we don't trust it on z1, see other comment
+                    # We don't use ASN because
+                    # 1. We cannot guarantee it is correct
+                    #    (TSCH does not maintain "current_asn" all the time)
+                    # 2. Cannot be trusted on z1
+                    #    (most likely interrupts cause ASN to change between
+                    #     printing and writing in packet)
+
+                    # Add latency as ticks as well (we don't use it yet)
                     txElement['rx_tick'] = ret['tick']
                     txElement['latency_tick'] = ret['tick'] - txElement['tick']
-                    #txElement['rx_asn'] = ret['asn']
-                    #txElement['latency_asn'] = ret['asn'] - txElement['asn']
 
             if module == "Energest":
                 ret = parseEnergest(log)
