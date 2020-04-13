@@ -18,6 +18,7 @@ from collections import OrderedDict
 #import matplotlib as mpl
 import logging
 import glob
+from pathlib import Path
 
 # Constants
 SCRIPT_LOG_PATTERN = '*.scriptlog'  # For simulations run by simexec.sh
@@ -423,8 +424,18 @@ def parse_logs_dir(directory):
         for logfile in glob.glob(folder + "/" + SCRIPT_LOG_PATTERN):
             name_of_run = os.path.basename(folder)
             print("Parsing " + logfile)
+
+            # Parse log-files
             dfs_packets[name_of_run], dfs_queue[name_of_run], dfs_energest[name_of_run] = \
                 parse_logfile(logfile, logging.getLogger() == logging.INFO)
+
+            # Save to CSV files
+            packets_csv = str(Path(logfile).parent) + "/packets_" + name_of_run + ".csv"
+            queue_csv = str(Path(logfile).parent) + "/queue_" + name_of_run + ".csv"
+            energest_csv = str(Path(logfile).parent) + "/energest_" + name_of_run + ".csv"
+            dfs_packets[name_of_run].to_csv(packets_csv)
+            dfs_queue[name_of_run].to_csv(queue_csv)
+            dfs_energest[name_of_run].to_csv(energest_csv)
 
     return dfs_packets, dfs_queue, dfs_energest
 
