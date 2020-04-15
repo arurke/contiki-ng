@@ -16,14 +16,20 @@
 //#define RPL_CONF_STATS                1 // Does not print extra
 #define RPL_OF0_CONF_SR               RPL_OF0_FIXED_SR
 
+// Enable DAO Ack for robustness
+#if BUILD_WITH_LAYERED
+//#define RPL_CONF_WITH_DAO_ACK             1
+//#define RPL_CONF_DIO_REFRESH_DAO_ROUTES   0
+#endif
+
 // z1 sets to 2, but we have seen queue full, so we try force TSCH default 4
 //#define TSCH_CONF_MAX_INCOMING_PACKETS    4
 
 // Total queue buffer size
-#define QUEUEBUF_CONF_NUM                 4
+#define QUEUEBUF_CONF_NUM                 8
 
 // Max queue size per neighbor
-#define TSCH_QUEUE_CONF_NUM_PER_NEIGHBOR  4
+#define TSCH_QUEUE_CONF_NUM_PER_NEIGHBOR  8
 
 // Disable use of pending bit which allows nodes to use more slots
 #define TSCH_CONF_BURST_MAX_LEN           0
@@ -34,8 +40,9 @@
 // Disable RPL probing which takes up space in queues
 #define RPL_CONF_WITH_PROBING             0
 
-// Number of channels (1)
-#define TSCH_CONF_DEFAULT_HOPPING_SEQUENCE    TSCH_HOPPING_SEQUENCE_2_2
+// Number of channels (4 available to allow for orchestra multi-channel)
+#define TSCH_CONF_DEFAULT_HOPPING_SEQUENCE    TSCH_HOPPING_SEQUENCE_4_4
+#define ORCHESTRA_CONF_UNICAST_MAX_CHANNEL_OFFSET 2
 
 // Length of EB SF (def. 397)
 #define ORCHESTRA_CONF_EBSF_PERIOD            397
