@@ -64,7 +64,7 @@ def analyze_run(packets_df, energest_df, queue_df):
     metric_packets = ["latency", "pdr"]
     metric_energest = ["duty_cycle", "channel_utilization"]
     metric_queue = ["queue_fill"]
-    measures = ["mean", 50, 99, "maximum"]
+    measures = ["mean", 50, 99, 99.9, "maximum"]
     dfs = [{"df":packets_df, "metric":metric_packets, "prefix":""},
            {"df":energest_df, "metric":metric_energest, "prefix":""},
            {"df":queue_df, "metric":metric_queue, "prefix":""},
@@ -140,7 +140,7 @@ def analyze_scenario(runs_df, scenario_name):
                        "confidence": default_confidence,
                        "bounds":[0,100],
                        "bound":"upper"}}]
-    measures = ["mean", 50, 99, "maximum"]
+    measures = ["mean", 50, 99, 99.9, "maximum"]
     prefixes = ["", "ss_", "ss2_", "ss3_"]
     
     # TODO this needs some fixing as the naming of the columns in the resulting
