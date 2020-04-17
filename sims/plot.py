@@ -71,7 +71,7 @@ def plot_pdr_latency(scenarios_df, execution_dir):
     color = 'tab:red'
     ax1.set_xlabel('traffic intensity, as % of node schedule capacity')
     ax1.set_ylabel('Latency (s)', color=color)
-    ax1.plot(latency_df.index, latency_df.ss_latency_99, color=color, marker='o')
+    ax1.plot(latency_df.index, latency_df["ss_latency_99.9"], color=color, marker='o')
     ax1.set_ylim(bottom=0)
     #ax1.plot(latency_df.index, latency_df.ss_latency_maximum, color=color, marker='o')
     ax1.tick_params(axis='y', labelcolor=color)
