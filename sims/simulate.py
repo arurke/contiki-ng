@@ -53,6 +53,12 @@ def process_results(scenarios, execution_dir):
     # Get stats from the DFs
     scenarios_df = stats_for_scenarios(scenarios)
 
+    # Save DF to CSV
+    df_csv = execution_dir + "scenarios_df.csv"
+    print("Saving csv of all scenarios at", df_csv)
+    scenarios_df.to_csv(df_csv)
+
+    # Plot
     plot_pdr_latency(scenarios_df, execution_dir)
     plot_duty_cycle(scenarios_df, execution_dir)
     plot_queue_util(scenarios_df, execution_dir)
