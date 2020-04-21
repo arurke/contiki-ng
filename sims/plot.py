@@ -9,7 +9,7 @@ import numpy as np
 
 plt.rcParams.update({'font.size': 8})
 
-def plot_queue_util(scenarios_df, execution_dir):
+def plot_queue_util(scenarios_df, execution_dir, title=False):
     # Get a list of integers of equal length as number of scenarios
     # To be used to position the bars
     x = np.arange(len(scenarios_df.index))
@@ -29,14 +29,15 @@ def plot_queue_util(scenarios_df, execution_dir):
     fig.tight_layout()
 
     fig_name = "queue_util_all_scenarios"
-    plt.title(fig_name)
+    if title:
+        plt.title(fig_name)
     fig_dir = execution_dir
     fig_path = fig_dir + fig_name + '.pdf'
     plt.savefig(fig_path, bbox_inches='tight')
     plt.close()
     print("Made figure", fig_path)
 
-def plot_duty_cycle(scenarios_df, execution_dir):
+def plot_duty_cycle(scenarios_df, execution_dir, title=False):
     # Duty cycle
     color = 'tab:red'
     plt.plot(scenarios_df.index, scenarios_df["ss_duty_cycle_mean"], color=color,
@@ -47,19 +48,20 @@ def plot_duty_cycle(scenarios_df, execution_dir):
     plt.plot(scenarios_df.index, scenarios_df["ss_channel_utilization_mean"], color=color,
              marker='o', label="Channel utilization")
 
-    #fig.tight_layout()  # otherwise the right y-label is slightly clipped
+    plt.tight_layout()  # otherwise the right y-label is slightly clipped
     plt.xlabel('traffic intensity, as % of node schedule capacity')
     plt.ylabel('(%)')
     plt.legend()
     fig_name = "duty_cycle_all_scenarios"
-    plt.title(fig_name)
+    if title:
+        plt.title(fig_name)
     fig_dir = execution_dir
     fig_path = fig_dir + fig_name + '.pdf'
     plt.savefig(fig_path, bbox_inches='tight')
     plt.close()
     print("Made figure", fig_path)
 
-def plot_pdr_latency(scenarios_df, execution_dir):
+def plot_pdr_latency(scenarios_df, execution_dir, title=False):
     pdr_df = scenarios_df
     latency_df = scenarios_df
     fig_name = "pdr_latency_all_scenarios"
@@ -87,7 +89,8 @@ def plot_pdr_latency(scenarios_df, execution_dir):
     ax2.tick_params(axis='y', labelcolor=color)
 
     fig.tight_layout()  # otherwise the right y-label is slightly clipped
-    plt.title(fig_name)
+    if title:
+        plt.title(fig_name)
     fig_path = fig_dir + fig_name + '.pdf'
     plt.savefig(fig_path, bbox_inches='tight')
     plt.close()
