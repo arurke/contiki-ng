@@ -25,6 +25,9 @@
 // z1 sets to 2, but we have seen queue full, so we try force TSCH default 4
 //#define TSCH_CONF_MAX_INCOMING_PACKETS    4
 
+// Increase number of links for grid-setup
+#define TSCH_SCHEDULE_CONF_MAX_LINKS      64
+
 // Total queue buffer size
 #define QUEUEBUF_CONF_NUM                 8
 

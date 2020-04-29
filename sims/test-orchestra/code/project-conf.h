@@ -37,6 +37,9 @@
 // Allow very deep networks
 #define TSCH_CONF_MAX_JOIN_PRIORITY       64
 
+// Increase number of links for grid-setup
+#define TSCH_SCHEDULE_CONF_MAX_LINKS      64
+
 // Disable RPL probing which takes up space in queues
 #define RPL_CONF_WITH_PROBING             0
 
