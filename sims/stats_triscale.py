@@ -112,8 +112,8 @@ def calculate_kpi(values, settings, name):
 
 def analyze_scenario(runs_df, scenario_name):
     scenario_entry = {"scenario": scenario_name}
-    default_percentile = 90
-    default_confidence = 85
+    default_percentile = 95
+    default_confidence = 95
     
     kpis = [{"metric":"latency",
                 "settings":{"percentile": default_percentile,
@@ -121,7 +121,7 @@ def analyze_scenario(runs_df, scenario_name):
                        "bounds":[0.001,12],
                        "bound":"upper"}},
                {"metric":"pdr",
-                "settings":{"percentile": default_percentile,
+                "settings":{"percentile": 5,
                        "confidence": default_confidence,
                        "bounds":[0,100],
                        "bound":"lower"}},
