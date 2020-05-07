@@ -39,11 +39,12 @@ def analyze_run(packets_df, energest_df, queue_df):
     ss_energest_df = energest_df.copy()
     ss_queue_df = queue_df.copy()
     
-    # By time
     packet_start = packets_df.index.values[0]
     packet_start_ss = packet_start + pd.Timedelta(TIME_TO_SKIP_STEADY_STATE)
     packet_end = packets_df.index.values[-1]
     packet_end_ss = packet_end - pd.Timedelta(TIME_TO_SKIP_STEADY_STATE)
+
+    # By time
     #steady_state_df = steady_state_df[packet_start_ss:packet_end_ss]
     ss_energest_df = ss_energest_df[packet_start_ss:packet_end_ss]
 
@@ -61,10 +62,12 @@ def analyze_run(packets_df, energest_df, queue_df):
 
     # Make the following metrics for the given measures for the given DFs
     # The-per-node is a bit hackish - gave them special prefix
-    metric_packets = ["latency", "pdr"]
-    metric_energest = ["duty_cycle", "channel_utilization"]
-    metric_queue = ["queue_fill"]
-    measures = ["mean", 50, 99, 99.9, "maximum"]
+    default_measures = ["mean", 50, 99, 99.9, "maximum"]
+    metric_packets = [{"metric": "latency", "measures":default_measures},
+                      {"metric": "pdr", "measures":["mean"]}]
+    metric_energest = [{"metric": "duty_cycle", "measures":default_measures},
+                      {"metric": "channel_utilization", "measures":default_measures}]
+    metric_queue = [{"metric": "queue_fill", "measures":default_measures}]
     dfs = [{"df":packets_df, "metric":metric_packets, "prefix":""},
            {"df":energest_df, "metric":metric_energest, "prefix":""},
            {"df":queue_df, "metric":metric_queue, "prefix":""},
@@ -78,10 +81,11 @@ def analyze_run(packets_df, energest_df, queue_df):
     run_entry = {}
     for df in dfs:
         for metric in df["metric"]:
-            for measure in measures:
-                run_metric_name = df["prefix"] + metric + "_" + str(measure)
+            for measure in metric["measures"]:
+                run_metric_name = df["prefix"] + metric["metric"] + "_" + str(measure)
+                #print(run_metric_name)
                 run_entry[run_metric_name] = \
-                    calculate_metric(df["df"], metric, measure)
+                    calculate_metric(df["df"], metric["metric"], measure)
     
     # Make DF out of the entry
     return pd.DataFrame([run_entry])
@@ -140,21 +144,16 @@ def analyze_scenario(runs_df, scenario_name):
                        "confidence": default_confidence,
                        "bounds":[0,100],
                        "bound":"upper"}}]
-    measures = ["mean", 50, 99, 99.9, "maximum"]
-    prefixes = ["", "ss_", "ss2_", "ss3_"]
     
     # TODO this needs some fixing as the naming of the columns in the resulting
     # DF will say _mean, _median, etc. while it is actually the default_percentile
     # default_confidence % CI of these values.
-    for kpi in kpis:
-        for prefix in prefixes:
-            for measure in measures:
-                kpi_name = prefix + kpi["metric"] + "_" + str(measure)
-                if kpi_name in runs_df.columns:
-                    scenario_entry[kpi_name] = \
-                        calculate_kpi(runs_df[kpi_name].values,
-                                      kpi["settings"],
-                                      kpi_name)
+    for metric in runs_df.columns:
+        for kpi in kpis:
+            if kpi["metric"] in metric:
+                scenario_entry[metric] = calculate_kpi(runs_df[metric].values,
+                                                       kpi["settings"],
+                                                       metric)
 
     return pd.DataFrame([scenario_entry])
 
