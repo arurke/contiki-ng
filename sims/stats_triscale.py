@@ -157,12 +157,20 @@ def analyze_scenario(runs_df, scenario_name):
 
     return pd.DataFrame([scenario_entry])
 
-def stats_for_scenario(scenario):
+def stats_for_scenario(scenario, write_runs_csv = False):
     # Get stats per run (which are typically not very interesting)
     # We only work on packet DF for now
     runs_df = analyze_runs(scenario['raw_packet_dfs'],
                            scenario['raw_energest_dfs'],
                            scenario['raw_queue_dfs'])
+
+    if write_runs_csv:
+        runs_df_csv = scenario["path"] + "runs_df.csv"
+        print("Saving csv of all runs at", runs_df_csv)
+        runs_df.to_csv(runs_df_csv)
+
+    # Add the runs_df to the scenario structure
+    scenario["runs_df"] = runs_df
     #print("Analyzed runs: " + str(scenario['raw_packet_dfs'].keys()))
 
     # Analyze the run-stats to get scenario-stats
@@ -170,11 +178,11 @@ def stats_for_scenario(scenario):
 
     return scenario_df
 
-def stats_for_scenarios(scenarios):
+def stats_for_scenarios(scenarios, write_runs_csv = False):
     scenarios_df_list = []
 
     for scenario in scenarios:
-        scenarios_df_list.append(stats_for_scenario(scenario))
+        scenarios_df_list.append(stats_for_scenario(scenario, write_runs_csv))
 
     # Make one DF from the list of scenario DFs
     scenarios_df = pd.concat(scenarios_df_list)

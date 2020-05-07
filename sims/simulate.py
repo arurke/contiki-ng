@@ -51,7 +51,7 @@ def process_results(scenarios, execution_dir):
         plot_time_series(scenario, 3, 'run1', 0)
 
     # Get stats from the DFs
-    scenarios_df = stats_for_scenarios(scenarios)
+    scenarios_df = stats_for_scenarios(scenarios, True)
 
     # Save DF to CSV
     df_csv = execution_dir + "scenarios_df.csv"
