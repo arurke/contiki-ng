@@ -374,7 +374,8 @@ def parse_logfile(file, quiet = False):
     print("  queue-fails %u" %(drops))
     print("  queue-overflow %u" %(overflows))
     
-    print("  latency: %.4f" %(dfs["packets"]["latency"].mean()))
+    print("  latency mean: %.4f" %(dfs["packets"]["latency"].mean()))
+    print("  latency max: %.4f" %(dfs["packets"]["latency"].max()))
     print("  duty-cycle: %.2f" %(dfs["energest"]["duty_cycle"].mean()))
     print("  channel-utilization: %.2f" %(dfs["energest"]["channel_utilization"].mean()))
     print("  network-formation-time: %.2f" %(networkFormationTime))
