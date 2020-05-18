@@ -25,11 +25,20 @@
 // z1 sets to 2, but we have seen queue full, so we try force TSCH default 4
 //#define TSCH_CONF_MAX_INCOMING_PACKETS    4
 
+
+// Buffer size
+// 64 for grid
+//#define PACKET_BUFFER_SIZE                64
+// 16 for 9-hop linear
+//#define PACKET_BUFFER_SIZE                16
+// 8 for 2-hop topology
+#define PACKET_BUFFER_SIZE                8
+
 // Total queue buffer size
-#define QUEUEBUF_CONF_NUM                 8
+#define QUEUEBUF_CONF_NUM                 PACKET_BUFFER_SIZE
 
 // Max queue size per neighbor
-#define TSCH_QUEUE_CONF_NUM_PER_NEIGHBOR  8
+#define TSCH_QUEUE_CONF_NUM_PER_NEIGHBOR  PACKET_BUFFER_SIZE
 
 // Disable use of pending bit which allows nodes to use more slots
 #define TSCH_CONF_BURST_MAX_LEN           0

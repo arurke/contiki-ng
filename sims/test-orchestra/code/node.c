@@ -31,7 +31,9 @@
 #endif
 
 #define NUM_PACKETS       1000
-#define TIME_TO_START_TX  600 // Wait 10 min for convergence TODO
+// Time to wait before sending app packets
+// 1800 (30 min) used for grid, 600 otherwise
+#define TIME_TO_START_TX  1800
 
 static struct simple_udp_connection udp_conn;
 static bool is_coordinator = false;
