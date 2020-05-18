@@ -65,6 +65,10 @@
 // Sender or receiver based (def. receiver)
 #define ORCHESTRA_CONF_UNICAST_SENDER_BASED   1
 
+//#define RPL_CONF_DIO_REFRESH_DAO_ROUTES 0
+//#define RPL_CONF_DEFAULT_LIFETIME 60
+//#define RPL_CONF_DAG_LIFETIME 100
+
 #if BUILD_WITH_ORCHESTRA
 #define SCHED_SLOTFRAME_LEN                   ORCHESTRA_CONF_UNICAST_PERIOD
 #endif
