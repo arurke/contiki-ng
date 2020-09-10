@@ -29,10 +29,10 @@
 #define TSCH_SCHEDULE_CONF_MAX_LINKS      64
 
 // Total queue buffer size
-#define QUEUEBUF_CONF_NUM                 8
+#define QUEUEBUF_CONF_NUM                 32
 
 // Max queue size per neighbor
-#define TSCH_QUEUE_CONF_NUM_PER_NEIGHBOR  8
+#define TSCH_QUEUE_CONF_NUM_PER_NEIGHBOR  32
 
 // Disable use of pending bit which allows nodes to use more slots
 #define TSCH_CONF_BURST_MAX_LEN           0
@@ -47,7 +47,7 @@
 #define TSCH_CONF_DEFAULT_HOPPING_SEQUENCE    TSCH_HOPPING_SEQUENCE_4_4
 #define ORCHESTRA_CONF_UNICAST_MAX_CHANNEL_OFFSET 2
 
-
+#define LOG_CONF_WITH_ANNOTATE 1
 // Length of EB SF (def. 397)
 #define ORCHESTRA_CONF_EBSF_PERIOD            397
 

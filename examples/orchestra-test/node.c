@@ -27,7 +27,7 @@
 #elif SEND_CONF_INTERVAL
 #define SEND_INTERVAL     ((uint16_t)SEND_CONF_INTERVAL)
 #else
-#define SEND_INTERVAL     ((uint16_t)(5 * CLOCK_SECOND))
+#define SEND_INTERVAL     ((uint16_t)(2020))
 #endif
 
 #define NUM_PACKETS       1000

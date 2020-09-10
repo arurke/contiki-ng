@@ -30,9 +30,9 @@
 // 64 for grid
 //#define PACKET_BUFFER_SIZE                64
 // 16 for 9-hop linear
-//#define PACKET_BUFFER_SIZE                16
+#define PACKET_BUFFER_SIZE                16
 // 8 for 2-hop topology
-#define PACKET_BUFFER_SIZE                8
+//#define PACKET_BUFFER_SIZE                8
 
 // Total queue buffer size
 #define QUEUEBUF_CONF_NUM                 PACKET_BUFFER_SIZE
