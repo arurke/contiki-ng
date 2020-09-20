@@ -90,7 +90,13 @@ def parseEnergest(log):
     if res:
         tx = float(res.group(1))
         total = float(res.group(2))
-        return {'channel_utilization': 100.*tx/total }
+        return {'duty_cycle_tx': 100.*tx/total }
+
+    res = re.compile('Radio Rx\s*:\s*(\d*)/\s*(\d+)').match(log)
+    if res:
+        rx = float(res.group(1))
+        total = float(res.group(2))
+        return {'duty_cycle_rx': 100.*rx/total }
 
     res = re.compile('Radio total\s*:\s*(\d*)/\s*(\d+)').match(log)
     if res:
@@ -377,7 +383,8 @@ def parse_logfile(file, quiet = False):
     print("  latency mean: %.4f" %(dfs["packets"]["latency"].mean()))
     print("  latency max: %.4f" %(dfs["packets"]["latency"].max()))
     print("  duty-cycle: %.2f" %(dfs["energest"]["duty_cycle"].mean()))
-    print("  channel-utilization: %.2f" %(dfs["energest"]["channel_utilization"].mean()))
+    print("  duty-cycle tx: %.2f" %(dfs["energest"]["duty_cycle_tx"].mean()))
+    print("  duty-cycle rx: %.2f" %(dfs["energest"]["duty_cycle_rx"].mean()))
     print("  network-formation-time: %.2f" %(networkFormationTime))
     print("stats:")
 
@@ -387,8 +394,6 @@ def parse_logfile(file, quiet = False):
     outputStats(dfs, "queue", "queue_fill", "mean", "Queue fill")
 
     #outputStats(dfs, "energest", "duty_cycle", "mean", "Radio duty cycle (%)")
-    #outputStats(dfs, "energest", "channel_utilization", "mean", "Channel utilization (%)")
-
     #outputStats(dfs, "ranks", "rank", "mean", "RPL rank (ETX-128)")
     #outputStats(dfs, "switches", "pswitch", "count", "RPL parent switches (#)")
     #outputStats(dfs, "DAGinits", "event", "count", "RPL joining DAG (#)")

@@ -66,7 +66,8 @@ def analyze_run(packets_df, energest_df, queue_df):
     metric_packets = [{"metric": "latency", "measures":default_measures},
                       {"metric": "pdr", "measures":["mean"]}]
     metric_energest = [{"metric": "duty_cycle", "measures":default_measures},
-                      {"metric": "channel_utilization", "measures":default_measures}]
+                       {"metric": "duty_cycle_tx", "measures":default_measures},
+                       {"metric": "duty_cycle_rx", "measures":default_measures}]
     metric_queue = [{"metric": "queue_fill", "measures":default_measures}]
     dfs = [{"df":packets_df, "metric":metric_packets, "prefix":""},
            {"df":energest_df, "metric":metric_energest, "prefix":""},
@@ -134,7 +135,12 @@ def analyze_scenario(runs_df, scenario_name):
                        "confidence": default_confidence,
                        "bounds":[0,100],
                        "bound":"upper"}},
-               {"metric":"channel_utilization",
+               {"metric":"duty_cycle_tx",
+                "settings":{"percentile": default_percentile,
+                       "confidence": default_confidence,
+                       "bounds":[0,100],
+                       "bound":"upper"}},
+               {"metric":"duty_cycle_rx",
                 "settings":{"percentile": default_percentile,
                        "confidence": default_confidence,
                        "bounds":[0,100],

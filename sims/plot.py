@@ -43,10 +43,15 @@ def plot_duty_cycle(scenarios_df, execution_dir, title=False):
     plt.plot(scenarios_df.index, scenarios_df["ss_duty_cycle_mean"], color=color,
              marker='o', label="Duty cycle")
 
-    # Channel utilization
+    # Duty cycle TX
     color = 'tab:blue'
-    plt.plot(scenarios_df.index, scenarios_df["ss_channel_utilization_mean"], color=color,
-             marker='o', label="Channel utilization")
+    plt.plot(scenarios_df.index, scenarios_df["ss_duty_cycle_tx_mean"], color=color,
+             marker='o', label="Duty cycle TX")
+
+    # Duty cycle RX
+    color = 'tab:green'
+    plt.plot(scenarios_df.index, scenarios_df["ss_duty_cycle_rx_mean"], color=color,
+             marker='o', label="Duty cycle RX")
 
     plt.tight_layout()  # otherwise the right y-label is slightly clipped
     plt.xlabel('traffic intensity, as % of node schedule capacity')
@@ -202,7 +207,8 @@ def plot_time_series(scenario, nodeid, run_id, skip_end = 0):
     # Remove any rows containig Nan
     # Lines in line plots are not drawn between values and Nan-values
     duty_cycle_df = dc_df[dc_df['duty_cycle'].notna()].copy()
-    ch_util_df = dc_df[dc_df['channel_utilization'].notna()].copy()
+    duty_cycle_tx_df = dc_df[dc_df['duty_cycle_tx'].notna()].copy()
+    duty_cycle_rx_df = dc_df[dc_df['duty_cycle_rx'].notna()].copy()
 
     color = 'tab:red'
     plt.plot(duty_cycle_df.index,
@@ -210,12 +216,19 @@ def plot_time_series(scenario, nodeid, run_id, skip_end = 0):
              color=color,
              marker='o', label="Duty cycle")
 
-    # Channel utilization
+    # Duty cycle TX
     color = 'tab:blue'
-    plt.plot(ch_util_df.index,
-             ch_util_df['channel_utilization'],
+    plt.plot(duty_cycle_tx_df.index,
+             duty_cycle_tx_df['duty_cycle_tx'],
              color=color,
-             marker='o', label="Channel utilization")
+             marker='o', label="Duty cycle TX")
+
+    # Duty cycle RX
+    color = 'tab:green'
+    plt.plot(duty_cycle_rx_df.index,
+             duty_cycle_rx_df['duty_cycle_rx'],
+             color=color,
+             marker='o', label="Duty cycle RX")
 
     #fig.tight_layout()  # otherwise the right y-label is slightly clipped
     plt.xlabel('time (s)')
