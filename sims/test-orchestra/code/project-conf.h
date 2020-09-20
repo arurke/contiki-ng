@@ -28,7 +28,7 @@
 
 // Buffer size
 // 64 for grid
-//#define PACKET_BUFFER_SIZE                64
+#define PACKET_BUFFER_SIZE                64
 // 16 for 9-hop linear
 #define PACKET_BUFFER_SIZE                16
 // 8 for 2-hop topology
