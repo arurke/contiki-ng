@@ -9,7 +9,7 @@ NUM_ROWS_SKIP_SS_START = 100
 NUM_ROWS_SKIP_SS_END = 20
 TIME_TO_SKIP_STEADY_STATE = "2 Min"
 
-def calculate_metric(input_df, metric, measure):
+def calculate_metric(input_df, metric, measure, check_convergence=False):
     # TriScale expects an index + two columns x and y
     
     # First make a copy so we can edit freely
