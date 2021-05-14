@@ -46,6 +46,9 @@
 #include "simple-energest.h"
 #include <stdio.h>
 #include <limits.h>
+#if CELL_DUTY_CYCLE_STATS
+#include "tsch.h"
+#endif
 
 #if BUILD_WITH_LAYERED
 #include "../layered/layered.h"
@@ -58,14 +61,60 @@
 static unsigned long last_tx, last_rx, last_time, last_cpu;
 static unsigned long delta_tx, delta_rx, delta_time;
 static unsigned long curr_tx, curr_rx, curr_time, curr_cpu;
+#if CELL_DUTY_CYCLE_STATS
+static unsigned long last_num_tx, last_num_rx, last_num_radio_on, last_num_radio_off;
+static unsigned long delta_num_tx, delta_num_rx, delta_num_radio_on, delta_num_radio_off;
+static unsigned long curr_num_tx, curr_num_rx, curr_num_radio_on, curr_num_radio_off;
+#endif
 
 PROCESS(simple_energest_process, "Simple Energest");
 /*---------------------------------------------------------------------------*/
+#if !CELL_DUTY_CYCLE_STATS
 static unsigned long
 to_permil(unsigned long delta_metric, unsigned long delta_time)
 {
   return (1000ul * (delta_metric)) / delta_time;
 }
+#endif
+
+#if CELL_DUTY_CYCLE_STATS
+static unsigned long
+delta_slots(unsigned long delta_time) {
+  uint32_t timeslot_duration_us =
+      TSCH_DEFAULT_TIMESLOT_TIMING[tsch_ts_timeslot_length];
+
+  // Assumes delta-time is in us
+  uint32_t delta_num_slots = delta_time / timeslot_duration_us;
+//  LOG_INFO("%lu %lu %lu\n", delta_time, timeslot_duration_us, delta_num_slots);
+  return delta_num_slots;
+}
+
+static unsigned long
+to_permilslots(unsigned long delta_active_slots, unsigned long delta_slots)
+{
+  uint32_t active_per_slots = (1000ul * delta_active_slots) / delta_slots;
+  return active_per_slots;
+}
+
+void simple_energest_active_slot(bool is_tx) {
+  if(is_tx) {
+    curr_num_tx++;
+  }
+  else {
+    curr_num_rx++;
+  }
+}
+
+void simple_energest_active_radio(bool on) {
+  if(on) {
+    curr_num_radio_on++;
+  }
+  else {
+    curr_num_radio_off++;
+  }
+}
+#endif
+
 /*---------------------------------------------------------------------------*/
 static void
 simple_energest_step(void)
@@ -87,11 +136,56 @@ simple_energest_step(void)
   last_tx = curr_tx;
   last_rx = curr_rx;
 
-  LOG_INFO("--- Period summary #%u (%lu seconds)\n", count++, delta_time/ENERGEST_SECOND);
+  // Don't print regular DC if we have cell-DC
+#if !CELL_DUTY_CYCLE_STATS
+  LOG_INFO("--- Period summary #%u (%lu seconds)\n",
+           count++, delta_time/ENERGEST_SECOND);
   LOG_INFO("Total time  : %10lu\n", delta_time);
-  LOG_INFO("Radio Tx    : %10lu/%10lu (%lu permil)\n", delta_tx, delta_time, to_permil(delta_tx, delta_time));
-  LOG_INFO("Radio Rx    : %10lu/%10lu (%lu permil)\n", delta_rx, delta_time, to_permil(delta_rx, delta_time));
-  LOG_INFO("Radio total : %10lu/%10lu (%lu permil)\n", delta_tx+delta_rx, delta_time, to_permil(delta_tx+delta_rx, delta_time));
+  LOG_INFO("Radio Tx    : %10lu/%10lu (%lu permil)\n",
+           delta_tx, delta_time, to_permil(delta_tx, delta_time));
+  LOG_INFO("Radio Rx    : %10lu/%10lu (%lu permil)\n",
+           delta_rx, delta_time, to_permil(delta_rx, delta_time));
+  LOG_INFO("Radio total : %10lu/%10lu (%lu permil)\n",
+           delta_tx+delta_rx, delta_time,
+           to_permil(delta_tx+delta_rx, delta_time));
+#endif
+
+#if CELL_DUTY_CYCLE_STATS
+  delta_num_tx = curr_num_tx - last_num_tx;
+  delta_num_rx = curr_num_rx - last_num_rx;
+  delta_num_radio_on = curr_num_radio_on - last_num_radio_on;
+  delta_num_radio_off = curr_num_radio_off - last_num_radio_off;
+
+  last_num_tx = curr_num_tx;
+  last_num_rx = curr_num_rx;
+  last_num_radio_on = curr_num_radio_on;
+  last_num_radio_off = curr_num_radio_off;
+
+  LOG_INFO("--- Period summary #%u (%lu seconds)\n",
+           count++, delta_time/ENERGEST_SECOND);
+  LOG_INFO("Total slots : %10lu\n", delta_slots(delta_time));
+  LOG_INFO("Radio Tx    : %10lu/%10lu (%lu permil-slots)\n",
+           delta_num_tx, delta_slots(delta_time),
+           to_permilslots(delta_num_tx, delta_slots(delta_time)));
+  LOG_INFO("Radio Rx    : %10lu/%10lu (%lu permil-slots)\n",
+           delta_num_rx, delta_slots(delta_time),
+           to_permilslots(delta_num_rx, delta_slots(delta_time)));
+  LOG_INFO("Radio total : %10lu/%10lu (%lu permil-slots)\n",
+           delta_num_tx+delta_num_rx, delta_slots(delta_time),
+           to_permilslots(delta_num_tx+delta_num_rx, delta_slots(delta_time)));
+
+//  LOG_INFO("Lay Radio Num On TODO: %10lu/%10lu (%lu permil-slots)\n",
+//           delta_num_radio_on, delta_slots(delta_time),
+//           to_permilslots(delta_num_radio_on, delta_slots(delta_time)));
+//  LOG_INFO("Lay Radio Num Off TODO: %10lu/%10lu (%lu permil-slots)\n",
+//           delta_num_radio_off, delta_slots(delta_time),
+//           to_permilslots(delta_num_radio_off, delta_slots(delta_time)));
+//  LOG_INFO("Lay Radio Num On/off total TODO : %10lu/%10lu (%lu permil-slots)\n",
+//           delta_num_radio_on+delta_num_radio_off, delta_slots(delta_time),
+//           to_permilslots(delta_num_radio_on+delta_num_radio_off,
+//                          delta_slots(delta_time)));
+#endif
+
 #if BUILD_WITH_LAYERED
   layered_print_stats();
 #endif

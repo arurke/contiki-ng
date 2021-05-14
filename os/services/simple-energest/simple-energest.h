@@ -59,6 +59,12 @@
  */
 void simple_energest_init(void);
 
+#if CELL_DUTY_CYCLE_STATS
+// TODO We assume cooja mote clock of us resolution in these calcs.
+void simple_energest_active_slot(bool is_tx);
+void simple_energest_active_radio(bool is_tx);
+#endif
+
 #endif /* SIMPLE_ENERGEST_H_ */
 /**
  * @}
