@@ -57,7 +57,7 @@ udp_rx_callback(struct simple_udp_connection *c,
 
   uint64_t local_time_clock_ticks = tsch_get_network_uptime_ticks();
 
-  LOG_INFO("Received data %.*s at ASN %"PRIu32" tick %"PRIu64" from ",
+  LOG_INFO("RX data %.*s at ASN %"PRIu32" tick %"PRIu64" from ",
       datalen, (char *) data, tsch_current_asn.ls4b, local_time_clock_ticks);
   LOG_INFO_6ADDR(sender_addr);
   LOG_INFO_("\n");
@@ -130,7 +130,7 @@ PROCESS_THREAD(app_process, ev, data)
 
       // Send to root
       // NOTE! The ASN may not be precise (not updated by TSCH at this point)
-      LOG_INFO("Sending data num %u at ASN %"PRIu32" tick %"PRIu64" to ",
+      LOG_INFO("TX data num %u at ASN %"PRIu32" tick %"PRIu64" to ",
           count, tsch_current_asn.ls4b, network_uptime);
       LOG_INFO_6ADDR(&dest_ipaddr);
       LOG_INFO_("\n");
