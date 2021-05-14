@@ -59,6 +59,10 @@
 #include "../../../services/layered/layered.h"
 #endif
 
+#if CELL_DUTY_CYCLE_STATS
+#include "simple-energest.h"
+#endif
+
 #include "sys/log.h"
 /* TSCH debug macros, i.e. to set LEDs or GPIOs on various TSCH
  * timeslot events */
@@ -441,6 +445,9 @@ tsch_radio_on(enum tsch_radio_state_on_cmd command)
     break;
   }
   if(do_it) {
+#if CELL_DUTY_CYCLE_STATS
+    simple_energest_active_radio(true);
+#endif
     NETSTACK_RADIO.on();
   }
 }
@@ -472,6 +479,9 @@ tsch_radio_off(enum tsch_radio_state_off_cmd command)
     break;
   }
   if(do_it) {
+#if CELL_DUTY_CYCLE_STATS
+    simple_energest_active_radio(false);
+#endif
     NETSTACK_RADIO.off();
   }
 }
@@ -1075,6 +1085,9 @@ PT_THREAD(tsch_slot_operation(struct rtimer *t, void *ptr))
       }
       is_active_slot = current_packet != NULL || (current_link->link_options & LINK_OPTION_RX);
       if(is_active_slot) {
+#if CELL_DUTY_CYCLE_STATS
+        simple_energest_active_slot(current_packet != NULL);
+#endif
         /* If we are in a burst, we stick to current channel instead of
          * doing channel hopping, as per IEEE 802.15.4-2015 */
         if(burst_link_scheduled) {
