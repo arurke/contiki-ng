@@ -54,6 +54,11 @@
 #include "net/mac/tsch/tsch.h"
 #include "sys/critical.h"
 
+#if BUILD_WITH_LAYERED
+// TODO ad-hoc stats
+#include "../../../services/layered/layered.h"
+#endif
+
 #include "sys/log.h"
 /* TSCH debug macros, i.e. to set LEDs or GPIOs on various TSCH
  * timeslot events */
@@ -728,6 +733,11 @@ PT_THREAD(tsch_tx_slot(struct pt *pt, struct rtimer *t))
     if(current_neighbor != NULL && current_neighbor->is_time_source) {
       tsch_stats_tx_packet(current_neighbor, mac_tx_status, tsch_current_channel);
     }
+
+    // TODO ad-hoc update our scheduler-stats
+#if BUILD_WITH_LAYERED
+    layered_stats_update(current_neighbor, current_packet, current_link, mac_tx_status);
+#endif
 
     /* Log every tx attempt */
     TSCH_LOG_ADD(tsch_log_tx,
