@@ -27,6 +27,9 @@
 // Disable use of pending bit which allows nodes to use more slots
 #define TSCH_CONF_BURST_MAX_LEN           0
 
+// Allow very deep networks
+#define TSCH_CONF_MAX_JOIN_PRIORITY       64
+
 // Disable RPL probing which takes up space in queues
 #define RPL_CONF_WITH_PROBING             0
 
