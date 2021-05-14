@@ -367,6 +367,14 @@ uip_ds6_route_add(const uip_ipaddr_t *ipaddr, uint8_t length,
     current_nexthop = uip_ds6_route_nexthop(r);
     if(current_nexthop != NULL && uip_ipaddr_cmp(nexthop, current_nexthop)) {
       /* no need to update route - already correct! */
+#if BUILD_WITH_LAYERED
+      // Notify the layered scheduler regardless because we might
+      // have changed layer. TODO this is a hack? Should have a parent
+      // change callback instead
+#if UIP_DS6_NOTIFICATIONS
+      call_route_callback(UIP_DS6_NOTIFICATION_ROUTE_ADD, ipaddr, nexthop, true);
+#endif
+#endif
       return r;
     }
     LOG_INFO("Add: old route for ");
