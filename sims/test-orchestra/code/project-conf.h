@@ -64,6 +64,10 @@
 #define LAYERED_CONF_NUM_LAYERS               2
 #define LAYERED_NUM_COMMON_SLOT_SPACING       37
 
+// Enable cell duty-cycle statistics
+// TODO this assumes cooja mote
+#define CELL_DUTY_CYCLE_STATS                 1
+
 /* Reduce ROM and RAM usage so that it builds on z1 */
 // No need for large packet support
 #define UIP_CONF_BUFFER_SIZE                  140
