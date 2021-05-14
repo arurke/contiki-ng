@@ -47,7 +47,10 @@
 #include <stdio.h>
 #include <limits.h>
 
-/* Log configuration */
+#if BUILD_WITH_LAYERED
+#include "../layered/layered.h"
+#endif
+
 #include "sys/log.h"
 #define LOG_MODULE "Energest"
 #define LOG_LEVEL LOG_LEVEL_INFO
@@ -89,6 +92,9 @@ simple_energest_step(void)
   LOG_INFO("Radio Tx    : %10lu/%10lu (%lu permil)\n", delta_tx, delta_time, to_permil(delta_tx, delta_time));
   LOG_INFO("Radio Rx    : %10lu/%10lu (%lu permil)\n", delta_rx, delta_time, to_permil(delta_rx, delta_time));
   LOG_INFO("Radio total : %10lu/%10lu (%lu permil)\n", delta_tx+delta_rx, delta_time, to_permil(delta_tx+delta_rx, delta_time));
+#if BUILD_WITH_LAYERED
+  layered_print_stats();
+#endif
 }
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(simple_energest_process, ev, data)
