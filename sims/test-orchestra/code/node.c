@@ -3,10 +3,13 @@
 #include "net/mac/tsch/tsch.h"
 #include "lib/random.h"
 #include "sys/node-id.h"
+#if BUILD_WITH_LAYERED
+#include "layered-conf.h"
+#endif
 
 #include <inttypes.h>
 
-// FYI: int-size on z1 is 2 bytes
+// FYI: int-size on z1 is 2 bytes. clock_time_t is 4 bytes
 
 /* Log configuration */
 #include "sys/log.h"
@@ -85,14 +88,30 @@ PROCESS_THREAD(app_process, ev, data)
                         UDP_SERVER_PORT, NULL);
 
     // Schedule start of transmission
-    clock_time_t delay =
-        (TIME_TO_START_TX * CLOCK_SECOND) + (random_rand() % CLOCK_SECOND);
+    clock_time_t convergence_delay_ticks = (TIME_TO_START_TX * CLOCK_SECOND);
+    uint32_t slotframe_duration_ms =
+        (uint32_t)((uint32_t)SCHED_SLOTFRAME_LEN * \
+        TSCH_DEFAULT_TIMESLOT_TIMING[tsch_ts_timeslot_length]) / 1000;
+    LOG_INFO("sizeof clock_time %u, sflen: %u. ts len: %u, sf dur ms: %lu\n",
+             sizeof(clock_time_t), SCHED_SLOTFRAME_LEN,
+             TSCH_DEFAULT_TIMESLOT_TIMING[tsch_ts_timeslot_length],
+             slotframe_duration_ms);
+    uint32_t random1 = random_rand();
+    clock_time_t intra_slotframe_delay_ticks =
+        ((random1 % slotframe_duration_ms) * CLOCK_SECOND) / 1000;
+    LOG_INFO("rand: %lu, rand_ticsk_times_ms: %lu, delay: %"PRIu32"\n",
+             (random1),
+             ((random1 % slotframe_duration_ms) * CLOCK_SECOND) ,
+             intra_slotframe_delay_ticks);
+
     etimer_set(
         &periodic_timer,
-        delay);
+        convergence_delay_ticks + intra_slotframe_delay_ticks);
+
     LOG_INFO("Node %u, ticks_in_sec %"PRIu32"," \
-             " interval %"PRIu16", delay %"PRIu32"\n",
-             node_id, CLOCK_SECOND, SEND_INTERVAL, delay);
+             " interval %"PRIu16", c-delay %"PRIu32", s-delay %"PRIu32"\n",
+             node_id, CLOCK_SECOND, SEND_INTERVAL, convergence_delay_ticks,
+             intra_slotframe_delay_ticks);
   }
 
   while(!is_coordinator && count < NUM_PACKETS) {
