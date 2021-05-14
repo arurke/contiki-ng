@@ -1,6 +1,7 @@
 #ifndef PROJECT_CONF_H_
 #define PROJECT_CONF_H_
 
+// NOTE z1 cannot support extensive logging due to ROM size
 #define LOG_CONF_LEVEL_MAC            LOG_LEVEL_DBG
 //#define LOG_CONF_LEVEL_TCPIP          LOG_LEVEL_DBG
 //#define LOG_CONF_LEVEL_IPV6           LOG_LEVEL_DBG
@@ -15,8 +16,11 @@
 //#define RPL_CONF_STATS                1 // Does not print extra
 #define RPL_OF0_CONF_SR               RPL_OF0_FIXED_SR
 
+// TODO need to check select_packet() behaves correctly
+//#define RPL_CONF_WITH_DAO_ACK             1
+
 // z1 sets to 2, but we have seen queue full, so we try force TSCH default 4
-#define TSCH_CONF_MAX_INCOMING_PACKETS    4
+//#define TSCH_CONF_MAX_INCOMING_PACKETS    4
 
 // Total queue buffer size
 #define QUEUEBUF_CONF_NUM                 4
@@ -54,6 +58,18 @@
 // Sender or receiver based (def. receiver)
 #define ORCHESTRA_CONF_UNICAST_SENDER_BASED   1
 
+// Num nodes supported for layers (including sink
+#define LAYERED_CONF_MAX_NUM_NODES            50
+#define LAYERED_CONF_NUM_LAYERS               2
+#define LAYERED_NUM_COMMON_SLOT_SPACING       37
+
+#if BUILD_WITH_ORCHESTRA
+#define SCHED_SLOTFRAME_LEN                   ORCHESTRA_CONF_UNICAST_PERIOD
+#endif
+
+// Enable cell duty-cycle statistics
+// TODO this assumes cooja mote
+#define CELL_DUTY_CYCLE_STATS                 1
 
 /* Reduce ROM and RAM usage so that it builds on z1 */
 // No need for large packet support
@@ -66,6 +82,6 @@
 #define PROCESS_CONF_NO_PROCESS_NAMES         1
 
 // Disable stack checker? (it is not running native btw)
-//#define STACK_CHECK_CONF_ENABLED              0
+#define STACK_CHECK_CONF_ENABLED              0
 
 #endif /* PROJECT_CONF_H_ */
