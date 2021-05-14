@@ -52,15 +52,19 @@
 #include "net/app-layer/coap/coap-engine.h"
 #include "net/app-layer/snmp/snmp.h"
 #include "services/rpl-border-router/rpl-border-router.h"
+#if BUILD_WITH_LAYERED
+#include "services/layered/layered.h"
+#endif
+#if BUILD_WITH_ORCHESTRA
 #include "services/orchestra/orchestra.h"
+#endif
 #include "services/shell/serial-shell.h"
 #include "services/simple-energest/simple-energest.h"
 #include "services/tsch-cs/tsch-cs.h"
 
 #include <stdio.h>
 #include <stdint.h>
-/*---------------------------------------------------------------------------*/
-/* Log configuration */
+
 #include "sys/log.h"
 #define LOG_MODULE "Main"
 #define LOG_LEVEL LOG_LEVEL_MAIN
@@ -142,6 +146,11 @@ main(void)
   orchestra_init();
   LOG_DBG("With Orchestra\n");
 #endif /* BUILD_WITH_ORCHESTRA */
+
+#if BUILD_WITH_LAYERED
+  layered_init();
+  LOG_DBG("With Layered\n");
+#endif /* BUILD_WITH_LAYERED */
 
 #if BUILD_WITH_SHELL
   serial_shell_init();
