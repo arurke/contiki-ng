@@ -116,6 +116,12 @@ rpl_print_neighbor_list(void)
           p == default_instance->current_dag->preferred_parent ? 'p' : ' ',
           stats != NULL ? (unsigned)((clock_now - stats->last_tx_time) / (60 * CLOCK_SECOND)) : -1u
       );
+
+//      LOG_DBG("links: ");
+//      LOG_DBG_6ADDR(&dag->prefix_info.prefix);
+//      LOG_DBG_(" to ");
+//      LOG_DBG_6ADDR(&dag->prefix_info.prefix);
+//      LOG_DBG_("\n");
       p = nbr_table_next(rpl_parents, p);
     }
     LOG_DBG("end of list\n");
@@ -238,15 +244,15 @@ static void
 rpl_set_preferred_parent(rpl_dag_t *dag, rpl_parent_t *p)
 {
   if(dag != NULL && dag->preferred_parent != p) {
-    LOG_INFO("rpl_set_preferred_parent ");
-    if(p != NULL) {
-      LOG_INFO_6ADDR(rpl_parent_get_ipaddr(p));
+    LOG_INFO("parent switch: ");
+    if(dag->preferred_parent != NULL) {
+      LOG_INFO_6ADDR(rpl_parent_get_ipaddr(dag->preferred_parent));
     } else {
       LOG_INFO_("NULL");
     }
-    LOG_INFO_(" used to be ");
-    if(dag->preferred_parent != NULL) {
-      LOG_INFO_6ADDR(rpl_parent_get_ipaddr(dag->preferred_parent));
+    LOG_INFO_(" -> ");
+    if(p != NULL) {
+      LOG_INFO_6ADDR(rpl_parent_get_ipaddr(p));
     } else {
       LOG_INFO_("NULL");
     }
@@ -1192,8 +1198,11 @@ rpl_join_instance(uip_ipaddr_t *from, rpl_dio_t *dio)
     default_instance = instance;
   }
 
-  LOG_INFO("Joined DAG with instance ID %u, rank %hu, DAG ID ",
+  // Changed wording to closer match RPL-lite and parse-log.py
+  LOG_INFO("initialized DAG with instance ID %u, rank %hu, DAG ID ",
          dio->instance_id, dag->rank);
+//  LOG_INFO("Joined DAG with instance ID %u, rank %hu, DAG ID ",
+//         dio->instance_id, dag->rank);
   LOG_INFO_6ADDR(&dag->dag_id);
   LOG_INFO_("\n");
 
