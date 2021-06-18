@@ -112,7 +112,7 @@ PROCESS_THREAD(app_process, ev, data)
 
     LOG_INFO("Node %u, ticks_in_sec %"PRIu32"," \
              " interval %"PRIu16", c-delay %"PRIu32", s-delay %"PRIu32"\n",
-             node_id, CLOCK_SECOND, SEND_INTERVAL, convergence_delay_ticks,
+             node_id, (uint32_t)CLOCK_SECOND, SEND_INTERVAL, convergence_delay_ticks,
              intra_slotframe_delay_ticks);
   }
 
