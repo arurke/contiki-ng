@@ -533,6 +533,39 @@ tsch_tx_process_pending(void)
     LOG_INFO_LLADDR(packetbuf_addr(PACKETBUF_ADDR_RECEIVER));
     LOG_INFO_(", seqno %u, status %d, tx %d\n",
       packetbuf_attr(PACKETBUF_ATTR_MAC_SEQNO), p->ret, p->transmissions);
+
+    // Check if this was application packet and then print?
+    // Because we are interested in collisions on dedicated cells...?
+    // Proper implementation is probably to add stats to cell
+    int timeslot = packetbuf_attr(PACKETBUF_ATTR_TSCH_TIMESLOT);
+    int channel = packetbuf_attr(PACKETBUF_ATTR_TSCH_CHANNEL_OFFSET);
+    int slotframe_handle = packetbuf_attr(PACKETBUF_ATTR_TSCH_SLOTFRAME);
+
+    LOG_WARN("%d\n",slotframe_handle);
+
+    struct tsch_slotframe* slotframe =
+        tsch_schedule_get_slotframe_by_handle(slotframe_handle);
+
+    if(slotframe == NULL) {
+      LOG_WARN("slotframe NULL! %d\n", slotframe_handle);
+    }
+
+    struct tsch_link* link =
+        tsch_schedule_get_link_by_timeslot(
+            slotframe, timeslot, channel);
+
+    if(link == NULL) {
+      LOG_WARN("link NULL! %p, %d, %d\n",
+               slotframe, timeslot, channel);
+    }
+    else {
+      LOG_WARN("cell %d/%d, normal: %u, dedi.: %u, tx: %u\n",
+               timeslot, channel,
+               link->link_type == LINK_TYPE_NORMAL ? true : false,
+               link->link_options & LINK_OPTION_SHARED ? true : false,
+               p->transmissions);
+    }
+
     /* Call packet_sent callback */
     mac_call_sent_callback(p->sent, p->ptr, p->ret, p->transmissions);
     /* Free packet queuebuf */
