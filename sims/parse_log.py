@@ -112,7 +112,7 @@ def parseApp(log):
         id = int(res.group(2))
         tick = int(res.group(3))
         dest = int(res.group(4), 16)
-        return {'event': 'send', 'type': type, 'tick':tick, 'id': id, 'node': dest }
+        return {'event': 'send', 'type': type, 'tick':tick, 'id': id, 'dest': dest }
 
     res = re.compile('RX (.+?) num (\d+) oTick (\d+) tick (\d+) from 6G-([0-9a-fA-F]+)').match(log)
     if res:
