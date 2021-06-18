@@ -112,9 +112,14 @@ dao_ack_callback(rpl_parent_t *p, int status)
 static uint16_t
 parent_link_metric(rpl_parent_t *p)
 {
+  // Use the rank as metric (results in a hop count metric)
+//  LOG_INFO("Rank of parent %u\n", p->rank);
+//  LOG_INFO("Rank of dag %u\n", p->dag->rank);
+  return p->rank;
+
   /* OF0 operates without metric container; the only metric we have is ETX */
-  const struct link_stats *stats = rpl_get_parent_link_stats(p);
-  return stats != NULL ? stats->etx : 0xffff;
+//  const struct link_stats *stats = rpl_get_parent_link_stats(p);
+//  return stats != NULL ? stats->etx : 0xffff;
 }
 /*---------------------------------------------------------------------------*/
 static uint16_t
