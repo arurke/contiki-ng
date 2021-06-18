@@ -29,6 +29,7 @@ print
 
 networkFormationTime = None
 parents = {}
+first_unixtime = None
 
 def calculateHops(node):
     hops = 0
@@ -54,6 +55,13 @@ def updateTopology(child, parent):
     if not parent in parents:
         parents[parent] = None
     parents[child] = parent
+
+def parseMain(log):
+    res = re.compile('Node ID: (\d+)').match(log)
+    if res:
+        mac = int(res.group(1))
+        return mac
+    return None
 
 def parseRPL(log):
     res = re.compile('.*? rank (\d*).*?dioint (\d*).*?nbr count (\d*)').match(log)
@@ -155,11 +163,34 @@ def parseTSCH(log):
         return {'event': 'mac', 'type': 'send', 'queue_num': queue_num, 'queue_size': queue_size, 'queue_fill':queue_fill}
     return None
 
-def parseLine(line):
+def parseLine(line, testbed):
+    global first_unixtime
     #print("Parsing line: " + line)
-    res = re.compile('\s*([.\d]+)\tID:(\d+)\t\[(.*?):(.*?)\](.*)$').match(line)
+
+    if testbed:
+        # "1623007554.333982;m3-358;[INFO: Main      ] <log>"
+        prefix = '(\d+\.\d+);\w+\-(\d+);'
+    else:
+        # "119682    ID:2    [WARN: TSCH      ] <log>"
+        prefix = '\s*([.\d]+)\tID:(\d+)\t'
+        #time = round(float(res.group(1)), 3)
+
+    pattern_log_os = '\[(.*?):(.*?)\](.*)$'
+    res = re.compile(prefix + pattern_log_os).match(line)
+
     if res:
-        time = float(res.group(1)) / 1000
+        if testbed:
+            time = float(res.group(1))
+            # Adjust for unixtime used in testbed
+
+            if testbed:
+                if first_unixtime is None:
+                    first_unixtime = time
+                time = int((time - first_unixtime) * 1000)
+        else:
+            time = int(res.group(1))
+
+        #time = float(res.group(1)) / 1000
         nodeid = int(res.group(2))
         level = res.group(3).strip()
         module = res.group(4).strip()
@@ -169,7 +200,7 @@ def parseLine(line):
     print("Unknown line: " + line.rstrip())
     return None, None, None, None, None
 
-def doParse(file):
+def doParse(file, testbed):
     global networkFormationTime
 
     time = None
@@ -186,6 +217,8 @@ def doParse(file):
         "queue": [],
     }
 
+    mac_to_node_id_map = {}
+
 #    print("\nProcessing %s" %(file))
     # Filter out non-printable chars from log file
     #os.system("cat %s | tr -dc '[:print:]\n\t' | sponge %s" %(file, file))
@@ -195,7 +228,7 @@ def doParse(file):
             print("SIMULATION FAILED!")
             return -1
 
-        time, nodeid, level, module, log = parseLine(line)
+        time, nodeid, level, module, log = parseLine(line, testbed)
 
         if time == None:
             # malformed line
@@ -205,7 +238,8 @@ def doParse(file):
             lastPrintedTime = time
 
         entry = {
-            "timestamp": timedelta(seconds=time),
+            # "timestamp": timedelta(seconds=time),
+            "timestamp": timedelta(milliseconds=time),
             "node": nodeid,
         }
 
@@ -220,13 +254,21 @@ def doParse(file):
                 entry.update(ret)
                 if(ret['event'] == 'send' and ret['type'] == 'data'):
                     # populate series of sent requests
-                    entry['node'] = nodeid
                     entry['pdr'] = 0.
-                   #print("appendingTX: " + str(entry))
                     arrays["packets"].append(entry)
                     if networkFormationTime == None:
                         networkFormationTime = time
                 elif(ret['event'] == 'recv' and ret['type'] == 'data'):
+
+                    # Testbed uses MAC-nodeid instead of the node-id in the log
+                    if testbed:
+                        if mac_to_node_id_map[ret['src']] != None:
+                            #print("src changed from " + str(ret['src']) +
+                            #      " to " + str(mac_to_node_id_map[ret['src']]))
+                            ret['src'] = mac_to_node_id_map[ret['src']]
+                        else:
+                            print("Missing mapping for " + str(ret['src']))
+
                     # Update sent request series with latency and PDR
                     # First find the row
                     txElement = [x for x in arrays["packets"] if x['event']=='send' and x['node']==ret['src'] and x['id']==ret['id']][0]
@@ -295,6 +337,11 @@ def doParse(file):
                 #print("entry: ", str(entry))
                 arrays["queue"].append(entry)
 
+            if module == "Main" and testbed:
+                mac = parseMain(log)
+                if mac != None:
+                    mac_to_node_id_map[mac] = nodeid;
+
                 
         except Exception as e: # typical exception: failed str conversion to int, due to lossy logs
             print("Exception: %s" %(str(sys.exc_info()[0])))
@@ -308,6 +355,9 @@ def doParse(file):
 
     # Remove first packets such that we only get steady-state
     #arrays["packets"] = arrays["packets"][100:]
+
+    if testbed:
+        print("Mac-to-node-id map: " + str(mac_to_node_id_map))
 
     dfs = {}
     for key in arrays.keys():
@@ -327,23 +377,41 @@ def outputStats(dfs, key, metric, agg, name, metricLabel = None):
     perNode = getattr(df.groupby("node")[metric], agg)()
     perTime = getattr(df.groupby([pd.Grouper(freq="2Min")])[metric], agg)()
 
-    print("  %s:" %(metricLabel if metricLabel != None else metric))
-    print("    name: %s" %(name))
+    print("  %s:" % (metricLabel if metricLabel != None else metric))
+    print("    name: %s" % (name))
     print("    per-node:")
-    print("      x: [%s]" %(", ".join(["%u"%x for x in sort(df.node.unique())])))
-    print("      y: [%s]" %(', '.join(["%.4f"%(x) for x in perNode])))
+    print("      x: [%s]" % (", ".join(["%u" % x for x in sort(df.node.unique())])))
+    print("      y: [%s]" % (', '.join(["%.4f" % (x) for x in perNode])))
     print("    per-time:")
-    print("      x: [%s]" %(", ".join(["%u"%x for x in range(0, 2*len(df.groupby([pd.Grouper(freq="2Min")]).mean().index), 2)])))
-    print("      y: [%s]" %(', '.join(["%.4f"%(x) for x in perTime]).replace("nan", "null")))
+    print("      x: [%s]" % (", ".join(["%u" % x for x in range(0, 2 * len(df.groupby([pd.Grouper(freq="2Min")]).mean().index), 2)])))
+    print("      y: [%s]" % (', '.join(["%.4f" % (x) for x in perTime]).replace("nan", "null")))
 
-def parse_logfile(file, quiet = False):
+def is_fitiotlab(file):
+    with open(file, 'r') as f:
+        first_line = f.readline()
+        # The start of FIT iot-lab logs are: "1623007554.335971;m3-358;<log>"
+        res = re.compile('\d{10}\.\d{6};\w+\-\w+;').match(first_line)
+        if res:
+            return True
+
+    return False
+
+def parse_logfile(file, quiet=False):
     # Stop output. This solution is a mess and I dont understand it. TODO
     global print
     print = logging.info
     logging.basicConfig(level=logging.WARNING if quiet else logging.INFO,
                     format="%(message)s")
 
-    dfs = doParse(file)
+    # Check if logfile is from FIT iot-lab
+    if is_fitiotlab(file):
+        print("Log is from testbed")
+        testbed = True
+    else:
+        print("Log is from simulator")
+        testbed = False
+
+    dfs = doParse(file, testbed)
 
     #print(dfs)
 
