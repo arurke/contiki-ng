@@ -159,6 +159,12 @@ PROCESS_THREAD(app_process, ev, data)
 
   }
 
+  while(is_coordinator) {
+    LOG_INFO("Num routes at root: %d\n", uip_ds6_route_num_routes());
+    etimer_set(&periodic_timer, CLOCK_SECOND * 30);
+    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
+  }
+
   if(!is_coordinator) {
     LOG_INFO("Done\n");
   }
