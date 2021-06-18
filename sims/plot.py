@@ -9,7 +9,13 @@ import numpy as np
 
 plt.rcParams.update({'font.size': 8})
 
-def plot_queue_util(scenarios_df, execution_dir, title=False):
+def plot_queue_util_selected_nodes(scenarios_df, execution_dir, title=False):
+
+    if "ss2_queue_fill_mean" not in scenarios_df.columns:
+        return
+    if "ss3_queue_fill_mean" not in scenarios_df.columns:
+        return
+
     # Get a list of integers of equal length as number of scenarios
     # To be used to position the bars
     x = np.arange(len(scenarios_df.index))
@@ -241,3 +247,71 @@ def plot_time_series(scenario, nodeid, run_id, skip_end = 0):
     plt.savefig(fig_path, bbox_inches='tight')
     plt.close()
     print("Made figure", fig_path)
+
+    # Retransmissions
+    retx_df = scenario['raw_mac_tx_dfs'][run_id].copy()
+
+    # Set timestamp as index
+    #retx_df.set_index("timestamp", inplace=True)
+
+    # Convert timestamp from string to TimeDelta
+    #retx_df.index = pd.to_timedelta(retx_df.index)
+
+    # Switch timestamp from absolute to relative to first packet and
+    # convert to float (i.e. seconds since t0) using total_seconds()
+    retx_df.index = [(index - retx_df.index[0]).total_seconds() for index in retx_df.index]
+
+    # Retransmissions time-series
+    color = 'tab:red'
+    ax1.set_xlabel('time (s)')
+    ax1.set_ylabel('retransmissions all nodes (cumulative)', color=color)
+    ax1.plot(retx_df.index, retx_df.retransmissions.cumsum(), color=color, marker='o')
+    ax1.tick_params(axis='y', labelcolor=color)
+
+    fig.tight_layout()  # otherwise the right y-label is slightly clipped
+    fig_name = 'retransmissions_timeseries_all_nodes' + '_' + scenario['name'] + \
+        '_' + run_id
+    plt.title(fig_name)
+    fig_path = scenario['path'] + fig_name + '.pdf'
+    plt.savefig(fig_path, bbox_inches='tight')
+    plt.close()
+    print("Made figure", fig_path)
+
+    # Retransmissions bar chart
+    sums_df = retx_df.groupby(["node"])["retransmissions"].sum()
+
+    fig = sums_df.plot.bar(x="node", y="retransmissions")
+    #fig.tight_layout()  # otherwise the right y-label is slightly clipped
+    fig_name = 'retransmissions_all_nodes' + '_' + scenario['name'] + \
+        '_' + run_id
+    fig_path = scenario['path'] + fig_name + '.pdf'
+    fig.set_ylabel('Retransmissions')
+    plt.savefig(fig_path, bbox_inches='tight')
+    plt.close()
+    print("Made figure", fig_path)
+
+    # Hop count bar chart
+    hop_df = scenario['raw_hop_count_dfs'][run_id].copy()
+
+    # Set timestamp as index
+    #hop_df.set_index("timestamp", inplace=True)
+
+    # Convert timestamp from string to TimeDelta
+    #hop_df.index = pd.to_timedelta(hop_df.index)
+
+    # Switch timestamp from absolute to relative to first packet and
+    # convert to float (i.e. seconds since t0) using total_seconds()
+    hop_df.index = [(index - hop_df.index[0]).total_seconds() for index in hop_df.index]
+
+    max_df = hop_df.groupby(["node"])["hopCount"].max()
+
+    fig = max_df.plot.bar(x="node", y="hopCount")
+    #fig.tight_layout()  # otherwise the right y-label is slightly clipped
+    fig_name = 'max_hop_count_all_nodes' + '_' + scenario['name'] + \
+        '_' + run_id
+    fig_path = scenario['path'] + fig_name + '.pdf'
+    fig.set_ylabel('Hop count')
+    plt.savefig(fig_path, bbox_inches='tight')
+    plt.close()
+    print("Made figure", fig_path)
+

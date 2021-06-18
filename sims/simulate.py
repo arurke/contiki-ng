@@ -10,7 +10,7 @@ from parse_log import parse_logs_scenarios
 from plot import plot_time_series
 from plot import plot_pdr_latency
 from plot import plot_duty_cycle
-from plot import plot_queue_util
+from plot import plot_queue_util_selected_nodes
 #from stats import stats_for_scenarios
 from stats_triscale import stats_for_scenarios
 from simxml import simxml_make_xml_for_all_scenarios
@@ -61,7 +61,7 @@ def process_results(scenarios, execution_dir):
     # Plot
     plot_pdr_latency(scenarios_df, execution_dir)
     plot_duty_cycle(scenarios_df, execution_dir)
-    plot_queue_util(scenarios_df, execution_dir)
+    plot_queue_util_selected_nodes(scenarios_df, execution_dir)
 
     # Print all columns
     pd.set_option('display.max_columns', None)

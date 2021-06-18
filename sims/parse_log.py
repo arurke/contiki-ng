@@ -49,6 +49,7 @@ def calculateChildren(node):
     return children
 
 def updateTopology(child, parent):
+    #print("Updating topology!")
     global parents
     if not child in parents:
         parents[child] = {}
@@ -69,28 +70,37 @@ def parseRPL(log):
         rank = int(res.group(1))
         trickle = (2**int(res.group(2)))/(60*1000.)
         nbrCount = int(res.group(3))
-        return {'event': 'rank', 'rank': rank, 'trickle': trickle }
+        #  uint8_t route_hop_count = ((rpl_dag->rank / RPL_MIN_HOPRANKINC) - 1) / 3;
+        hopCount = ((rank / 256) - 1) / 3
+        return {'event': 'rank', 'rank': rank, 'trickle': trickle, 'hopCount': hopCount }
+
     res = re.compile('parent switch: .*? -> .*?-(\d*)$').match(log)
     if res:
         parent = int(res.group(1))
+        #print("Parent switch!")
         return {'event': 'switch', 'pswitch': parent }
+
     res = re.compile('sending a (.+?) ').match(log)
     if res:
         message = res.group(1)
         return {'event': 'sending', 'message': message }
+
     res = re.compile('links: 6G-(\d+)\s*to 6G-(\d+)').match(log)
     if res:
         child = int(res.group(1))
         parent = int(res.group(2))
         updateTopology(child, parent)
         return None
+
     res = re.compile('links: end of list').match(log)
     if res:
         # This was the last line, commit full topology
         return {'event': 'topology' }
+
     res = re.compile('initialized DAG').match(log)
     if res:
         return {'event': 'DAGinit' }
+
     return None
 
 def parseEnergest(log):
@@ -161,6 +171,20 @@ def parseTSCH(log):
         queue_size = int(res.group(6))
         queue_fill = (queue_num / queue_size) * 100
         return {'event': 'mac', 'type': 'send', 'queue_num': queue_num, 'queue_size': queue_size, 'queue_fill':queue_fill}
+
+    res = re.compile('sf \d+, cell (\d+)\/(\d+), normal: (\d+), shared: (\d+), tx: (\d+)').match(log)
+    if res:
+        normal = int(res.group(3))
+        shared = int(res.group(4))
+        transmissions = int(res.group(5))
+        retransmissions = transmissions - 1
+        return {'event': 'mac',
+                'type': 'macTX',
+                'normal': normal,
+                'shared': shared,
+                'transmissions':transmissions,
+                'retransmissions':retransmissions}
+
     return None
 
 def parseLine(line, testbed):
@@ -195,6 +219,7 @@ def parseLine(line, testbed):
         level = res.group(3).strip()
         module = res.group(4).strip()
         log = res.group(5).strip()
+
         return time, nodeid, level, module, log
 
     print("Unknown line: " + line.rstrip())
@@ -210,11 +235,13 @@ def doParse(file, testbed):
         "packets": [],
         "energest": [],
         "ranks": [],
+        "hopCount": [],
         "trickle": [],
         "switches": [],
         "DAGinits": [],
         "topology": [],
         "queue": [],
+        "macTX": [],
     }
 
     mac_to_node_id_map = {}
@@ -312,6 +339,7 @@ def doParse(file, testbed):
                 if(ret['event'] == 'rank'):
                     arrays["ranks"].append(entry)
                     arrays["trickle"].append(entry)
+                    arrays["hopCount"].append(entry)
                 elif(ret['event'] == 'switch'):
                     arrays["switches"].append(entry)
                 elif(ret['event'] == 'DAGinit'):
@@ -335,22 +363,22 @@ def doParse(file, testbed):
 
                 entry.update(ret)
                 #print("entry: ", str(entry))
-                arrays["queue"].append(entry)
+                if ret['type'] == 'macTX':
+                    arrays['macTX'].append(entry)
+                else:
+                    arrays["queue"].append(entry)
 
             if module == "Main" and testbed:
                 mac = parseMain(log)
                 if mac != None:
                     mac_to_node_id_map[mac] = nodeid;
 
-                
-        except Exception as e: # typical exception: failed str conversion to int, due to lossy logs
-            print("Exception: %s" %(str(sys.exc_info()[0])))
+        except Exception as e:  # typical exception: failed str conversion to int, due to lossy logs
             print(str(e))
             continue
 
-
     # Remove last few packets -- might be in-flight when test stopped
-    #arrays["packets"] = arrays["packets"][0:-10]
+    # arrays["packets"] = arrays["packets"][0:-10]
     # Not necessary since we send a fixed num packets and then idle for a while
 
     # Remove first packets such that we only get steady-state
@@ -461,27 +489,30 @@ def parse_logfile(file, quiet=False):
     outputStats(dfs, "packets", "latency", "mean", "Round-trip latency (s)")
     outputStats(dfs, "queue", "queue_fill", "mean", "Queue fill")
 
-    #outputStats(dfs, "energest", "duty_cycle", "mean", "Radio duty cycle (%)")
-    #outputStats(dfs, "ranks", "rank", "mean", "RPL rank (ETX-128)")
-    #outputStats(dfs, "switches", "pswitch", "count", "RPL parent switches (#)")
-    #outputStats(dfs, "DAGinits", "event", "count", "RPL joining DAG (#)")
-    #outputStats(dfs, "trickle", "trickle", "mean", "RPL Trickle period (min)")
+    # outputStats(dfs, "energest", "duty_cycle", "mean", "Radio duty cycle (%)")
+    outputStats(dfs, "ranks", "rank", "mean", "RPL rank (ETX-128)")
+    # outputStats(dfs, "ranks", "hopCount", "mean", "Hop count mean")
+    outputStats(dfs, "ranks", "hopCount", "max", "Hop count max")
+    outputStats(dfs, "switches", "pswitch", "count", "RPL parent switches (#)")
+    outputStats(dfs, "DAGinits", "event", "count", "RPL joining DAG (#)")
+    outputStats(dfs, "trickle", "trickle", "mean", "RPL Trickle period (min)")
 
-    #outputStats(dfs, "DIS", "message", "count", "RPL DIS sent (#)", "rpl-dis")
-    #outputStats(dfs, "unicast-DIO", "message", "count", "RPL uDIO sent (#)", "rpl-udio")
-    #outputStats(dfs, "multicast-DIO", "message", "count", "RPL mDIO sent (#)", "rpl-mdio")
-    #outputStats(dfs, "DAO", "message", "count", "RPL DAO sent (#)", "rpl-dao")
-    #outputStats(dfs, "DAO-ACK", "message", "count", "RPL DAO-ACK sent (#)", "rpl-daoack")
+    outputStats(dfs, "DIS", "message", "count", "RPL DIS sent (#)", "rpl-dis")
+    outputStats(dfs, "unicast-DIO", "message", "count", "RPL uDIO sent (#)", "rpl-udio")
+    outputStats(dfs, "multicast-DIO", "message", "count", "RPL mDIO sent (#)", "rpl-mdio")
+    outputStats(dfs, "DAO", "message", "count", "RPL DAO sent (#)", "rpl-dao")
+    outputStats(dfs, "DAO-ACK", "message", "count", "RPL DAO-ACK sent (#)", "rpl-daoack")
 
-    #outputStats(dfs, "topology", "hops", "mean", "RPL hop count (#)")
-    #outputStats(dfs, "topology", "children", "mean", "RPL children count (#)")
-    
-    #dfs["packets"].to_csv('outP.csv')
-    #dfs["queue"].to_csv('outQ.csv')
-    
+    outputStats(dfs, "topology", "hops", "mean", "RPL hop count (#)")
+    outputStats(dfs, "topology", "children", "mean", "RPL children count (#)")
+
+    outputStats(dfs, "macTX", "retransmissions", "sum", "Total retransmission")
+
+    # dfs["packets"].to_csv('outP.csv')
+    # dfs["queue"].to_csv('outQ.csv')
+
     # Return the packet and queue DF
     return dfs["packets"], dfs["queue"], dfs["energest"]
-
 
 # Inspired by http://www.randalolson.com/2012/06/26/using-pandas-dataframes/
 # Parses all logs in directory into a dict of DFs
@@ -490,6 +521,8 @@ def parse_logs_dir(directory):
     dfs_packets = {}
     dfs_queue = {}
     dfs_energest = {}
+    dfs_mac_tx = {}
+    dfs_hop_count = {}
 
     # Iterate all folders containing different runs in the directory
     for folder in glob.glob(directory):
@@ -500,27 +533,31 @@ def parse_logs_dir(directory):
             print("Parsing " + logfile)
 
             # Parse log-files
-            dfs_packets[name_of_run], dfs_queue[name_of_run], dfs_energest[name_of_run] = \
+            dfs_packets[name_of_run], dfs_queue[name_of_run], dfs_energest[name_of_run], dfs_mac_tx[name_of_run], dfs_hop_count[name_of_run] = \
                 parse_logfile(logfile, logging.getLogger() == logging.INFO)
 
             # Save to CSV files
             packets_csv = str(Path(logfile).parent) + "/packets_" + name_of_run + ".csv"
             queue_csv = str(Path(logfile).parent) + "/queue_" + name_of_run + ".csv"
             energest_csv = str(Path(logfile).parent) + "/energest_" + name_of_run + ".csv"
+            mac_tx_csv = str(Path(logfile).parent) + "/mac_tx_" + name_of_run + ".csv"
+            hop_count_csv = str(Path(logfile).parent) + "/hop_count_" + name_of_run + ".csv"
             dfs_packets[name_of_run].to_csv(packets_csv)
             dfs_queue[name_of_run].to_csv(queue_csv)
             dfs_energest[name_of_run].to_csv(energest_csv)
+            dfs_mac_tx[name_of_run].to_csv(mac_tx_csv)
+            dfs_hop_count[name_of_run].to_csv(hop_count_csv)
 
-    return dfs_packets, dfs_queue, dfs_energest
+    return dfs_packets, dfs_queue, dfs_energest, dfs_mac_tx, dfs_hop_count
 
 def parse_logs_scenario(scenario_dir, scenario_name):
-    runs_raw_packet_dfs, runs_raw_queue_dfs, runs_raw_energest = \
+    runs_packet_dfs, runs_queue_dfs, runs_energest_dfs, runs_mac_tx_dfs, runs_hop_count_dfs = \
         parse_logs_dir(scenario_dir)
 
-    print("Parsed runs: " + str(runs_raw_packet_dfs.keys()))
-    return runs_raw_packet_dfs, runs_raw_queue_dfs, runs_raw_energest
+    print("Parsed runs: " + str(runs_packet_dfs.keys()))
+    return runs_packet_dfs, runs_queue_dfs, runs_energest_dfs, runs_mac_tx_dfs, runs_hop_count_dfs
 
-def parse_logs_scenarios(scenarios, quiet = False):
+def parse_logs_scenarios(scenarios, quiet=False):
     # Stop output. This solution is a mess and I dont understand it. TODO
     global print
     print = logging.info
@@ -530,10 +567,12 @@ def parse_logs_scenarios(scenarios, quiet = False):
                     format="%(message)s")
 
     for scenario in scenarios:
-        scenario_raw_packet_dfs, scenario_raw_queue_dfs, scenario_raw_energest_dfs = \
+        scenario_raw_packet_dfs, scenario_raw_queue_dfs, scenario_raw_energest_dfs, scenario_raw_mac_tx_dfs, scenario_raw_hop_count = \
             parse_logs_scenario(scenario['path'], scenario['name'])
 
         # Add the raw DFs to the scenario dict in the scenarios list
         scenario['raw_packet_dfs'] = scenario_raw_packet_dfs
         scenario['raw_queue_dfs'] = scenario_raw_queue_dfs
         scenario['raw_energest_dfs'] = scenario_raw_energest_dfs
+        scenario['raw_mac_tx_dfs'] = scenario_raw_mac_tx_dfs
+        scenario['raw_hop_count_dfs'] = scenario_raw_hop_count

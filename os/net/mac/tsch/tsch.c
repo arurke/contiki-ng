@@ -539,15 +539,20 @@ tsch_tx_process_pending(void)
     // Proper implementation is probably to add stats to cell
     int timeslot = packetbuf_attr(PACKETBUF_ATTR_TSCH_TIMESLOT);
     int channel = packetbuf_attr(PACKETBUF_ATTR_TSCH_CHANNEL_OFFSET);
+
+    // If we could not find channel in the packetbuf, we get it directly
+    // from tsch-slot-operation.
+    if(channel == 0xffff) {
+      LOG_INFO("Channel from op.: %d\n", tsch_current_channel_offset);
+      channel = tsch_current_channel_offset;
+    }
+
     int slotframe_handle = packetbuf_attr(PACKETBUF_ATTR_TSCH_SLOTFRAME);
-
-    LOG_WARN("%d\n",slotframe_handle);
-
     struct tsch_slotframe* slotframe =
         tsch_schedule_get_slotframe_by_handle(slotframe_handle);
 
     if(slotframe == NULL) {
-      LOG_WARN("slotframe NULL! %d\n", slotframe_handle);
+      LOG_WARN("slotframe %d NULL!\n", slotframe_handle);
     }
 
     struct tsch_link* link =
@@ -555,12 +560,22 @@ tsch_tx_process_pending(void)
             slotframe, timeslot, channel);
 
     if(link == NULL) {
-      LOG_WARN("link NULL! %p, %d, %d\n",
-               slotframe, timeslot, channel);
+      LOG_WARN("link NULL! sf: %u, ts: %d, offset: %d ch: %d\n",
+               slotframe->handle, timeslot, channel,
+               packetbuf_attr(PACKETBUF_ATTR_CHANNEL));
+      tsch_schedule_print();
+
     }
     else {
-      LOG_WARN("cell %d/%d, normal: %u, dedi.: %u, tx: %u\n",
-               timeslot, channel,
+      LOG_WARN("link! sf: %u, ts: %d, offset: %d ch: %d\n",
+               slotframe->handle, timeslot, channel,
+               packetbuf_attr(PACKETBUF_ATTR_CHANNEL));
+      LOG_INFO("sent %u bytes to ", packetbuf_datalen());
+      LOG_INFO_LLADDR(packetbuf_addr(PACKETBUF_ADDR_RECEIVER));
+      LOG_INFO("\n");
+
+      LOG_WARN("sf %u, cell %d/%d, normal: %u, shared: %u, tx: %u\n",
+               slotframe->handle, timeslot, channel,
                link->link_type == LINK_TYPE_NORMAL ? true : false,
                link->link_options & LINK_OPTION_SHARED ? true : false,
                p->transmissions);
