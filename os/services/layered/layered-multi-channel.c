@@ -83,7 +83,19 @@ void layered_print_stats() {
     if(layered_stats[i].timeslot != 0 &&
         layered_stats[i].channel != 0) {
       num_links++;
-      LOG_INFO("TS/CH %"PRIu16"/%"PRIu16": %"PRIu32" attempts, " \
+
+      struct tsch_link* link = tsch_schedule_get_link_by_timeslot(
+          sf_layered,
+          layered_stats[i].timeslot,
+          layered_stats[i].channel);
+
+      if(link->link_options | LINK_OPTION_SHARED) {
+        LOG_INFO("UC: ");
+      }
+      else {
+        LOG_INFO("BC: ");
+      }
+      LOG_INFO_("TS/CH %"PRIu16"/%"PRIu16": %"PRIu32" attempts, " \
                " %"PRIu32" no OK status\n",
                layered_stats[i].timeslot,
                layered_stats[i].channel,
