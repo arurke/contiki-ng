@@ -38,9 +38,9 @@ def parse_csvs(directory):
             name_of_run = os.path.basename(folder)
             #print("Parsing " + csvfile)
 
-            packets_csv = str(Path(csvfile).parent) + "\packets_" + name_of_run + ".csv"
-            queue_csv = str(Path(csvfile).parent) + "\queue_" + name_of_run + ".csv"
-            energest_csv = str(Path(csvfile).parent) + "\energest_" + name_of_run + ".csv"
+            packets_csv = str(Path(csvfile).parent) + "/packets_" + name_of_run + ".csv"
+            queue_csv = str(Path(csvfile).parent) + "/queue_" + name_of_run + ".csv"
+            energest_csv = str(Path(csvfile).parent) + "/energest_" + name_of_run + ".csv"
             dfs_packets[name_of_run] = parse_csv(packets_csv)
             dfs_queue[name_of_run] = parse_csv(queue_csv)
             dfs_energest[name_of_run] = parse_csv(energest_csv)
