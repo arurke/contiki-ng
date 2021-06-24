@@ -10,6 +10,7 @@
 #include <inttypes.h>
 
 // FYI: int-size on z1 is 2 bytes. clock_time_t is 4 bytes
+// FYI: ticks in CLOCK_SECOND on iotlab-m3 is 100
 
 /* Log configuration */
 #include "sys/log.h"
@@ -18,7 +19,12 @@
 
 #define UDP_CLIENT_PORT   8765
 #define UDP_SERVER_PORT   5678
+
+#if TESTBED
+#define ROOT_NODE_ID      0x9378 // Grenoble m3-358, 0x9378
+#else
 #define ROOT_NODE_ID      1
+#endif
 
 // For native: If wanting to match the slotframe, the sending interval
 // needs to be same as slotframe length - 1 tick (1 ms).
