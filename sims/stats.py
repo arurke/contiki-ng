@@ -21,9 +21,9 @@ def analyze_run(packets_df, energest_df):
     run_entry['duty_cycle_50'] = energest_df.duty_cycle.median()
     run_entry['duty_cycle_99'] = energest_df.duty_cycle.quantile(0.99)
 
-    run_entry['channel_utilization_mean'] = energest_df.channel_utilization.mean()
-    run_entry['channel_utilization_50'] = energest_df.channel_utilization.median()
-    run_entry['channel_utilization_99'] = energest_df.channel_utilization.quantile(0.99)
+    #run_entry['channel_utilization_mean'] = energest_df.channel_utilization.mean()
+    #run_entry['channel_utilization_50'] = energest_df.channel_utilization.median()
+    #run_entry['channel_utilization_99'] = energest_df.channel_utilization.quantile(0.99)
 
     # Drop at start and end to get only the steady-state
     ss_packets_df = packets_df.copy()
@@ -53,9 +53,17 @@ def analyze_run(packets_df, energest_df):
     run_entry['ss_duty_cycle_50'] = ss_energest_df['duty_cycle'].median()
     run_entry['ss_duty_cycle_99'] = ss_energest_df['duty_cycle'].quantile(0.99)
     
-    run_entry['ss_channel_utilization_mean'] = ss_energest_df.channel_utilization.mean()
-    run_entry['ss_channel_utilization_50'] = ss_energest_df.channel_utilization.median()
-    run_entry['ss_channel_utilization_99'] = ss_energest_df.channel_utilization.quantile(0.99)
+    run_entry['ss_duty_cycle_tx_mean'] = ss_energest_df['duty_cycle_tx'].mean()
+    run_entry['ss_duty_cycle_tx_50'] = ss_energest_df['duty_cycle_tx'].median()
+    run_entry['ss_duty_cycle_tx_99'] = ss_energest_df['duty_cycle_tx'].quantile(0.99)
+
+    run_entry['ss_duty_cycle_rx_mean'] = ss_energest_df['duty_cycle_rx'].mean()
+    run_entry['ss_duty_cycle_rx_50'] = ss_energest_df['duty_cycle_rx'].median()
+    run_entry['ss_duty_cycle_rx_99'] = ss_energest_df['duty_cycle_rx'].quantile(0.99)
+
+    #run_entry['ss_channel_utilization_mean'] = ss_energest_df.channel_utilization.mean()
+    #run_entry['ss_channel_utilization_50'] = ss_energest_df.channel_utilization.median()
+    #run_entry['ss_channel_utilization_99'] = ss_energest_df.channel_utilization.quantile(0.99)
     
     return pd.DataFrame([run_entry])
 
@@ -87,21 +95,29 @@ def analyze_scenario(runs_df, scenario_name):
     scenario_entry['duty_cycle_50'] = runs_df.duty_cycle_50.median()
     scenario_entry['duty_cycle_99'] = runs_df.duty_cycle_99.quantile(0.99)
 
-    scenario_entry['channel_utilization_mean'] = runs_df.channel_utilization_mean.mean()
-    scenario_entry['channel_utilization_50'] = runs_df.channel_utilization_50.median()
-    scenario_entry['channel_utilization_99'] = runs_df.channel_utilization_99.quantile(0.99)
+    #scenario_entry['channel_utilization_mean'] = runs_df.channel_utilization_mean.mean()
+    #scenario_entry['channel_utilization_50'] = runs_df.channel_utilization_50.median()
+    #scenario_entry['channel_utilization_99'] = runs_df.channel_utilization_99.quantile(0.99)
 
     scenario_entry['ss_duty_cycle_mean'] = runs_df.ss_duty_cycle_mean.mean()
     scenario_entry['ss_duty_cycle_50'] = runs_df.ss_duty_cycle_50.median()
     scenario_entry['ss_duty_cycle_99'] = runs_df.ss_duty_cycle_99.quantile(0.99)
 
-    scenario_entry['ss_channel_utilization_mean'] = runs_df.ss_channel_utilization_mean.mean()
-    scenario_entry['ss_channel_utilization_50'] = runs_df.ss_channel_utilization_50.median()
-    scenario_entry['ss_channel_utilization_99'] = runs_df.ss_channel_utilization_99.quantile(0.99)
+    scenario_entry['ss_duty_cycle_tx_mean'] = runs_df.ss_duty_cycle_tx_mean.mean()
+    scenario_entry['ss_duty_cycle_tx_50'] = runs_df.ss_duty_cycle_tx_50.median()
+    scenario_entry['ss_duty_cycle_tx_99'] = runs_df.ss_duty_cycle_tx_99.quantile(0.99)
+
+    scenario_entry['ss_duty_cycle_rx_mean'] = runs_df.ss_duty_cycle_rx_mean.mean()
+    scenario_entry['ss_duty_cycle_rx_50'] = runs_df.ss_duty_cycle_rx_50.median()
+    scenario_entry['ss_duty_cycle_rx_99'] = runs_df.ss_duty_cycle_rx_99.quantile(0.99)
+
+    #scenario_entry['ss_channel_utilization_mean'] = runs_df.ss_channel_utilization_mean.mean()
+    #scenario_entry['ss_channel_utilization_50'] = runs_df.ss_channel_utilization_50.median()
+    #scenario_entry['ss_channel_utilization_99'] = runs_df.ss_channel_utilization_99.quantile(0.99)
 
     return pd.DataFrame([scenario_entry])
 
-def stats_for_scenario(scenario):
+def stats_for_scenario(scenario, write_runs_csv=False):
     # Get stats per run (which are typically not very interesting)
     # We only work on packet DF for now
     runs_df = analyze_runs(scenario['raw_packet_dfs'], scenario['raw_energest_dfs'])
@@ -112,11 +128,11 @@ def stats_for_scenario(scenario):
 
     return scenario_df
 
-def stats_for_scenarios(scenarios):
+def stats_for_scenarios(scenarios, write_runs_csv=False):
     scenarios_df_list = []
 
     for scenario in scenarios:
-        scenarios_df_list.append(stats_for_scenario(scenario))
+        scenarios_df_list.append(stats_for_scenario(scenario, write_runs_csv))
 
     # Make one DF from the list of scenario DFs
     scenarios_df = pd.concat(scenarios_df_list)
