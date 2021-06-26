@@ -91,11 +91,11 @@ def analyze_run(packets_df, energest_df, queue_df):
     # Make DF out of the entry
     return pd.DataFrame([run_entry])
 
-def analyze_runs(raw_packet_dfs, raw_energest_dfs, raw_queue_dfs):
+def analyze_runs(raw_packets_dfs, raw_energest_dfs, raw_queue_dfs):
     runs_df_dict = []
-    for key in raw_packet_dfs.keys():
+    for key in raw_packets_dfs.keys():
         runs_df_dict.append(
-            analyze_run(raw_packet_dfs[key],
+            analyze_run(raw_packets_dfs[key],
                         raw_energest_dfs[key],
                         raw_queue_dfs[key]))
 
@@ -166,7 +166,7 @@ def analyze_scenario(runs_df, scenario_name):
 def stats_for_scenario(scenario, write_runs_csv = False):
     # Get stats per run (which are typically not very interesting)
     # We only work on packet DF for now
-    runs_df = analyze_runs(scenario['raw_packet_dfs'],
+    runs_df = analyze_runs(scenario['raw_packets_dfs'],
                            scenario['raw_energest_dfs'],
                            scenario['raw_queue_dfs'])
 
@@ -177,7 +177,7 @@ def stats_for_scenario(scenario, write_runs_csv = False):
 
     # Add the runs_df to the scenario structure
     scenario["runs_df"] = runs_df
-    #print("Analyzed runs: " + str(scenario['raw_packet_dfs'].keys()))
+    #print("Analyzed runs: " + str(scenario['raw_packets_dfs'].keys()))
 
     # Analyze the run-stats to get scenario-stats
     scenario_df = analyze_scenario(runs_df, scenario['name'])

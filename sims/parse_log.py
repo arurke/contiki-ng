@@ -14,6 +14,7 @@ from numpy import *
 #from pylab import *
 from datetime import *
 from collections import OrderedDict
+from collections import defaultdict
 #from IPython import embed
 #import matplotlib as mpl
 import logging
@@ -30,6 +31,9 @@ print
 networkFormationTime = None
 parents = {}
 first_unixtime = None
+
+metrics = ["packets", "energest", "ranks", "hop_count", "nbr_count",
+               "trickle", "switches", "dag_inits", "topology", "queue", "mac_tx"]
 
 def calculateHops(node):
     hops = 0
@@ -68,11 +72,12 @@ def parseRPL(log):
     res = re.compile('.*? rank (\d*).*?dioint (\d*).*?nbr count (\d*)').match(log)
     if res:
         rank = int(res.group(1))
-        trickle = (2**int(res.group(2)))/(60*1000.)
-        nbrCount = int(res.group(3))
+        trickle = (2 ** int(res.group(2))) / (60 * 1000.)
+        nbr_count = int(res.group(3))
         #  uint8_t route_hop_count = ((rpl_dag->rank / RPL_MIN_HOPRANKINC) - 1) / 3;
-        hopCount = ((rank / 256) - 1) / 3
-        return {'event': 'rank', 'rank': rank, 'trickle': trickle, 'hopCount': hopCount }
+        hop_count = ((rank / 256) - 1) / 3
+        return {'event': 'rpl_stats', 'rank': rank, 'trickle': trickle,
+                'hop_count': hop_count, 'nbr_count': nbr_count}
 
     res = re.compile('parent switch: .*? -> .*?-(\d*)$').match(log)
     if res:
@@ -108,19 +113,19 @@ def parseEnergest(log):
     if res:
         tx = float(res.group(1))
         total = float(res.group(2))
-        return {'duty_cycle_tx': 100.*tx/total }
+        return {'duty_cycle_tx': 100.*tx / total }
 
     res = re.compile('Radio Rx\s*:\s*(\d*)/\s*(\d+)').match(log)
     if res:
         rx = float(res.group(1))
         total = float(res.group(2))
-        return {'duty_cycle_rx': 100.*rx/total }
+        return {'duty_cycle_rx': 100.*rx / total }
 
     res = re.compile('Radio total\s*:\s*(\d*)/\s*(\d+)').match(log)
     if res:
         radio = float(res.group(1))
         total = float(res.group(2))
-        return {'duty_cycle': 100.*radio/total }
+        return {'duty_cycle': 100.*radio / total }
     return None
 
 def parseApp(log):
@@ -130,7 +135,11 @@ def parseApp(log):
         id = int(res.group(2))
         tick = int(res.group(3))
         dest = int(res.group(4), 16)
-        return {'event': 'send', 'type': type, 'tick':tick, 'id': id, 'dest': dest }
+        return {'event': 'send',
+                'type': type,
+                'tick':tick,
+                'id': id,
+                'dest': dest }
 
     res = re.compile('RX (.+?) num (\d+) oTick (\d+) tick (\d+) from 6G-([0-9a-fA-F]+)').match(log)
     if res:
@@ -139,47 +148,70 @@ def parseApp(log):
         oTick = int(res.group(3))
         tick = int(res.group(4))
         src = int(res.group(5), 16)
-        return {'event': 'recv', 'type': type, 'oTick': oTick, 'tick':tick, 'id': id, 'src': src }
+        return {'event': 'recv',
+                'type': type,
+                'oTick': oTick,
+                'tick':tick,
+                'id': id,
+                'src': src }
     return None
 
 def parseTSCH(log):
+    # TODO overflow queue is not in code(?) Add Atis PR?
     res = re.compile('! overflow queue (\d+)\/(\d+) (\d+)\/(\d+)').match(log)
     if res:
         queue_num = int(res.group(3))
         queue_size = int(res.group(4))
         queue_fill = (queue_num / queue_size) * 100
-        return {'event': 'mac', 'type': 'overflow', 'queue_num': queue_num, 'queue_size': queue_size, 'queue_fill':queue_fill}
-    
+        return {'event': 'mac',
+                'type': 'overflow',
+                'queue_num': queue_num,
+                'queue_size': queue_size,
+                'queue_fill':queue_fill}
+
     res = re.compile('! can\'t send packet to LL-(\d+) with seqno (\d+), queue (\d+)\/(\d+) (\d+)\/(\d+)').match(log)
     if res:
         queue_num = int(res.group(5))
         queue_size = int(res.group(6))
         queue_fill = (queue_num / queue_size) * 100
-        return {'event': 'mac', 'type': 'drop', 'queue_num': queue_num, 'queue_size': queue_size, 'queue_fill':queue_fill}
-    
+        return {'event': 'mac',
+                'type': 'drop',
+                'queue_num': queue_num,
+                'queue_size': queue_size,
+                'queue_fill':queue_fill}
+
     # Also catch broadcast drops
     res = re.compile('! can\'t send packet to LL-ffff with seqno (\d+), queue (\d+)\/(\d+) (\d+)\/(\d+)').match(log)
     if res:
         queue_num = int(res.group(4))
         queue_size = int(res.group(5))
         queue_fill = (queue_num / queue_size) * 100
-        return {'event': 'mac', 'type': 'drop', 'queue_num': queue_num, 'queue_size': queue_size, 'queue_fill':queue_fill}
-    
+        return {'event': 'mac', 'type': 'drop', 'queue_num': queue_num,
+                'queue_size': queue_size, 'queue_fill':queue_fill}
+
     res = re.compile('TX to LL-(\d+) seqno (\d+), queue (\d+)\/(\d+) (\d+)\/(\d+)').match(log)
     if res:
         queue_num = int(res.group(5))
         queue_size = int(res.group(6))
         queue_fill = (queue_num / queue_size) * 100
-        return {'event': 'mac', 'type': 'send', 'queue_num': queue_num, 'queue_size': queue_size, 'queue_fill':queue_fill}
+        return {'event': 'mac',
+                'type': 'send',
+                'queue_num': queue_num,
+                'queue_size': queue_size,
+                'queue_fill':queue_fill}
 
     res = re.compile('sf \d+, cell (\d+)\/(\d+), normal: (\d+), shared: (\d+), tx: (\d+)').match(log)
     if res:
+        timeslot = int(res.group(1))
+        channel = int(res.group(2))
         normal = int(res.group(3))
         shared = int(res.group(4))
         transmissions = int(res.group(5))
         retransmissions = transmissions - 1
         return {'event': 'mac',
-                'type': 'macTX',
+                'type': 'mac_tx',
+                'timeslot': timeslot,
+                'channel': channel,
                 'normal': normal,
                 'shared': shared,
                 'transmissions':transmissions,
@@ -197,24 +229,22 @@ def parseLine(line, testbed):
     else:
         # "119682    ID:2    [WARN: TSCH      ] <log>"
         prefix = '\s*([.\d]+)\tID:(\d+)\t'
-        #time = round(float(res.group(1)), 3)
 
     pattern_log_os = '\[(.*?):(.*?)\](.*)$'
     res = re.compile(prefix + pattern_log_os).match(line)
 
     if res:
         if testbed:
-            time = float(res.group(1))
-            # Adjust for unixtime used in testbed
+            time_abs = float(res.group(1))
 
-            if testbed:
-                if first_unixtime is None:
-                    first_unixtime = time
-                time = int((time - first_unixtime) * 1000)
+            # Adjust for unixtime used in testbed
+            if first_unixtime is None:
+                first_unixtime = time_abs
+
+            time = int((time_abs - first_unixtime) * 1000)
         else:
             time = int(res.group(1))
 
-        #time = float(res.group(1)) / 1000
         nodeid = int(res.group(2))
         level = res.group(3).strip()
         module = res.group(4).strip()
@@ -227,22 +257,11 @@ def parseLine(line, testbed):
 
 def doParse(file, testbed):
     global networkFormationTime
-
     time = None
-    lastPrintedTime = 0
+    arrays = {}
 
-    arrays = {
-        "packets": [],
-        "energest": [],
-        "ranks": [],
-        "hopCount": [],
-        "trickle": [],
-        "switches": [],
-        "DAGinits": [],
-        "topology": [],
-        "queue": [],
-        "macTX": [],
-    }
+    for name in metrics:
+        arrays[name] = []
 
     mac_to_node_id_map = {}
 
@@ -260,12 +279,8 @@ def doParse(file, testbed):
         if time == None:
             # malformed line
             continue
-        if time - lastPrintedTime >= 60:
-#            print("%u, "%(time / 60),end='', flush=True)
-            lastPrintedTime = time
 
         entry = {
-            # "timestamp": timedelta(seconds=time),
             "timestamp": timedelta(milliseconds=time),
             "node": nodeid,
         }
@@ -298,7 +313,7 @@ def doParse(file, testbed):
 
                     # Update sent request series with latency and PDR
                     # First find the row
-                    txElement = [x for x in arrays["packets"] if x['event']=='send' and x['node']==ret['src'] and x['id']==ret['id']][0]
+                    txElement = [x for x in arrays["packets"] if x['event'] == 'send' and x['node'] == ret['src'] and x['id'] == ret['id']][0]
 
                     # Calculate and add latency
                     txElement['latency'] = (entry['timestamp'] - txElement['timestamp']).total_seconds()
@@ -336,14 +351,15 @@ def doParse(file, testbed):
                     continue
 
                 entry.update(ret)
-                if(ret['event'] == 'rank'):
+                if(ret['event'] == 'rpl_stats'):
                     arrays["ranks"].append(entry)
                     arrays["trickle"].append(entry)
-                    arrays["hopCount"].append(entry)
+                    arrays["hop_count"].append(entry)
+                    arrays["nbr_count"].append(entry)
                 elif(ret['event'] == 'switch'):
                     arrays["switches"].append(entry)
                 elif(ret['event'] == 'DAGinit'):
-                    arrays["DAGinits"].append(entry)
+                    arrays["dag_inits"].append(entry)
                 elif(ret['event'] == 'sending'):
                     if not ret['message'] in arrays:
                         arrays[ret['message']] = []
@@ -363,8 +379,8 @@ def doParse(file, testbed):
 
                 entry.update(ret)
                 #print("entry: ", str(entry))
-                if ret['type'] == 'macTX':
-                    arrays['macTX'].append(entry)
+                if ret['type'] == 'mac_tx':
+                    arrays['mac_tx'].append(entry)
                 else:
                     arrays["queue"].append(entry)
 
@@ -387,17 +403,9 @@ def doParse(file, testbed):
     if testbed:
         print("Mac-to-node-id map: " + str(mac_to_node_id_map))
 
-    dfs = {}
-    for key in arrays.keys():
-        if(len(arrays[key]) > 0):
-            df = DataFrame(arrays[key])
-            #print("DF is: ", df)
-            print("New key: " + key)
-            dfs[key] = df.set_index("timestamp")
+    return arrays
 
-    return dfs
-
-def outputStats(dfs, key, metric, agg, name, metricLabel = None):
+def outputStats(dfs, key, metric, agg, name, metricLabel=None):
     if not key in dfs:
         return
 
@@ -424,6 +432,17 @@ def is_fitiotlab(file):
 
     return False
 
+def convert_data_arrays_to_dfs(arrays):
+    dfs = {}
+    for key in arrays.keys():
+        if(len(arrays[key]) > 0):
+            df = DataFrame(arrays[key])
+            #print("DF is: ", df)
+            print("New DF: " + key)
+            dfs[key] = df.set_index("timestamp")
+
+    return dfs
+
 def parse_logfile(file, quiet=False):
     # Stop output. This solution is a mess and I dont understand it. TODO
     global print
@@ -439,7 +458,9 @@ def parse_logfile(file, quiet=False):
         print("Log is from simulator")
         testbed = False
 
-    dfs = doParse(file, testbed)
+    data_arrays = doParse(file, testbed)
+
+    dfs = convert_data_arrays_to_dfs(data_arrays)
 
     #print(dfs)
 
@@ -448,40 +469,39 @@ def parse_logfile(file, quiet=False):
 
     packets_sent = dfs["packets"]["pdr"].count();
     # A packet which is not received is stored with PDR = 0
-    packets_received = dfs["packets"]["pdr"].sum()/100
-    
-    
+    packets_received = dfs["packets"]["pdr"].sum() / 100
+
     # There are some rpoblems with the queue-stuff:
     # 1. All packets are counted, thus the queue overflow is larger than
     #    lost applicaiton packets
     # 2. The queue size is onluy printed when sending or sending failed
     #    TODO Add a print at every manipulatio of queue to have a proper stat.
     # Needed?
-    
+
     # Drops (This does not take transmissions failures into account)
     drops = dfs["queue"][dfs["queue"]["type"] == "drop"]["type"].count()
-    
+
     # Queue overflow
     overflows = dfs["queue"][dfs["queue"]["type"] == "overflow"]["type"].count()
-    
-    #seriesObj = dfs["queue"].apply(lambda x: True if x["type"] == "drop" else False, axis = 1)
-    #numRows = len(seriesObj[seriesObj == True].index)
-    
+
+    # seriesObj = dfs["queue"].apply(lambda x: True if x["type"] == "drop" else False, axis = 1)
+    # numRows = len(seriesObj[seriesObj == True].index)
+
     print("global-stats:")
-    print("  pdr: %.4f" %(dfs["packets"]["pdr"].mean()))
-    print("  loss-rate: %.e" %(1-(dfs["packets"]["pdr"].mean()/100)))
-    print("  packets-sent: %u" %(packets_sent))
-    print("  packets-received: %u" %(packets_received))
-    print("  packets-lost: %u" %(packets_sent - packets_received))
-    print("  queue-fails %u" %(drops))
-    print("  queue-overflow %u" %(overflows))
-    
-    print("  latency mean: %.4f" %(dfs["packets"]["latency"].mean()))
-    print("  latency max: %.4f" %(dfs["packets"]["latency"].max()))
-    print("  duty-cycle: %.2f" %(dfs["energest"]["duty_cycle"].mean()))
-    print("  duty-cycle tx: %.2f" %(dfs["energest"]["duty_cycle_tx"].mean()))
-    print("  duty-cycle rx: %.2f" %(dfs["energest"]["duty_cycle_rx"].mean()))
-    print("  network-formation-time: %.2f" %(networkFormationTime))
+    print("  pdr: %.4f" % (dfs["packets"]["pdr"].mean()))
+    print("  loss-rate: %.e" % (1 - (dfs["packets"]["pdr"].mean() / 100)))
+    print("  packets-sent: %u" % (packets_sent))
+    print("  packets-received: %u" % (packets_received))
+    print("  packets-lost: %u" % (packets_sent - packets_received))
+    print("  queue-fails %u" % (drops))
+    print("  queue-overflow %u" % (overflows))
+
+    print("  latency mean: %.4f" % (dfs["packets"]["latency"].mean()))
+    print("  latency max: %.4f" % (dfs["packets"]["latency"].max()))
+    print("  duty-cycle: %.2f" % (dfs["energest"]["duty_cycle"].mean()))
+    print("  duty-cycle tx: %.2f" % (dfs["energest"]["duty_cycle_tx"].mean()))
+    print("  duty-cycle rx: %.2f" % (dfs["energest"]["duty_cycle_rx"].mean()))
+    print("  network-formation-time: %.2f" % (networkFormationTime))
     print("stats:")
 
     # Output relevant metrics
@@ -491,10 +511,10 @@ def parse_logfile(file, quiet=False):
 
     # outputStats(dfs, "energest", "duty_cycle", "mean", "Radio duty cycle (%)")
     outputStats(dfs, "ranks", "rank", "mean", "RPL rank (ETX-128)")
-    # outputStats(dfs, "ranks", "hopCount", "mean", "Hop count mean")
-    outputStats(dfs, "ranks", "hopCount", "max", "Hop count max")
+    # outputStats(dfs, "ranks", "hop_count", "mean", "Hop count mean")
+    outputStats(dfs, "ranks", "hop_count", "max", "Hop count max")
     outputStats(dfs, "switches", "pswitch", "count", "RPL parent switches (#)")
-    outputStats(dfs, "DAGinits", "event", "count", "RPL joining DAG (#)")
+    outputStats(dfs, "dag_inits", "event", "count", "RPL joining DAG (#)")
     outputStats(dfs, "trickle", "trickle", "mean", "RPL Trickle period (min)")
 
     outputStats(dfs, "DIS", "message", "count", "RPL DIS sent (#)", "rpl-dis")
@@ -503,26 +523,22 @@ def parse_logfile(file, quiet=False):
     outputStats(dfs, "DAO", "message", "count", "RPL DAO sent (#)", "rpl-dao")
     outputStats(dfs, "DAO-ACK", "message", "count", "RPL DAO-ACK sent (#)", "rpl-daoack")
 
-    outputStats(dfs, "topology", "hops", "mean", "RPL hop count (#)")
-    outputStats(dfs, "topology", "children", "mean", "RPL children count (#)")
+    #outputStats(dfs, "topology", "hops", "mean", "RPL hop count (#)")
+    #outputStats(dfs, "topology", "children", "mean", "RPL children count (#)")
 
-    outputStats(dfs, "macTX", "retransmissions", "sum", "Total retransmission")
-
-    # dfs["packets"].to_csv('outP.csv')
-    # dfs["queue"].to_csv('outQ.csv')
+    outputStats(dfs, "mac_tx", "retransmissions", "sum", "Total retransmission")
+    outputStats(dfs, "ranks", "nbr_count", "max", "Max. neighbor count")
 
     # Return the packet and queue DF
-    return dfs["packets"], dfs["queue"], dfs["energest"]
+    return dfs
 
 # Inspired by http://www.randalolson.com/2012/06/26/using-pandas-dataframes/
 # Parses all logs in directory into a dict of DFs
 def parse_logs_dir(directory):
     directory = directory.rstrip('/') + "/*"
-    dfs_packets = {}
-    dfs_queue = {}
-    dfs_energest = {}
-    dfs_mac_tx = {}
-    dfs_hop_count = {}
+
+    # A ditionary of metrics containing dictionaries of DF from each run
+    all_runs_dfs = defaultdict(dict)
 
     # Iterate all folders containing different runs in the directory
     for folder in glob.glob(directory):
@@ -532,30 +548,23 @@ def parse_logs_dir(directory):
             name_of_run = os.path.basename(folder)
             print("Parsing " + logfile)
 
-            # Parse log-files
-            dfs_packets[name_of_run], dfs_queue[name_of_run], dfs_energest[name_of_run], dfs_mac_tx[name_of_run], dfs_hop_count[name_of_run] = \
-                parse_logfile(logfile, logging.getLogger() == logging.INFO)
+            run_dfs = parse_logfile(logfile, logging.getLogger() == logging.INFO)
 
-            # Save to CSV files
-            packets_csv = str(Path(logfile).parent) + "/packets_" + name_of_run + ".csv"
-            queue_csv = str(Path(logfile).parent) + "/queue_" + name_of_run + ".csv"
-            energest_csv = str(Path(logfile).parent) + "/energest_" + name_of_run + ".csv"
-            mac_tx_csv = str(Path(logfile).parent) + "/mac_tx_" + name_of_run + ".csv"
-            hop_count_csv = str(Path(logfile).parent) + "/hop_count_" + name_of_run + ".csv"
-            dfs_packets[name_of_run].to_csv(packets_csv)
-            dfs_queue[name_of_run].to_csv(queue_csv)
-            dfs_energest[name_of_run].to_csv(energest_csv)
-            dfs_mac_tx[name_of_run].to_csv(mac_tx_csv)
-            dfs_hop_count[name_of_run].to_csv(hop_count_csv)
+            for df_name in run_dfs:
+                # Add this DF to the dictionary of DFs
+                all_runs_dfs[df_name][name_of_run] = run_dfs[df_name]
+                # Save as CSV
+                csv_name = str(Path(logfile).parent) + "/" + df_name + "_" + name_of_run + ".csv"
+                run_dfs[df_name].to_csv(csv_name)
 
-    return dfs_packets, dfs_queue, dfs_energest, dfs_mac_tx, dfs_hop_count
+    return all_runs_dfs
 
 def parse_logs_scenario(scenario_dir, scenario_name):
-    runs_packet_dfs, runs_queue_dfs, runs_energest_dfs, runs_mac_tx_dfs, runs_hop_count_dfs = \
-        parse_logs_dir(scenario_dir)
 
-    print("Parsed runs: " + str(runs_packet_dfs.keys()))
-    return runs_packet_dfs, runs_queue_dfs, runs_energest_dfs, runs_mac_tx_dfs, runs_hop_count_dfs
+    dfs = parse_logs_dir(scenario_dir)
+
+    print("Parsed runs: " + str(dfs["energest"].keys()))
+    return dfs
 
 def parse_logs_scenarios(scenarios, quiet=False):
     # Stop output. This solution is a mess and I dont understand it. TODO
@@ -567,12 +576,9 @@ def parse_logs_scenarios(scenarios, quiet=False):
                     format="%(message)s")
 
     for scenario in scenarios:
-        scenario_raw_packet_dfs, scenario_raw_queue_dfs, scenario_raw_energest_dfs, scenario_raw_mac_tx_dfs, scenario_raw_hop_count = \
-            parse_logs_scenario(scenario['path'], scenario['name'])
+        raw_dfs = parse_logs_scenario(scenario['path'], scenario['name'])
 
         # Add the raw DFs to the scenario dict in the scenarios list
-        scenario['raw_packet_dfs'] = scenario_raw_packet_dfs
-        scenario['raw_queue_dfs'] = scenario_raw_queue_dfs
-        scenario['raw_energest_dfs'] = scenario_raw_energest_dfs
-        scenario['raw_mac_tx_dfs'] = scenario_raw_mac_tx_dfs
-        scenario['raw_hop_count_dfs'] = scenario_raw_hop_count
+        for df_name in raw_dfs:
+            metric_df_name = "raw_" + df_name + "_dfs"
+            scenario[metric_df_name] = raw_dfs[df_name]

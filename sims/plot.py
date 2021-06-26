@@ -108,11 +108,11 @@ def plot_pdr_latency(scenarios_df, execution_dir, title=False):
     print("Made figure", fig_path)
 
 def plot_time_series(scenario, nodeid, run_id, skip_end = 0):
-    if run_id not in scenario['raw_packet_dfs']:
+    if run_id not in scenario['raw_packets_dfs']:
         return
 
     # Copy the DF so that we can make changes without messing up the original
-    df = scenario['raw_packet_dfs'][run_id].copy()
+    df = scenario['raw_packets_dfs'][run_id].copy()
     if skip_end != 0:
         df = df[:-skip_end]
 
@@ -303,9 +303,9 @@ def plot_time_series(scenario, nodeid, run_id, skip_end = 0):
     # convert to float (i.e. seconds since t0) using total_seconds()
     hop_df.index = [(index - hop_df.index[0]).total_seconds() for index in hop_df.index]
 
-    max_df = hop_df.groupby(["node"])["hopCount"].max()
+    max_df = hop_df.groupby(["node"])["hop_count"].max()
 
-    fig = max_df.plot.bar(x="node", y="hopCount")
+    fig = max_df.plot.bar(x="node", y="hop_count")
     #fig.tight_layout()  # otherwise the right y-label is slightly clipped
     fig_name = 'max_hop_count_all_nodes' + '_' + scenario['name'] + \
         '_' + run_id
