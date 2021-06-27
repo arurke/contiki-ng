@@ -7,11 +7,12 @@ import os
 import pandas as pd
 import glob
 from pathlib import Path
+from collections import defaultdict
 
 # Constants
 CSV_PATTERN = '*.csv'
 
-def parse_csv(csv):
+def parse_csvfile(csv):
     df = pd.read_csv(csv)
 
     # Set timestamp as index
@@ -24,42 +25,41 @@ def parse_csv(csv):
 
 # Inspired by http://www.randalolson.com/2012/06/26/using-pandas-dataframes/
 # Parses all csv in directory into a dict of DFs
-def parse_csvs(directory):
+def parse_csvs_dir(directory):
     directory = directory.rstrip('/') + "/*"
-    dfs_packets = {}
-    dfs_queue = {}
-    dfs_energest = {}
+
+    # A ditionary of metrics containing dictionaries of DF from each run
+    all_runs_dfs = defaultdict(dict)
 
     # Iterate all folders containing different runs in the directory
     for folder in glob.glob(directory):
-        # Iterate and parse all csv files in the folder
-        # This is hijacked from parse_log so it is quite hackish
+        name_of_run = os.path.basename(folder)
+
+        # Iterate and parse all log files in the folder
+        # We have only one file pr run at the moment, but this might change
         for csvfile in glob.glob(folder + "/" + CSV_PATTERN):
-            name_of_run = os.path.basename(folder)
-            #print("Parsing " + csvfile)
 
-            packets_csv = str(Path(csvfile).parent) + "/packets_" + name_of_run + ".csv"
-            queue_csv = str(Path(csvfile).parent) + "/queue_" + name_of_run + ".csv"
-            energest_csv = str(Path(csvfile).parent) + "/energest_" + name_of_run + ".csv"
-            dfs_packets[name_of_run] = parse_csv(packets_csv)
-            dfs_queue[name_of_run] = parse_csv(queue_csv)
-            dfs_energest[name_of_run] = parse_csv(energest_csv)
+            df_name = os.path.splitext(os.path.basename(csvfile))[0]
+            run_dfs = parse_csvfile(csvfile)
 
-    return dfs_packets, dfs_queue, dfs_energest
+            # Add this DF to the dictionary of DFs
+            all_runs_dfs[df_name][name_of_run] = run_dfs
+
+    return all_runs_dfs
 
 def parse_csv_scenario(scenario_dir, scenario_name):
-    runs_raw_packet_dfs, runs_raw_queue_dfs, runs_raw_energest = \
-        parse_csvs(scenario_dir)
 
-    #print("Parsed runs: " + str(runs_raw_packet_dfs.keys()))
-    return runs_raw_packet_dfs, runs_raw_queue_dfs, runs_raw_energest
+    dfs = parse_csvs_dir(scenario_dir)
+
+    print("Parsed runs: " + str(dfs["energest"].keys()))
+    return dfs
 
 def parse_csv_scenarios(scenarios):
-      for scenario in scenarios:
-        scenario_raw_packet_dfs, scenario_raw_queue_dfs, scenario_raw_energest_dfs = \
-            parse_csv_scenario(scenario['path'], scenario['name'])
+    for scenario in scenarios:
+        raw_dfs = parse_csv_scenario(scenario['path'], scenario['name'])
 
         # Add the raw DFs to the scenario dict in the scenarios list
-        scenario['raw_packet_dfs'] = scenario_raw_packet_dfs
-        scenario['raw_queue_dfs'] = scenario_raw_queue_dfs
-        scenario['raw_energest_dfs'] = scenario_raw_energest_dfs
+        for df_name in raw_dfs:
+            metric_df_name = "raw_" + df_name + "_dfs"
+            #print("DF: " + metric_df_name)
+            scenario[metric_df_name] = raw_dfs[df_name]
