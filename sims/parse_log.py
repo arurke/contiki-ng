@@ -554,7 +554,7 @@ def parse_logs_dir(directory):
                 # Add this DF to the dictionary of DFs
                 all_runs_dfs[df_name][name_of_run] = run_dfs[df_name]
                 # Save as CSV
-                csv_name = str(Path(logfile).parent) + "/" + df_name + "_" + name_of_run + ".csv"
+                csv_name = str(Path(logfile).parent) + "/" + df_name + ".csv"
                 run_dfs[df_name].to_csv(csv_name)
 
     return all_runs_dfs
