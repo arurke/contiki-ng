@@ -315,3 +315,27 @@ def plot_time_series(scenario, nodeid, run_id, skip_end = 0):
     plt.close()
     print("Made figure", fig_path)
 
+    # Neighbor count bar chart
+    nbr_df = scenario['raw_nbr_count_dfs'][run_id].copy()
+
+    # Set timestamp as index
+    #nbr_df.set_index("timestamp", inplace=True)
+
+    # Convert timestamp from string to TimeDelta
+    #nbr_df.index = pd.to_timedelta(nbr_df.index)
+
+    # Switch timestamp from absolute to relative to first packet and
+    # convert to float (i.e. seconds since t0) using total_seconds()
+    nbr_df.index = [(index - nbr_df.index[0]).total_seconds() for index in nbr_df.index]
+
+    max_df = nbr_df.groupby(["node"])["nbr_count"].max()
+
+    fig = max_df.plot.bar(x="node", y="nbr_count")
+    #fig.tight_layout()  # otherwise the right y-label is slightly clipped
+    fig_name = 'max_nbr_count_all_nodes' + '_' + scenario['name'] + \
+        '_' + run_id
+    fig_path = scenario['path'] + fig_name + '.pdf'
+    fig.set_ylabel('Max. neighbor count')
+    plt.savefig(fig_path, bbox_inches='tight')
+    plt.close()
+    print("Made figure", fig_path)
