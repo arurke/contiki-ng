@@ -28,7 +28,7 @@ SCRIPT_LOG_PATTERN = '*.scriptlog'  # For simulations run by simexec.sh
 # Global variable to replace print for quiet mode
 print
 
-networkFormationTime = None
+network_formation_time_ms = None
 parents = {}
 first_unixtime = None
 
@@ -256,7 +256,7 @@ def parseLine(line, testbed):
     return None, None, None, None, None
 
 def doParse(file, testbed):
-    global networkFormationTime
+    global network_formation_time_ms
     time = None
     arrays = {}
 
@@ -298,8 +298,8 @@ def doParse(file, testbed):
                     # populate series of sent requests
                     entry['pdr'] = 0.
                     arrays["packets"].append(entry)
-                    if networkFormationTime == None:
-                        networkFormationTime = time
+                    if network_formation_time_ms == None:
+                        network_formation_time_ms = time
                 elif(ret['event'] == 'recv' and ret['type'] == 'data'):
 
                     # Testbed uses MAC-nodeid instead of the node-id in the log
@@ -501,7 +501,7 @@ def parse_logfile(file, quiet=False):
     print("  duty-cycle: %.2f" % (dfs["energest"]["duty_cycle"].mean()))
     print("  duty-cycle tx: %.2f" % (dfs["energest"]["duty_cycle_tx"].mean()))
     print("  duty-cycle rx: %.2f" % (dfs["energest"]["duty_cycle_rx"].mean()))
-    print("  network-formation-time: %.2f" % (networkFormationTime))
+    print("  network-formation-time: %.3f" % (network_formation_time_ms / 1000))
     print("stats:")
 
     # Output relevant metrics
