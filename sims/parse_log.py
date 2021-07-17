@@ -31,6 +31,7 @@ print
 network_formation_time_ms = None
 parents = {}
 first_unixtime = None
+unknown_line_count = 0
 
 metrics = ["packets", "energest", "ranks", "hop_count", "nbr_count",
                "trickle", "switches", "dag_inits", "topology", "queue", "mac_tx"]
@@ -221,6 +222,7 @@ def parseTSCH(log):
 
 def parseLine(line, testbed):
     global first_unixtime
+    global unknown_line_count
     #print("Parsing line: " + line)
 
     if testbed:
@@ -252,7 +254,10 @@ def parseLine(line, testbed):
 
         return time, nodeid, level, module, log
 
-    print("Unknown line: " + line.rstrip())
+    #print("Unknown line: " + line.rstrip())
+    unknown_line_count += 1
+    if unknown_line_count > 100:
+        print("Warn! Unknown line count: ", unknown_line_count)
     return None, None, None, None, None
 
 def doParse(file, testbed):
@@ -438,7 +443,7 @@ def convert_data_arrays_to_dfs(arrays):
         if(len(arrays[key]) > 0):
             df = DataFrame(arrays[key])
             #print("DF is: ", df)
-            print("New DF: " + key)
+            #print("New DF: " + key)
             dfs[key] = df.set_index("timestamp")
 
     return dfs
