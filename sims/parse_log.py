@@ -91,7 +91,7 @@ def parseRPL(log):
         message = res.group(1)
         return {'event': 'sending', 'message': message }
 
-    res = re.compile('links: 6G-(\d+)\s*to 6G-(\d+)').match(log)
+    res = re.compile('links: 6G-([0-9a-fA-F]+)\s*to 6G-([0-9a-fA-F]+)').match(log)
     if res:
         child = int(res.group(1))
         parent = int(res.group(2))
@@ -177,7 +177,7 @@ def parseTSCH(log):
                 'queue_size': queue_size,
                 'queue_fill':queue_fill}
 
-    res = re.compile('! can\'t send packet to LL-(\d+) with seqno (\d+), queue (\d+)\/(\d+) (\d+)\/(\d+)').match(log)
+    res = re.compile('! can\'t send packet to LL-([0-9a-fA-F]+) with seqno (\d+), queue (\d+)\/(\d+) (\d+)\/(\d+)').match(log)
     if res:
         queue_num = int(res.group(5))
         queue_size = int(res.group(6))
@@ -188,16 +188,7 @@ def parseTSCH(log):
                 'queue_size': queue_size,
                 'queue_fill':queue_fill}
 
-    # Also catch broadcast drops
-    res = re.compile('! can\'t send packet to LL-ffff with seqno (\d+), queue (\d+)\/(\d+) (\d+)\/(\d+)').match(log)
-    if res:
-        queue_num = int(res.group(4))
-        queue_size = int(res.group(5))
-        queue_fill = (queue_num / queue_size) * 100
-        return {'event': 'mac', 'type': 'drop', 'queue_num': queue_num,
-                'queue_size': queue_size, 'queue_fill':queue_fill}
-
-    res = re.compile('TX to LL-(\d+) seqno (\d+), queue (\d+)\/(\d+) (\d+)\/(\d+)').match(log)
+    res = re.compile('TX to LL-([0-9a-fA-F]+) seqno (\d+), queue (\d+)\/(\d+) (\d+)\/(\d+)').match(log)
     if res:
         queue_num = int(res.group(5))
         queue_size = int(res.group(6))
