@@ -36,19 +36,33 @@
 #define SEND_INTERVAL     ((uint16_t)(5 * CLOCK_SECOND))
 #endif
 
-#define NUM_PACKETS       1000
+#define PERIODIC_DEBUG_INTERVAL (CLOCK_SECOND * 30)
+
+#define NUM_PACKETS       100
+
 // Time to wait before sending app packets
 // 1800 (30 min) used for grid, 600 otherwise
 #define TIME_TO_START_TX  1800
 
 static struct simple_udp_connection udp_conn;
 static bool is_coordinator = false;
+static struct ctimer ct_periodic_debug;
 
 /*---------------------------------------------------------------------------*/
 PROCESS(app_process, "Application");
 AUTOSTART_PROCESSES(&app_process);
 
 /*---------------------------------------------------------------------------*/
+static void
+periodic_debug() {
+  rpl_print_neighbor_list();
+
+  ctimer_set(&ct_periodic_debug,
+             PERIODIC_DEBUG_INTERVAL,
+             periodic_debug,
+             NULL);
+}
+
 static void
 udp_rx_callback(struct simple_udp_connection *c,
          const uip_ipaddr_t *sender_addr,
@@ -79,6 +93,11 @@ PROCESS_THREAD(app_process, ev, data)
   uip_ipaddr_t dest_ipaddr;
 
   PROCESS_BEGIN();
+
+  ctimer_set(&ct_periodic_debug,
+             PERIODIC_DEBUG_INTERVAL,
+             periodic_debug,
+             NULL);
 
   is_coordinator = (node_id == ROOT_NODE_ID);
 
