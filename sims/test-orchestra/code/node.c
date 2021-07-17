@@ -90,6 +90,7 @@ PROCESS_THREAD(app_process, ev, data)
   static struct etimer periodic_timer;
   static unsigned count = 0;
   static char str[64];
+  static bool application_success = true;
   uip_ipaddr_t dest_ipaddr;
 
   PROCESS_BEGIN();
@@ -171,6 +172,7 @@ PROCESS_THREAD(app_process, ev, data)
     }
     else {
       LOG_ERR("No conn!\n");
+      application_success = false;
       break;
     }
 
@@ -190,7 +192,7 @@ PROCESS_THREAD(app_process, ev, data)
     PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
   }
 
-  if(!is_coordinator) {
+  if(application_success) {
     LOG_INFO("Done\n");
   }
 

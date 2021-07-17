@@ -31,6 +31,7 @@ print
 network_formation_time_ms = None
 parents = {}
 first_unixtime = None
+application_done_count = 0
 
 metrics = ["packets", "energest", "ranks", "hop_count", "nbr_count",
                "trickle", "switches", "dag_inits", "topology", "queue", "mac_tx"]
@@ -129,6 +130,8 @@ def parseEnergest(log):
     return None
 
 def parseApp(log):
+    global application_done_count
+
     res = re.compile('TX (.+?) num (\d+) tick (\d+) to 6G-([0-9a-fA-F]+)').match(log)
     if res:
         type = res.group(1)
@@ -154,6 +157,11 @@ def parseApp(log):
                 'tick':tick,
                 'id': id,
                 'src': src }
+
+    res = re.compile('Done').match(log)
+    if res:
+        application_done_count += 1
+
     return None
 
 def parseTSCH(log):
@@ -468,6 +476,13 @@ def parse_logfile(file, quiet=False):
     data_arrays = doParse(file, testbed)
 
     dfs = convert_data_arrays_to_dfs(data_arrays)
+
+    # Verify application has finished on all nodes
+    num_tx_nodes = dfs["energest"].node.nunique() - 1
+    if application_done_count != num_tx_nodes:
+        print("Application not finished! " +
+              str(application_done_count) + "/" + str(num_tx_nodes))
+        return
 
     #print(dfs)
 
