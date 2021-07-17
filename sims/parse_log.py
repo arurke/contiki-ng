@@ -31,7 +31,6 @@ print
 network_formation_time_ms = None
 parents = {}
 first_unixtime = None
-unknown_line_count = 0
 
 metrics = ["packets", "energest", "ranks", "hop_count", "nbr_count",
                "trickle", "switches", "dag_inits", "topology", "queue", "mac_tx"]
@@ -222,7 +221,6 @@ def parseTSCH(log):
 
 def parseLine(line, testbed):
     global first_unixtime
-    global unknown_line_count
     #print("Parsing line: " + line)
 
     if testbed:
@@ -254,14 +252,11 @@ def parseLine(line, testbed):
 
         return time, nodeid, level, module, log
 
-    #print("Unknown line: " + line.rstrip())
-    unknown_line_count += 1
-    if unknown_line_count > 100:
-        print("Warn! Unknown line count: ", unknown_line_count)
     return None, None, None, None, None
 
 def doParse(file, testbed):
     global network_formation_time_ms
+    unknown_line_count = 0
     time = None
     arrays = {}
 
@@ -282,7 +277,8 @@ def doParse(file, testbed):
         time, nodeid, level, module, log = parseLine(line, testbed)
 
         if time == None:
-            # malformed line
+            #print("Unknown line: " + line.rstrip())
+            unknown_line_count += 1
             continue
 
         entry = {
@@ -407,6 +403,12 @@ def doParse(file, testbed):
 
     if testbed:
         print("Mac-to-node-id map: " + str(mac_to_node_id_map))
+
+    print("Unknown line count: " + str(unknown_line_count))
+
+    if unknown_line_count > 100:
+        print("ERR! Too many unknown lines")
+        return -1
 
     return arrays
 
