@@ -33,7 +33,7 @@ parents = {}
 first_unixtime = None
 application_done_count = 0
 
-metrics = ["packets", "energest", "ranks", "hop_count", "nbr_count",
+metrics = ["packets", "energest", "ranks", "hop_count", "nbr_count", "app_parent_switch",
                "trickle", "switches", "dag_inits", "topology", "queue", "mac_tx"]
 
 def calculateHops(node):
@@ -157,6 +157,10 @@ def parseApp(log):
                 'tick':tick,
                 'id': id,
                 'src': src }
+
+    res = re.compile('Parent switch').match(log)
+    if res:
+        return {'event': 'app_parent_switch'}
 
     res = re.compile('Done').match(log)
     if res:
@@ -324,6 +328,9 @@ def doParse(file, testbed):
                     # Add latency as ticks as well (we don't use it yet)
                     txElement['rx_tick'] = ret['tick']
                     txElement['latency_tick'] = ret['tick'] - txElement['tick']
+
+                elif ret['event'] == 'app_parent_switch':
+                    arrays['app_parent_switch'].append(entry)
 
             if module == "Energest":
                 ret = parseEnergest(log)
@@ -505,10 +512,10 @@ def parse_logfile(file, quiet=False):
     outputStats(dfs, "packets", "pdr", "mean", "Round-trip PDR (%)")
     outputStats(dfs, "packets", "latency", "mean", "Round-trip latency (s)")
     outputStats(dfs, "queue", "queue_fill", "mean", "Queue fill")
+    outputStats(dfs, "app_parent_switch", "app_parent_switch", "count", "Parent switch during application")
 
     # outputStats(dfs, "energest", "duty_cycle", "mean", "Radio duty cycle (%)")
     outputStats(dfs, "ranks", "rank", "mean", "RPL rank (ETX-128)")
-    # outputStats(dfs, "ranks", "hop_count", "mean", "Hop count mean")
     outputStats(dfs, "ranks", "hop_count", "max", "Hop count max")
     outputStats(dfs, "ranks", "hop_count", "min", "Hop count min")
     outputStats(dfs, "ranks", "hop_count", "mean", "Hop count mean")

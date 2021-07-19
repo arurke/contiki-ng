@@ -19,6 +19,8 @@
 #define UDP_CLIENT_PORT   8765
 #define UDP_SERVER_PORT   5678
 
+#define ABORT_ON_TOPOLOGY_CHANGE  0
+
 #if TESTBED
 #define ROOT_NODE_ID      0x9378 // Grenoble m3-358, 0x9378
 #else
@@ -172,9 +174,11 @@ PROCESS_THREAD(app_process, ev, data)
         NETSTACK_ROUTING.get_root_ipaddr(&dest_ipaddr)) {
 
       if(has_parent_changed()) {
-        LOG_ERR("Parent switch after start of application\n");
+        LOG_WARN("Parent switch\n");
+#if ABORT_ON_TOPOLOGY_CHANGE
         application_success = false;
         break;
+#endif
       }
 
       // Fetch current time in ticks
