@@ -165,25 +165,13 @@ def parseApp(log):
     return None
 
 def parseTSCH(log):
-    # TODO overflow queue is not in code(?) Add Atis PR?
-    res = re.compile('! overflow queue (\d+)\/(\d+) (\d+)\/(\d+)').match(log)
-    if res:
-        queue_num = int(res.group(3))
-        queue_size = int(res.group(4))
-        queue_fill = (queue_num / queue_size) * 100
-        return {'event': 'mac',
-                'type': 'overflow',
-                'queue_num': queue_num,
-                'queue_size': queue_size,
-                'queue_fill':queue_fill}
-
     res = re.compile('! can\'t send packet to LL-([0-9a-fA-F]+) with seqno (\d+), queue (\d+)\/(\d+) (\d+)\/(\d+)').match(log)
     if res:
         queue_num = int(res.group(5))
         queue_size = int(res.group(6))
         queue_fill = (queue_num / queue_size) * 100
         return {'event': 'mac',
-                'type': 'drop',
+                'type': 'overflow',
                 'queue_num': queue_num,
                 'queue_size': queue_size,
                 'queue_fill':queue_fill}
@@ -492,9 +480,6 @@ def parse_logfile(file, quiet=False):
     # Needed?
 
     # Drops (This does not take transmissions failures into account)
-    drops = dfs["queue"][dfs["queue"]["type"] == "drop"]["type"].count()
-
-    # Queue overflow
     overflows = dfs["queue"][dfs["queue"]["type"] == "overflow"]["type"].count()
 
     # seriesObj = dfs["queue"].apply(lambda x: True if x["type"] == "drop" else False, axis = 1)
@@ -506,8 +491,7 @@ def parse_logfile(file, quiet=False):
     print("  packets-sent: %u" % (packets_sent))
     print("  packets-received: %u" % (packets_received))
     print("  packets-lost: %u" % (packets_sent - packets_received))
-    print("  queue-fails %u" % (drops))
-    print("  queue-overflow %u" % (overflows))
+    print("  queue-overflows %u" % (overflows))
 
     print("  latency mean: %.4f" % (dfs["packets"]["latency"].mean()))
     print("  latency max: %.4f" % (dfs["packets"]["latency"].max()))
