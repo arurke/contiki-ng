@@ -361,10 +361,10 @@ new_time_source(const struct tsch_neighbor *old, const struct tsch_neighbor *new
   LOG_INFO("asn-%x.%lx\n", tsch_current_asn.ms1b, tsch_current_asn.ls4b);
 }
 
-// TODO make proper
 static bool
 is_root(void) {
-  return node_id == 1;
+  // Note that this might not show correct until after app. has started
+  return NETSTACK_ROUTING.node_is_root();
 }
 
 static void add_link_to_stats(uint16_t timeslot, uint16_t channel) {
