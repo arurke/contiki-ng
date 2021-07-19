@@ -142,16 +142,6 @@ main(void)
   LOG_DBG("With RPL Border Router\n");
 #endif /* BUILD_WITH_RPL_BORDER_ROUTER */
 
-#if BUILD_WITH_ORCHESTRA
-  orchestra_init();
-  LOG_DBG("With Orchestra\n");
-#endif /* BUILD_WITH_ORCHESTRA */
-
-#if BUILD_WITH_LAYERED
-  layered_init();
-  LOG_DBG("With Layered\n");
-#endif /* BUILD_WITH_LAYERED */
-
 #if BUILD_WITH_SHELL
   serial_shell_init();
   LOG_DBG("With Shell\n");
@@ -177,6 +167,16 @@ main(void)
 #endif /* BUILD_WITH_TSCH_CS */
 
   autostart_start(autostart_processes);
+
+#if BUILD_WITH_ORCHESTRA
+  orchestra_init();
+  LOG_DBG("With Orchestra\n");
+#endif /* BUILD_WITH_ORCHESTRA */
+
+#if BUILD_WITH_LAYERED
+  layered_init();
+  LOG_DBG("With Layered\n");
+#endif /* BUILD_WITH_LAYERED */
 
   watchdog_start();
 
