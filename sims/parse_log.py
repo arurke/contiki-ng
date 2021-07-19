@@ -527,6 +527,7 @@ def parse_logfile(file, quiet=False):
     # outputStats(dfs, "ranks", "hop_count", "mean", "Hop count mean")
     outputStats(dfs, "ranks", "hop_count", "max", "Hop count max")
     outputStats(dfs, "ranks", "hop_count", "min", "Hop count min")
+    outputStats(dfs, "ranks", "hop_count", "mean", "Hop count mean")
     outputStats(dfs, "switches", "pswitch", "count", "RPL parent switches (#)")
     outputStats(dfs, "dag_inits", "event", "count", "RPL joining DAG (#)")
     outputStats(dfs, "trickle", "trickle", "mean", "RPL Trickle period (min)")
