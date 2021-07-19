@@ -6,6 +6,7 @@
 #include "sys/node-id.h"
 #include "rpl.h"
 #include "rpl-private.h"
+#include <inttypes.h>
 
 #include "sys/log.h"
 #define LOG_MODULE "Layered"
@@ -90,13 +91,13 @@ void layered_print_stats() {
           layered_stats[i].channel);
 
       if(link->link_options | LINK_OPTION_SHARED) {
-        LOG_INFO("UC: ");
-      }
-      else {
         LOG_INFO("BC: ");
       }
-      LOG_INFO_("TS/CH %"PRIu16"/%"PRIu16": %"PRIu32" attempts, " \
-               " %"PRIu32" no OK status\n",
+      else {
+        LOG_INFO("UC: ");
+      }
+      LOG_INFO_("TS/CH %" PRIu16 "/%" PRIu16 ": %" PRIu32 " attempts, " \
+               " %" PRIu32 " no OK status\n",
                layered_stats[i].timeslot,
                layered_stats[i].channel,
                layered_stats[i].tx_attempts,
@@ -104,10 +105,10 @@ void layered_print_stats() {
     }
   }
 
-  LOG_INFO("Num links: %"PRIu8"\n", num_links);
+  LOG_INFO("Num links: %" PRIu8 "\n", num_links);
 
   if(unknown_stats != 0) {
-    LOG_ERR("Unknown stats %"PRIu32"\n", unknown_stats);
+    LOG_ERR("Unknown stats %" PRIu32 "\n", unknown_stats);
   }
 }
 #endif
