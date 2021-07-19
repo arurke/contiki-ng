@@ -19,7 +19,6 @@ from simxml import simxml_make_xml_for_all_scenarios
 CODE_FOLDER_NAME = "code"
 BUILD_FOLDER_NAME = "build"
 ORG_FOLDER_NAME = "org"
-BUILD_Z1_NAME = "node.z1"
 BUILD_COOJA_NAME = "node.cooja"
 EXECUTIONS_FOLDER_NAME = "executions"
 MAKEFILE = "Makefile"
@@ -123,7 +122,6 @@ def copy_sim_config_file(sim_dir, sim_name, execution_dir):
 def copy_node_code(sim_dir, scenarios):
     code_src_dir = sim_dir + CODE_FOLDER_NAME
     build_src_dir = code_src_dir + "/" + BUILD_FOLDER_NAME
-    build_z1_file = code_src_dir + "/" + BUILD_Z1_NAME
     build_cooja_file = code_src_dir + "/" + BUILD_COOJA_NAME
     makefile_src = sim_dir + MAKEFILE
 
@@ -139,9 +137,6 @@ def copy_node_code(sim_dir, scenarios):
             if os.path.exists(build_src_dir):
                 print("Found build artifacts, deleting", build_src_dir)
                 shutil.rmtree(build_src_dir)
-            if os.path.isfile(build_z1_file):
-                print("Found build artifacts, deleting", build_z1_file)
-                os.remove(build_z1_file)
             if os.path.isfile(build_cooja_file):
                 print("Found build artifacts, deleting", build_cooja_file)
                 os.remove(build_cooja_file)

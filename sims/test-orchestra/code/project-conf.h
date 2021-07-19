@@ -1,7 +1,6 @@
 #ifndef PROJECT_CONF_H_
 #define PROJECT_CONF_H_
 
-// NOTE z1 cannot support extensive logging due to ROM size
 #define LOG_CONF_LEVEL_MAC            LOG_LEVEL_WARN
 //#define LOG_CONF_LEVEL_TCPIP          LOG_LEVEL_DBG
 //#define LOG_CONF_LEVEL_IPV6           LOG_LEVEL_DBG
@@ -21,9 +20,6 @@
 //#define RPL_CONF_WITH_DAO_ACK             1
 //#define RPL_CONF_DIO_REFRESH_DAO_ROUTES   0
 #endif
-
-// z1 sets to 2, but we have seen queue full, so we try force TSCH default 4
-//#define TSCH_CONF_MAX_INCOMING_PACKETS    4
 
 
 // Buffer size
@@ -91,7 +87,7 @@
 // TODO this assumes cooja mote
 #define CELL_DUTY_CYCLE_STATS                 0
 
-/* Reduce ROM and RAM usage so that it builds on z1 */
+/* Reduce ROM and RAM usage */
 // No need for large packet support
 #define UIP_CONF_BUFFER_SIZE                  140
 

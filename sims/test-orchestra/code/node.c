@@ -9,7 +9,6 @@
 
 #include <inttypes.h>
 
-// FYI: int-size on z1 is 2 bytes. clock_time_t is 4 bytes
 // FYI: ticks in CLOCK_SECOND on iotlab-m3 is 100
 
 /* Log configuration */

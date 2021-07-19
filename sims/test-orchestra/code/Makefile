@@ -7,8 +7,6 @@ CONTIKI=../../../../../..
 CFLAGS += $(CFLAGSEXTRA)
 
 # NOTE! Energest seems to give 0 on radio measumrent for native platform
-# This software should build for z1 platform, but changes
-# are needed in csc
 # An alternative to energest and duty-cycle is to somehow fetch the # of
 # cell scheduled 
 MODULES += $(CONTIKI_NG_SERVICES_DIR)/simple-energest
