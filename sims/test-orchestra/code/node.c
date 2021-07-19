@@ -84,6 +84,25 @@ udp_rx_callback(struct simple_udp_connection *c,
   LOG_INFO_6ADDR(sender_addr);
   LOG_INFO_("\n");
 }
+
+static bool has_parent_changed(void) {
+  static linkaddr_t current_parent_linkaddr = {0};
+
+  rpl_dag_t* rpl_dag = rpl_get_any_dag();
+  const linkaddr_t* new_parent_linkaddr =
+      rpl_get_parent_lladdr(rpl_dag->preferred_parent);
+
+  if(linkaddr_cmp(new_parent_linkaddr, &linkaddr_null)) {
+    linkaddr_copy(&current_parent_linkaddr, new_parent_linkaddr);
+  }
+
+  if(!linkaddr_cmp(&current_parent_linkaddr, new_parent_linkaddr)) {
+    return false;
+  }
+
+  return true;
+}
+
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(app_process, ev, data)
 {
@@ -91,7 +110,7 @@ PROCESS_THREAD(app_process, ev, data)
   static unsigned count = 0;
   static char str[64];
   static bool application_success = true;
-  uip_ipaddr_t dest_ipaddr;
+  static uip_ipaddr_t dest_ipaddr;
 
   PROCESS_BEGIN();
 
@@ -152,6 +171,12 @@ PROCESS_THREAD(app_process, ev, data)
 
     if(NETSTACK_ROUTING.node_is_reachable() &&
         NETSTACK_ROUTING.get_root_ipaddr(&dest_ipaddr)) {
+
+      if(has_parent_changed()) {
+        LOG_ERR("Parent switch after start of application\n");
+        application_success = false;
+        break;
+      }
 
       // Fetch current time in ticks
       uint64_t network_uptime = tsch_get_network_uptime_ticks();
