@@ -574,11 +574,11 @@ tsch_tx_process_pending(void)
       LOG_INFO_LLADDR(packetbuf_addr(PACKETBUF_ADDR_RECEIVER));
       LOG_INFO("\n");
 
-      LOG_WARN("sf %u, cell %d/%d, normal: %u, shared: %u, tx: %u\n",
+      LOG_WARN("sf %u, cell %d/%d, normal: %u, shared: %u, tx: %u, asn: %lu\n",
                slotframe->handle, timeslot, channel,
                link->link_type == LINK_TYPE_NORMAL ? true : false,
                link->link_options & LINK_OPTION_SHARED ? true : false,
-               p->transmissions);
+               p->transmissions, tsch_current_asn.ls4b);
     }
 
     /* Call packet_sent callback */
