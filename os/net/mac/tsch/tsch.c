@@ -572,7 +572,7 @@ tsch_tx_process_pending(void)
                packetbuf_attr(PACKETBUF_ATTR_CHANNEL));
       LOG_INFO("sent %u bytes to ", packetbuf_datalen());
       LOG_INFO_LLADDR(packetbuf_addr(PACKETBUF_ADDR_RECEIVER));
-      LOG_INFO("\n");
+      LOG_INFO_("\n");
 
       LOG_WARN("sf %u, cell %d/%d, normal: %u, shared: %u, tx: %u, asn: %lu\n",
                slotframe->handle, timeslot, channel,
