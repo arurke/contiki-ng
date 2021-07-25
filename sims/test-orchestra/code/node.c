@@ -87,17 +87,32 @@ udp_rx_callback(struct simple_udp_connection *c,
 }
 
 static bool has_parent_changed(void) {
-  static linkaddr_t current_parent_linkaddr = {0};
+  static linkaddr_t previous_parent_linkaddr = {0};
+  const linkaddr_t* new_parent_linkaddr = NULL;
 
   rpl_dag_t* rpl_dag = rpl_get_any_dag();
-  const linkaddr_t* new_parent_linkaddr =
-      rpl_get_parent_lladdr(rpl_dag->preferred_parent);
 
-  if(linkaddr_cmp(new_parent_linkaddr, &linkaddr_null)) {
-    linkaddr_copy(&current_parent_linkaddr, new_parent_linkaddr);
+  if(rpl_dag != NULL) {
+    new_parent_linkaddr = rpl_get_parent_lladdr(rpl_dag->preferred_parent);
   }
 
-  if(!linkaddr_cmp(&current_parent_linkaddr, new_parent_linkaddr)) {
+  // If there is no parent
+  if(new_parent_linkaddr == NULL) {
+    // Was there no parent previously?
+    if(linkaddr_cmp(&previous_parent_linkaddr, &linkaddr_null))  {
+      return false;
+    }
+    else {
+      linkaddr_copy(&previous_parent_linkaddr, &linkaddr_null);
+      return true;
+    }
+  }
+
+  if(linkaddr_cmp(new_parent_linkaddr, &linkaddr_null)) {
+    linkaddr_copy(&previous_parent_linkaddr, new_parent_linkaddr);
+  }
+
+  if(!linkaddr_cmp(&previous_parent_linkaddr, new_parent_linkaddr)) {
     return false;
   }
 
