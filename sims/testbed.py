@@ -22,6 +22,8 @@ ORG_FOLDER_NAME = "org"
 BUILD_COOJA_NAME = "node.cooja"
 EXECUTIONS_FOLDER_NAME = "executions"
 MAKEFILE = "Makefile"
+NODES = "358+343+328+313+298+290+203+188"
+DURATION_MIN = "24"
 
 def create_run_testbed_commands(sim_name, scenarios, num_runs):
     scenario_run_cmds = []
@@ -31,7 +33,8 @@ def create_run_testbed_commands(sim_name, scenarios, num_runs):
         logs_path = scenario['path'] + "run0/"
         code_path = scenario['path'] + CODE_FOLDER_NAME
         scenario_run_cmd = "./run-testbed.sh " + run_name + " " + code_path + \
-            " " + logs_path + " 6 grenoble,m3,358+357+356+355+354+353+350+348 -DSEND_CONF_INTERVAL=200"
+            " " + logs_path + " " + DURATION_MIN + " grenoble,m3," + NODES + \
+            " -DSEND_CONF_INTERVAL=1000"
         scenario_run_cmds.append(scenario_run_cmd)
 
     return scenario_run_cmds
