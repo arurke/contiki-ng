@@ -4,6 +4,7 @@ import shutil
 import subprocess
 import argparse
 import pandas as pd
+from dataclasses import dataclass
 from datetime import datetime
 from simconfig import simconfig_parse
 from parse_log import parse_logs_scenarios
@@ -22,8 +23,23 @@ ORG_FOLDER_NAME = "org"
 BUILD_COOJA_NAME = "node.cooja"
 EXECUTIONS_FOLDER_NAME = "executions"
 MAKEFILE = "Makefile"
-NODES = "358+343+328+313+298+290+203+188"
-DURATION_MIN = "24"
+#NODES = "358+343+328+313+298+290+203+188"
+NODES = "358+343+328+313+306+298+290+205+203+195+188"
+DURATION_MIN = "60"
+
+@dataclass
+class Config:
+    sim_name: str
+    sim_dir: str
+    executions_dir: str
+    execution_dir: str
+    csc_baseline_path: str
+    sim_cfg_path: str
+    num_runs: int
+    skip_post: bool
+    do_run: bool
+    execution_id: str
+    scenarios: dict
 
 def create_run_testbed_commands(sim_name, scenarios, num_runs):
     scenario_run_cmds = []
@@ -34,7 +50,7 @@ def create_run_testbed_commands(sim_name, scenarios, num_runs):
         code_path = scenario['path'] + CODE_FOLDER_NAME
         scenario_run_cmd = "./run-testbed.sh " + run_name + " " + code_path + \
             " " + logs_path + " " + DURATION_MIN + " grenoble,m3," + NODES + \
-            " -DSEND_CONF_INTERVAL=1000"
+            " -DSEND_CONF_INTERVAL=3000"
         scenario_run_cmds.append(scenario_run_cmd)
 
     return scenario_run_cmds
@@ -80,26 +96,25 @@ def create_execution_id(sim_name, executions_dir):
     new_execution_id += "_%s" % i
     
     return new_execution_id
+
+def prepare_datastructures(scenarios, execution_dir):
     
+    for scenario in scenarios:
+        scenario['path'] = execution_dir + scenario['name'] + "/"
+
 # Make executions/[execution-id]/[scenario-name] directories
-def prepare_filesystem(sim_name, sim_dir, scenarios):
+def prepare_filesystem(sim_name, sim_dir, scenarios, executions_dir, execution_dir):
     print("\nPreparing filesystem")
 
-    # Make folder to hold all executions
-    executions_dir = sim_dir + EXECUTIONS_FOLDER_NAME + "/"
     if not os.path.exists(executions_dir):
         print("Generating executions dir", executions_dir)
         os.mkdir(executions_dir)
     
-    execution_id = create_execution_id(sim_name, executions_dir)
-    execution_dir = executions_dir + execution_id + "/"
-
     print("Generating execution dir", execution_dir)
     os.mkdir(execution_dir)
 
-    # Make scenario-folders and add the path to the scenarios list
+    # Make scenario-folders
     for scenario in scenarios:
-        scenario['path'] = execution_dir + scenario['name'] + "/"
         if not os.path.exists(scenario['path']):
             print("Generating scenario dir", scenario['path'])
             os.mkdir(scenario['path'])
@@ -110,8 +125,6 @@ def prepare_filesystem(sim_name, sim_dir, scenarios):
     copy_sim_config_file(sim_dir, sim_name, execution_dir)
 
     print("Filesystem prepared\n")
-
-    return execution_id, execution_dir
 
 def copy_sim_config_file(sim_dir, sim_name, execution_dir):
     config_file_name = sim_name + ".ini"
@@ -186,6 +199,10 @@ def parse_arguments():
                            '--skipp',
                            action='store_true',
                            help = 'skip post-processing')
+    argparser.add_argument('-n',
+                           '--norun',
+                           type = str,
+                           help = 'Dont run experiment. Execution id to analyze')
     args = argparser.parse_args()
 
     sim_dir = args.Path
@@ -193,18 +210,28 @@ def parse_arguments():
     csc_baseline = args.baseline
     num_runs = args.runs
     skip_post = args.skipp
+    analyse_execution_id = args.norun
     
-    return sim_dir, sim_cfg_filename, csc_baseline, num_runs, skip_post
+    return sim_dir, sim_cfg_filename, csc_baseline,\
+        num_runs, skip_post, analyse_execution_id
 
 def parse_config():
     # Get config from command line
-    sim_dir, sim_cfg_filename, cmd_csc_baseline, cmd_num_runs, skip_post = \
-        parse_arguments()
+    sim_dir, sim_cfg_filename, cmd_csc_baseline, \
+        cmd_num_runs, skip_post, analyse_execution_id = parse_arguments()
+
     sim_dir += "/"
-    sim_cfg_path = sim_dir + sim_cfg_filename
+
+    if analyse_execution_id is None:
+        do_run = True
+        sim_cfg_path = sim_dir + sim_cfg_filename
+    else:
+        do_run = False
+        sim_cfg_path = sim_dir + EXECUTIONS_FOLDER_NAME + "/" + \
+        analyse_execution_id + "/" +  sim_cfg_filename
 
     # Get config from config-file
-    config, num_runs, csc_baseline, scenarios = simconfig_parse(sim_cfg_path)
+    num_runs, csc_baseline, scenarios = simconfig_parse(sim_cfg_path)
 
     # Let config from command-line override
     if cmd_csc_baseline is not None:
@@ -216,90 +243,109 @@ def parse_config():
     sim_name = sim_cfg_filename[:-4] # Remove ".ini"
     csc_baseline_path = sim_dir + csc_baseline
 
-    print("\nSimulation config:")
-    print("Sim-name:    ", sim_name)
-    print("Directory:   ", sim_dir)
-    print("Config:      ", sim_cfg_path)
-    print("CSC Baseline:", csc_baseline_path)
-    print("# scenarios: ", len(scenarios))
-    print("# runs:      ", num_runs)
-    print("Skip post:   ", str(skip_post))
+    # Folder to hold all executions
+    executions_dir = sim_dir + EXECUTIONS_FOLDER_NAME + "/"
+
+    if analyse_execution_id is not None:
+        execution_id = analyse_execution_id
+    else:
+        execution_id = create_execution_id(sim_name, executions_dir)
+
+    # Folder for this execution
+    execution_dir = executions_dir + execution_id + "/"
     
-    return sim_name, sim_dir, scenarios, csc_baseline_path, \
-            config, num_runs, skip_post
+    config = Config(sim_name, sim_dir, executions_dir, execution_dir,
+                    csc_baseline_path, sim_cfg_path, num_runs, skip_post,
+                    do_run, execution_id, scenarios)
+
+    print_config(config)
+
+    return config
+
+def print_config(config):
+    if config.do_run is False:
+        print("\nNo execution! Analyzing: ", config.execution_id)
+    print("\nSimulation config:")
+    print("\tSim-name:    ", config.sim_name)
+    print("\tDirectory:   ", config.sim_dir)
+    print("\tConfig:      ", config.sim_cfg_path)
+    print("\tCSC Baseline:", config.csc_baseline_path)
+    print("\t# scenarios: ", len(config.scenarios))
+    print("\t# runs:      ", config.num_runs)
+    print("\tSkip post:   ", str(config.skip_post))
+    print("\tDo execution:", str(config.do_run))
+    print("\tExecution id:", config.execution_id, "in folder", config.execution_dir)
+    print("\n")
 
 def main():
     start_time = datetime.now()
     print("Started:", start_time)
 
-    sim_name, sim_dir, scenarios, csc_baseline_path, \
-        config, num_runs, skip_post = parse_config()
+    config = parse_config()
 
-    execution_id, execution_dir = prepare_filesystem(sim_name,
-                                                     sim_dir,
-                                                     scenarios)
+    prepare_datastructures(config.scenarios, config.execution_dir)
 
-    print("\nSimulation execution-id:", execution_id, "\n")
-    
-    #print("\nMaking XML for all scenarios")
+    if config.do_run: 
+        prepare_filesystem(config.sim_name,
+                             config.sim_dir,
+                             config.scenarios,
+                             config.executions_dir,
+                             config.execution_dir)
+
+    #print("\nMaking XML for all scenarios")sss
     #simxml_make_xml_for_all_scenarios(sim_name,
                                       #csc_baseline_path,
                                       #scenarios,
                                       #config)
+
+    if config.do_run:
+        print("\nMaking testbed-run commands")
+        run_cmds = create_run_testbed_commands(
+            config.sim_name, config.scenarios, config.num_runs)
+
+        # Run simulations
+        print("\nStarting experiments!")
+        #CNG_PATH = "/home/andreas/vizaworkspace/contiki-ng"
+        # Starting contiker cmd (had trouble using the alias with subprocess.Popen
+        # Changed -it to -i based on 
+        # https://stackoverflow.com/questions/43099116/error-the-input-device-is-not-a-tty
+        #contiker_cmd = \
+        #    "docker run --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 " \
+        #    "--mount type=bind,source=" + CNG_PATH + \
+        #    ",destination=/home/user/contiki-ng -e DISPLAY=$DISPLAY " \
+        #    "-v /tmp/.X11-unix:/tmp/.X11-unix -v /dev/bus/usb:/dev/bus/usb " \
+        #    "-i contiker/contiki-ng"
     
-    print("\nMaking testbed-run commands")
-    run_cmds = create_run_testbed_commands(sim_name, scenarios, num_runs)
-    
-    # Run simulations
-    print("\nStarting experiments!")
-    #CNG_PATH = "/home/andreas/vizaworkspace/contiki-ng"
-    # Starting contiker cmd (had trouble using the alias with subprocess.Popen
-    # Changed -it to -i based on 
-    # https://stackoverflow.com/questions/43099116/error-the-input-device-is-not-a-tty
-    #contiker_cmd = \
-    #    "docker run --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 " \
-    #    "--mount type=bind,source=" + CNG_PATH + \
-    #    ",destination=/home/user/contiki-ng -e DISPLAY=$DISPLAY " \
-    #    "-v /tmp/.X11-unix:/tmp/.X11-unix -v /dev/bus/usb:/dev/bus/usb " \
-    #    "-i contiker/contiki-ng"
+        # Note that "contiker" alias does not work with Popen
+        # Therefore made contiker_notty (without TTY, or else shell gets garbled
+        # after execution) into a bash-script and placed in /usr/local/bin
+        # see https://stackoverflow.com/questions/12060863/python-subprocess-call-a-bash-alias
+        process_list = []
+        for run_cmd in run_cmds:
+            # Needed stdout and stdin to avoid terminal
+            # stop working after execution
+            # shell needed so that it would find contiker_notty
+            print("Executing:", run_cmd)
+            process = subprocess.Popen(run_cmd,
+                                       shell=True,
+                                       stdout=subprocess.PIPE,
+                                       stdin=subprocess.PIPE)
+            process_list.append(process)
 
-    # Note that "contiker" alias does not work with Popen
-    # Therefore made contiker_notty (without TTY, or else shell gets garbled
-    # after execution) into a bash-script and placed in /usr/local/bin
-    # see https://stackoverflow.com/questions/12060863/python-subprocess-call-a-bash-alias
-    process_list = []
-    for run_cmd in run_cmds:
-        # Needed stdout and stdin to avoid terminal
-        # stop working after execution
-        # shell needed so that it would find contiker_notty
-        print("Executing:", run_cmd)
-        process = subprocess.Popen(run_cmd,
-                                   shell=True,
-                                   stdout=subprocess.PIPE,
-                                   stdin=subprocess.PIPE)
-        process_list.append(process)
+        exit_codes = [process.wait() for process in process_list]
+        print("\nExecutions exited with:", exit_codes)
+        if not all(code == 0 for code in exit_codes):
+            print("\nError in executions. Exiting.")
+            exit()
 
-    exit_codes = [process.wait() for process in process_list]
-    print("\nExecutions exited with:", exit_codes)
-    if not all(code == 0 for code in exit_codes):
-        print("\nError in executions. Exiting.")
-        exit()
-
-    cleanup(scenarios)
+        cleanup(config.scenarios)
 
     # Process results
-    if not skip_post:
-        process_results(scenarios, execution_dir)
+    if not config.skip_post:
+        process_results(config.scenarios, config.execution_dir)
 
     print("Finished simulation")
-    print("\nSimulation config:")
-    print("Sim-name:    ", sim_name)
-    print("Directory:   ", sim_dir)
-    print("CSC Baseline:", csc_baseline_path)
-    print("# scenarios: ", len(scenarios))
-    print("# runs:      ", num_runs)
-    print("Skip post:   ", str(skip_post))
-    print("Execution id:", execution_id, "in folder", execution_dir)
+    print_config(config)
 
     end_time = datetime.now()
     print("End time:", end_time)

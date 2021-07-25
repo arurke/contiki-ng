@@ -21,4 +21,4 @@ def simconfig_parse(filename):
             scenario = {"name": name}
             scenarios.append(scenario)
 
-    return config, num_runs, csc_baseline, scenarios
+    return num_runs, csc_baseline, scenarios
