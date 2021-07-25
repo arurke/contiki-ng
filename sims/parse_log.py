@@ -80,9 +80,16 @@ def parseRPL(log):
         return {'event': 'rpl_stats', 'rank': rank, 'trickle': trickle,
                 'hop_count': hop_count, 'nbr_count': nbr_count}
 
-    res = re.compile('parent switch: .*? -> .*?-(\d*)$').match(log)
+    res = re.compile('parent switch: .*? -> .*?-([0-9a-fA-F]+)$').match(log)
     if res:
-        parent = int(res.group(1))
+        parent = res.group(1)
+        #print("Parent switch!")
+        return {'event': 'switch', 'pswitch': parent }
+
+    # Also catch parent switches to NULL (instead of 6L-dddd)
+    res = re.compile('parent switch: .*? -> (.*?)$').match(log)
+    if res:
+        parent = res.group(1)
         #print("Parent switch!")
         return {'event': 'switch', 'pswitch': parent }
 
