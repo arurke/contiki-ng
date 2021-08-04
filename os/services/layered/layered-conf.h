@@ -77,7 +77,12 @@
 #ifdef LAYERED_CONF_LINKADDR_HASH
 #define LAYERED_LINKADDR_HASH                     LAYERED_CONF_LINKADDR_HASH
 #else /* ORCHESTRA_CONF_LINKADDR_HASH */
+#if BUILD_WITH_DEPLOYMENT
+#include "services/deployment/deployment.h"
+#define LAYERED_LINKADDR_HASH(addr)               deployment_id_from_lladdr(addr)
+#else
 #define LAYERED_LINKADDR_HASH(addr)               ((addr != NULL) ? (addr)->u8[LINKADDR_SIZE - 1] : -1)
+#endif
 #endif /* ORCHESTRA_CONF_LINKADDR_HASH */
 
 #endif /* __LAYERED_CONF_H__ */
