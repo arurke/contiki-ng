@@ -198,7 +198,7 @@ def parseTSCH(log):
                 'queue_size': queue_size,
                 'queue_fill':queue_fill}
 
-    res = re.compile('sf \d+, cell (\d+)\/(\d+), normal: (\d+), shared: (\d+), tx: (\d+), asn: (\d+)').match(log)
+    res = re.compile('sf \d+, cell (\d+)\/(\d+), normal: (\d+), shared: (\d+), tx: (\d+), asn: (\d+), res: (.*)').match(log)
     if res:
         timeslot = int(res.group(1))
         channel = int(res.group(2))
@@ -207,6 +207,7 @@ def parseTSCH(log):
         transmissions = int(res.group(5))
         retransmissions = transmissions - 1
         asn = int(res.group(6))
+        result = res.group(7)
         return {'event': 'mac',
                 'type': 'mac_tx',
                 'timeslot': timeslot,
@@ -215,7 +216,8 @@ def parseTSCH(log):
                 'shared': shared,
                 'transmissions':transmissions,
                 'retransmissions':retransmissions,
-                'asn':asn}
+                'asn':asn,
+                'result':result}
 
     return None
 
