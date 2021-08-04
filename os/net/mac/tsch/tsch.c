@@ -574,11 +574,39 @@ tsch_tx_process_pending(void)
       LOG_INFO_LLADDR(packetbuf_addr(PACKETBUF_ADDR_RECEIVER));
       LOG_INFO_("\n");
 
-      LOG_WARN("sf %u, cell %d/%d, normal: %u, shared: %u, tx: %u, asn: %lu\n",
+      char result[20] = {0};
+      switch (p->ret) {
+        case MAC_TX_OK:
+          strcpy(result, "ok");
+          break;
+        case MAC_TX_COLLISION:
+          strcpy(result, "collision");
+          break;
+        case MAC_TX_NOACK:
+          strcpy(result, "noack");
+          break;
+        case MAC_TX_DEFERRED:
+          strcpy(result, "defer");
+          break;
+        case MAC_TX_ERR:
+          strcpy(result, "err");
+          break;
+        case MAC_TX_ERR_FATAL:
+          strcpy(result, "fatal");
+          break;
+        case MAC_TX_QUEUE_FULL:
+          strcpy(result, "full");
+          break;
+        default:
+          strcpy(result, "panic");
+          break;
+      }
+
+      LOG_WARN("sf %u, cell %d/%d, normal: %u, shared: %u, tx: %u, asn: %lu, res: %s\n",
                slotframe->handle, timeslot, channel,
                link->link_type == LINK_TYPE_NORMAL ? true : false,
                link->link_options & LINK_OPTION_SHARED ? true : false,
-               p->transmissions, tsch_current_asn.ls4b);
+               p->transmissions, tsch_current_asn.ls4b, result);
     }
 
     /* Call packet_sent callback */
