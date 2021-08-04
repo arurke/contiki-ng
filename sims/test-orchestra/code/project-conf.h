@@ -9,6 +9,10 @@
 //#define LOG_CONF_LEVEL_FRAMER         LOG_LEVEL_INFO
 #define LOG_CONF_WITH_COMPACT_ADDR    1
 
+#if BUILD_WITH_DEPLOYMENT
+#define DEPLOYMENT_MAPPING deployment_fit
+#endif
+
 // Use only objective function 0
 #define RPL_CONF_SUPPORTED_OFS        {&rpl_of0}
 #define RPL_CONF_OF_OCP               RPL_OCP_OF0
