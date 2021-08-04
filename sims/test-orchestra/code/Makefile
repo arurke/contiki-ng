@@ -23,4 +23,9 @@ MODULES += os/services/orchestra
 # Use Layered
 #MODULES += os/services/layered
 
+ifdef TESTBED
+CFLAGS += -DTESTBED=$(TESTBED)
+MODULES += $(CONTIKI_NG_SERVICES_DIR)/deployment
+endif
+
 include $(CONTIKI)/Makefile.include

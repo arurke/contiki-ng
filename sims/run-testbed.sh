@@ -8,7 +8,6 @@ set -e
 
 #---------------------- TEST ARGUMENTS ----------------------#
 if [ "$#" -ne 6 ]; then
-	#echo "Usage: $0 <exp name> <interval (s)> <payload size (B)> <exp duration (m)> <packets per seconds> <list of nodes>"
 	echo "Usage: $0 <exp name> <code path> <logs path> <exp duration (m)> <list of nodes> <flags to make>"
 	exit
 fi
@@ -35,7 +34,7 @@ LOGDIR=$3
 TARGET=iotlab
 FIRMWARE=${CODEDIR}/${APPLICATION}.${TARGET}
 MAKEFLAGS_FROM_CLI=$6
-CFLAGSEXTRA="-DTESTBED=1 ${MAKEFLAGS_FROM_CLI}"
+CFLAGSEXTRA="${MAKEFLAGS_FROM_CLI}"
 
 #--------------------- DEFINE VARIABLES ---------------------#
 
@@ -58,7 +57,7 @@ function ctrl_c() {
 echo "Compiling firmware in $CODEDIR with extra flags: $CFLAGSEXTRA"
 #cd $CODEDIR
 #make TARGET=iotlab-m3 -j8 || { echo "Compilation failed."; exit 1; }
-make -C $CODEDIR CFLAGSEXTRA="$CFLAGSEXTRA" ARCH_PATH=${NGDIR}/iot-lab-contiki-ng/arch/ CONTIKI=${NGDIR} TARGET=${TARGET} BOARD=m3 -j8 || { echo "Compilation failed."; exit 1; }
+make -C $CODEDIR CFLAGSEXTRA="$CFLAGSEXTRA" ARCH_PATH=${NGDIR}/iot-lab-contiki-ng/arch/ TESTBED=1 CONTIKI=${NGDIR} TARGET=${TARGET} BOARD=m3 -j8 || { echo "Compilation failed."; exit 1; }
 
 
 #-------------------- LAUNCH EXPERIMENTS --------------------#
