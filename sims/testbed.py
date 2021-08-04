@@ -231,7 +231,7 @@ def parse_config():
         analyse_execution_id + "/" +  sim_cfg_filename
 
     # Get config from config-file
-    num_runs, csc_baseline, scenarios = simconfig_parse(sim_cfg_path)
+    config, num_runs, csc_baseline, scenarios = simconfig_parse(sim_cfg_path)
 
     # Let config from command-line override
     if cmd_csc_baseline is not None:
