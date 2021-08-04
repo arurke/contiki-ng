@@ -481,10 +481,18 @@ def parse_logfile(file, quiet=False):
     dfs = convert_data_arrays_to_dfs(data_arrays)
 
     # Verify application has finished on all nodes
-    num_tx_nodes = dfs["energest"].node.nunique() - 1
+    num_tx_nodes = dfs["packets"].node.nunique()
     if application_done_count != num_tx_nodes:
         print("Application not finished! " +
               str(application_done_count) + "/" + str(num_tx_nodes))
+        return
+
+    # Verify all nodes have joined the DAG
+    num_non_root_nodes = dfs["energest"].node.nunique() - 1
+    num_joined_nodes = dfs["dag_inits"].node.nunique()
+    if num_joined_nodes != num_non_root_nodes:
+        print("Not all nodes joined DAO! " +
+              str(num_joined_nodes) + "/" + str(num_non_root_nodes))
         return
 
     #print(dfs)
