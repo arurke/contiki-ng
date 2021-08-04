@@ -694,13 +694,10 @@ route_callback(int event,
                int num_routes,
                bool route_update)
 {
-  // We won't know the link-layer address of more than one-hop neighbors
-  // So let's use the end of the IP address
-  linkaddr_t route_lladdr_from_ip = {{0}};
-  const linkaddr_t* route_lladdr = &route_lladdr_from_ip;
 
-  // TODO Super-ugly
-  memcpy(&route_lladdr_from_ip, ((uint8_t*)(route) + 8), 8);
+  // Fetch the link-layer address by dissecting the IP
+  linkaddr_t route_lladdr = {{0}};
+  uip_ds6_set_lladdr_from_iid((uip_lladdr_t*)&route_lladdr, route);
 
   rpl_dag_t* rpl_dag = rpl_get_any_dag();
   // Calculate from rank to hop count (TODO no idea why -1). 3 is STEP_OF_RANK
@@ -728,41 +725,41 @@ route_callback(int event,
     LOG_INFO("Added default route to ");
     LOG_INFO_6ADDR(route);
     LOG_INFO_(" / ");
-    LOG_INFO_LLADDR(route_lladdr);
+    LOG_INFO_LLADDR(&route_lladdr);
     LOG_INFO_(" via ");
     LOG_INFO_6ADDR(ipaddr);
     LOG_INFO_("\n");
-    add_cells(route_lladdr, route_hop_count, true);
+    add_cells(&route_lladdr, route_hop_count, true);
   }
   else if(event == UIP_DS6_NOTIFICATION_DEFRT_RM) {
     LOG_INFO("Removed default route ");
     LOG_INFO_6ADDR(route);
     LOG_INFO_(" / ");
-    LOG_INFO_LLADDR(route_lladdr);
+    LOG_INFO_LLADDR(&route_lladdr);
     LOG_INFO_(" via ");
     LOG_INFO_6ADDR(ipaddr);
     LOG_INFO_("\n");
-    remove_cells(route_lladdr, route_hop_count, true);
+    remove_cells(&route_lladdr, route_hop_count, true);
   }
   else if(event == UIP_DS6_NOTIFICATION_ROUTE_ADD) {
     LOG_INFO("Added route ");
     LOG_INFO_6ADDR(route);
     LOG_INFO_(" / ");
-    LOG_INFO_LLADDR(route_lladdr);
+    LOG_INFO_LLADDR(&route_lladdr);
     LOG_INFO_(" via ");
     LOG_INFO_6ADDR(ipaddr);
     LOG_INFO_("\n");
-    add_cells(route_lladdr, route_hop_count, false);
+    add_cells(&route_lladdr, route_hop_count, false);
   }
   else if(event == UIP_DS6_NOTIFICATION_ROUTE_RM) {
     LOG_INFO("Removed route ");
     LOG_INFO_6ADDR(route);
     LOG_INFO_(" / ");
-    LOG_INFO_LLADDR(route_lladdr);
+    LOG_INFO_LLADDR(&route_lladdr);
     LOG_INFO_(" via ");
     LOG_INFO_6ADDR(ipaddr);
     LOG_INFO_("\n");
-    remove_cells(route_lladdr, route_hop_count, false);
+    remove_cells(&route_lladdr, route_hop_count, false);
   }
 }
 
