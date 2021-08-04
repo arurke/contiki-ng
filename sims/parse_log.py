@@ -460,6 +460,12 @@ def parse_logfile(file, quiet=False):
     logging.basicConfig(level=logging.WARNING if quiet else logging.INFO,
                     format="%(message)s")
 
+    # Reset global resources
+    global first_unixtime
+    global application_done_count
+    first_unixtime = None
+    application_done_count = 0
+
     # Check if logfile is from FIT iot-lab
     if is_fitiotlab(file):
         print("Log is from testbed")
