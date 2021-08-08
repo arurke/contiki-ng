@@ -718,11 +718,16 @@ route_callback(int event,
   uip_ds6_set_lladdr_from_iid((uip_lladdr_t*)&route_lladdr, route);
 
   rpl_dag_t* rpl_dag = rpl_get_any_dag();
-  // Calculate from rank to hop count (TODO no idea why -1). 3 is STEP_OF_RANK
-  uint8_t route_hop_count = ((rpl_dag->rank / RPL_MIN_HOPRANKINC) - 1) / 3;
-  LOG_INFO("RPL joined: %u, rank %u, hop count: %u\n",
-           rpl_dag->joined, rpl_dag->rank, route_hop_count);
 
+#if RPL_DAG_MC == RPL_DAG_MC_HOPCOUNT && RPL_CONF_OF_OCP == RPL_OCP_MRHOF
+  // Fetch depth from dag. TODO harmonize when using Of0 as well
+  uint8_t depth = rpl_dag->depth;
+#else
+  // Calculate from rank to hop count (TODO no idea why -1). 3 is STEP_OF_RANK
+  uint8_t depth = ((rpl_dag->rank / RPL_MIN_HOPRANKINC) - 1) / 3;
+  LOG_INFO("RPL joined: %u, rank %u, depth: %u\n",
+           rpl_dag->joined, rpl_dag->rank, depth);
+#endif
   // Observed:
   // 1. We get periodic adding of default route
   // 2. Default route and regular route are separate things - not duplicated
@@ -747,7 +752,7 @@ route_callback(int event,
     LOG_INFO_(" via ");
     LOG_INFO_6ADDR(ipaddr);
     LOG_INFO_("\n");
-    add_cells(&route_lladdr, route_hop_count, true);
+    add_cells(&route_lladdr, depth, true);
   }
   else if(event == UIP_DS6_NOTIFICATION_DEFRT_RM) {
     LOG_INFO("Removed default route ");
@@ -757,7 +762,7 @@ route_callback(int event,
     LOG_INFO_(" via ");
     LOG_INFO_6ADDR(ipaddr);
     LOG_INFO_("\n");
-    remove_cells(&route_lladdr, route_hop_count, true);
+    remove_cells(&route_lladdr, depth, true);
   }
   else if(event == UIP_DS6_NOTIFICATION_ROUTE_ADD) {
     LOG_INFO("Added route ");
@@ -767,7 +772,7 @@ route_callback(int event,
     LOG_INFO_(" via ");
     LOG_INFO_6ADDR(ipaddr);
     LOG_INFO_("\n");
-    add_cells(&route_lladdr, route_hop_count, false);
+    add_cells(&route_lladdr, depth, false);
   }
   else if(event == UIP_DS6_NOTIFICATION_ROUTE_RM) {
     LOG_INFO("Removed route ");
@@ -777,7 +782,7 @@ route_callback(int event,
     LOG_INFO_(" via ");
     LOG_INFO_6ADDR(ipaddr);
     LOG_INFO_("\n");
-    remove_cells(&route_lladdr, route_hop_count, false);
+    remove_cells(&route_lladdr, depth, false);
   }
 }
 
