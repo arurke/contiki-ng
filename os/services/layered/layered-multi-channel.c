@@ -6,6 +6,7 @@
 #include "sys/node-id.h"
 #include "rpl.h"
 #include "rpl-private.h"
+#include "uip-icmp6.h"
 #include <inttypes.h>
 
 #include "sys/log.h"
@@ -143,12 +144,12 @@ calculate_channel(uint8_t rank)
 }
 /*---------------------------------------------------------------------------*/
 
-// Use a really bad way to figure out if this is a rpl packet
-static bool heuristic_is_rpl_packet(void) {
+// Find if packet is RPL by analyzing packet
+static bool is_rpl_packet_heuristic(void) {
   uint8_t* data = packetbuf_dataptr();
 
   if(packetbuf_datalen() < 7) {
-//    LOG_INFO("Too short for RPL\n");
+//    LOG_DBG("Too short for RPL\n");
     return false;
   }
 
@@ -172,18 +173,39 @@ static bool heuristic_is_rpl_packet(void) {
 
   // ICMP code, all RPL is below 0x8b
   if(*(data + sixlo_nh_len + ICMP_CODE_OFFSET) >= 0x8a) {
-//    LOG_INFO("Byte %u 0x%02x\n", ICMP_CODE_OFFSET, *(data + 4));
+//    LOG_DBG("Byte %u 0x%02x\n", ICMP_CODE_OFFSET, *(data + 4));
     return false;
   }
 
   // RPL instance ID 0x1e (30)
   // This is not present in DIS, so let's just skip it
 //  if(*(data + sixlo_nh_len + RPL_INSTANCE_ID_OFFSET) != 0x1e) {
-////    LOG_INFO("Byte %u 0x%02x\n", RPL_INSTANCE_ID_OFFSET, *(data + 7));
+////    LOG_DBG("Byte %u 0x%02x\n", RPL_INSTANCE_ID_OFFSET, *(data + 7));
 //    return false;
 //  }
 
   return true;
+}
+
+// Find if packet is RPL by analyzing packetbuf
+// TODO The attrs are not populated at the time we are called
+//static bool is_rpl_packet_via_packetbuf(void) {
+//  // For some reason, the OS stores protocol and type field in strange packetbuf-attrs
+//  // Inspired by orchestra_packet_sent()
+//  uint8_t protocol = packetbuf_attr(PACKETBUF_ATTR_NETWORK_ID);
+//  uint8_t icmp_type = (packetbuf_attr(PACKETBUF_ATTR_CHANNEL) >> 8) && 0x000000ff;
+//
+//  LOG_DBG("Packet protocol: %u, type: %u\n", protocol, icmp_type);
+//
+//  if(protocol == UIP_PROTO_ICMP6 && icmp_type == ICMP6_RPL) {
+//    return true;
+//  }
+//  return false;
+//}
+
+static bool is_rpl_packet(void) {
+//  return is_rpl_packet_via_packetbuf();
+  return is_rpl_packet_heuristic();
 }
 
 static bool heuristic_is_keepalive(void) {
@@ -278,16 +300,12 @@ select_packet(uint16_t *slotframe, uint16_t *timeslot, uint16_t *channel_offset)
       // For rank below us
       *channel_offset = calculate_channel(CHILD_RANK);
     }
-//    LOG_INFO("Selected %u/%u for beacon\n", *timeslot, *channel_offset);
+    LOG_DBG("Selected %u/%u for beacon\n", *timeslot, *channel_offset);
     return 1;
   }
 
-  // TODO use PACKETBUF_ATTR_CHANNEL instead of current poor
-  // heuristic. See orchestra_packet_sent().
-
   // If a RPL packet, send in common
-  if(heuristic_is_rpl_packet()) {
-    //LOG_INFO("This was a RPL packet. Sending a Forwarding\n");
+  if(is_rpl_packet()) {
 
     if(slotframe != NULL) {
       *slotframe = slotframe_handle;
@@ -298,11 +316,11 @@ select_packet(uint16_t *slotframe, uint16_t *timeslot, uint16_t *channel_offset)
     if(channel_offset != NULL) {
       *channel_offset = COMMON_CELL_CHANNEL;
     }
-//    LOG_INFO("Selected %u/%u for RPL packet\n", *timeslot, *channel_offset);
+    LOG_DBG("Selected %u/%u for RPL packet\n", *timeslot, *channel_offset);
     return 1;
   }
 
-  // If a TSCH keepalive, send it in the common slot (only seen on z1)
+  // If a TSCH keepalive, send it in the common slot
   if(heuristic_is_keepalive()) {
     //LOG_INFO("This was a keepalive packet\n");
 
@@ -315,7 +333,7 @@ select_packet(uint16_t *slotframe, uint16_t *timeslot, uint16_t *channel_offset)
     if(channel_offset != NULL) {
       *channel_offset = COMMON_CELL_CHANNEL;
     }
-//    LOG_INFO("Selected %u/%u for KA packet\n", *timeslot, *channel_offset);
+    LOG_DBG("Selected %u/%u for KA packet\n", *timeslot, *channel_offset);
     return 1;
   }
 
@@ -329,9 +347,9 @@ select_packet(uint16_t *slotframe, uint16_t *timeslot, uint16_t *channel_offset)
     return 1;
   }
 
-//  LOG_INFO("App packet originated from: ");
-//  LOG_INFO_LLADDR(&source_lladdr);
-//  LOG_INFO_("\n");
+//  LOG_DBG("App packet originated from: ");
+//  LOG_DBG_LLADDR(&source_lladdr);
+//  LOG_DBG_("\n");
 
   if(slotframe != NULL) {
     *slotframe = slotframe_handle;
@@ -342,10 +360,10 @@ select_packet(uint16_t *slotframe, uint16_t *timeslot, uint16_t *channel_offset)
   if(channel_offset != NULL) {
     *channel_offset = calculate_channel(node_rank);
   }
-//  LOG_INFO("Selected %u/%u for App packet originating from ",
-//           *timeslot, *channel_offset);
-//  LOG_INFO_LLADDR(&source_lladdr);
-//  LOG_INFO_("\n");
+  LOG_DBG("Selected %u/%u for App packet originating from ",
+           *timeslot, *channel_offset);
+  LOG_DBG_LLADDR(&source_lladdr);
+  LOG_DBG_("\n");
 
   return 1;
 }
