@@ -108,7 +108,7 @@ log_6addr_compact_snprint(char *buf, size_t size, const uip_ipaddr_t *ipaddr)
       prefix = "6G";
     }
 #if BUILD_WITH_DEPLOYMENT
-    return snprintf(buf, size, "%s-%03u", prefix, deployment_id_from_iid(ipaddr));
+    return snprintf(buf, size, "%s-%04x", prefix, deployment_id_from_iid(ipaddr));
 #else /* BUILD_WITH_DEPLOYMENT */
     return snprintf(buf, size, "%s-%04x", prefix, UIP_HTONS(ipaddr->u16[sizeof(uip_ipaddr_t)/2-1]));
 #endif /* BUILD_WITH_DEPLOYMENT */
@@ -148,7 +148,7 @@ log_lladdr_compact(const linkaddr_t *lladdr)
     LOG_OUTPUT("LL-NULL");
   } else {
 #if BUILD_WITH_DEPLOYMENT
-    LOG_OUTPUT("LL-%04u", deployment_id_from_lladdr(lladdr));
+    LOG_OUTPUT("LL-%04x", deployment_id_from_lladdr(lladdr));
 #else /* BUILD_WITH_DEPLOYMENT */
 #if LINKADDR_SIZE == 8
     LOG_OUTPUT("LL-%04x", UIP_HTONS(lladdr->u16[LINKADDR_SIZE/2-1]));
