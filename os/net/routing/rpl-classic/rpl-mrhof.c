@@ -154,6 +154,8 @@ parent_path_cost(rpl_parent_t *p)
     case RPL_DAG_MC_ENERGY:
       base = p->mc.obj.energy.energy_est << 8;
       break;
+    // Ignore hop-count, we only use it in the scheduler
+    case RPL_DAG_MC_HOPCOUNT:
     default:
       base = p->rank;
       break;
@@ -275,6 +277,8 @@ update_metric_container(rpl_instance_t *instance)
     instance->mc.aggr = RPL_DAG_MC_AGGR_ADDITIVE;
     instance->mc.prec = 0;
     path_cost = dag->rank;
+    dag->depth = 0;
+    LOG_WARN("dag-depth is %u\n", dag->depth);
   } else {
     path_cost = parent_path_cost(dag->preferred_parent);
   }
@@ -298,6 +302,18 @@ update_metric_container(rpl_instance_t *instance)
       /* Energy_est is only one byte, use the least significant byte of the path metric. */
       instance->mc.obj.energy.energy_est = path_cost >> 8;
       break;
+    case RPL_DAG_MC_HOPCOUNT:
+      // Set the dag depth to our parent depth + 1
+      if(dag->preferred_parent != NULL) {
+        dag->depth = dag->preferred_parent->mc.obj.hop_count + 1;
+        LOG_WARN("dag-depth is %u\n", dag->depth);
+        // Put in our current hop-count...
+        instance->mc.obj.hop_count = dag->depth;
+      }
+      else {
+        dag->depth = 0;
+      }
+
     default:
       LOG_WARN("MRHOF, non-supported MC %u\n", instance->mc.type);
       break;

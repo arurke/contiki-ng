@@ -101,8 +101,9 @@ rpl_print_neighbor_list(void)
     rpl_parent_t *p = nbr_table_head(rpl_parents);
     clock_time_t clock_now = clock_time();
 
-    LOG_DBG("MOP %u OCP %u rank %u dioint %u, nbr count %u\n",
-        default_instance->mop, default_instance->of->ocp, curr_rank, curr_dio_interval, uip_ds6_nbr_num());
+    LOG_DBG("MOP %u OCP %u rank %u dioint %u, nbr count %u, depth %u\n",
+        default_instance->mop, default_instance->of->ocp, curr_rank,
+        curr_dio_interval, uip_ds6_nbr_num(), default_instance->current_dag->depth);
     while(p != NULL) {
       const struct link_stats *stats = rpl_get_parent_link_stats(p);
       uip_ipaddr_t *parent_addr = rpl_parent_get_ipaddr(p);
