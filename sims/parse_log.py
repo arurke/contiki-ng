@@ -70,13 +70,14 @@ def parseMain(log):
     return None
 
 def parseRPL(log):
-    res = re.compile('.*? rank (\d*).*?dioint (\d*).*?nbr count (\d*)').match(log)
+    res = re.compile('.*? rank (\d*).*?dioint (\d*).*?nbr count (\d*), depth (\d*)').match(log)
     if res:
         rank = int(res.group(1))
         trickle = (2 ** int(res.group(2))) / (60 * 1000.)
         nbr_count = int(res.group(3))
         #  uint8_t route_hop_count = ((rpl_dag->rank / RPL_MIN_HOPRANKINC) - 1) / 3;
-        hop_count = ((rank / 256) - 1) / 3
+        #hop_count = ((rank / 256) - 1) / 3
+        hop_count = int(res.group(4))
         return {'event': 'rpl_stats', 'rank': rank, 'trickle': trickle,
                 'hop_count': hop_count, 'nbr_count': nbr_count}
 
