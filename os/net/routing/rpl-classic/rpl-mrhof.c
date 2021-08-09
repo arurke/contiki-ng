@@ -278,7 +278,6 @@ update_metric_container(rpl_instance_t *instance)
     instance->mc.prec = 0;
     path_cost = dag->rank;
     dag->depth = 0;
-    LOG_WARN("dag-depth is %u\n", dag->depth);
   } else {
     path_cost = parent_path_cost(dag->preferred_parent);
   }
@@ -306,18 +305,21 @@ update_metric_container(rpl_instance_t *instance)
       // Set the dag depth to our parent depth + 1
       if(dag->preferred_parent != NULL) {
         dag->depth = dag->preferred_parent->mc.obj.hop_count + 1;
-        LOG_WARN("dag-depth is %u\n", dag->depth);
         // Put in our current hop-count...
         instance->mc.obj.hop_count = dag->depth;
       }
       else {
-        dag->depth = 0;
+        if(dag->rank != ROOT_RANK(instance)) {
+          dag->depth = 0xffff;
+        }
       }
 
     default:
       LOG_WARN("MRHOF, non-supported MC %u\n", instance->mc.type);
       break;
   }
+
+  LOG_WARN("DAG-depth is %u\n", dag->depth);
 }
 #endif /* RPL_WITH_MC */
 /*---------------------------------------------------------------------------*/

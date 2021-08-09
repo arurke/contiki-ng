@@ -140,7 +140,7 @@ struct rpl_dag {
   uint8_t grounded;
   uint8_t preference;
   uint8_t used;
-  uint8_t depth;
+  uint16_t depth;
   /* live data for the DAG */
   uint8_t joined;
   rpl_parent_t *preferred_parent;
