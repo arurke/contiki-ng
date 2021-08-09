@@ -308,7 +308,7 @@ def doParse(file, testbed):
 
                     # Testbed uses MAC-nodeid instead of the node-id in the log
                     if testbed:
-                        if mac_to_node_id_map[ret['src']] != None:
+                        if ret['src'] in mac_to_node_id_map:
                             #print("src changed from " + str(ret['src']) +
                             #      " to " + str(mac_to_node_id_map[ret['src']]))
                             ret['src'] = mac_to_node_id_map[ret['src']]
@@ -397,7 +397,7 @@ def doParse(file, testbed):
                     mac_to_node_id_map[mac] = nodeid;
 
         except Exception as e:  # typical exception: failed str conversion to int, due to lossy logs
-            print(str(e))
+            print("Exception: " + str(e))
             continue
 
     # Remove last few packets -- might be in-flight when test stopped
