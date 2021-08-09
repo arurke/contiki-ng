@@ -91,7 +91,7 @@ void layered_print_stats() {
           layered_stats[i].timeslot,
           layered_stats[i].channel);
 
-      if(link->link_options | LINK_OPTION_SHARED) {
+      if(link->link_options & LINK_OPTION_SHARED) {
         LOG_INFO("BC: ");
       }
       else {
