@@ -13,11 +13,25 @@
 #define DEPLOYMENT_MAPPING deployment_fit
 #endif
 
-// Use only objective function 0
+// Select RPL OF. Note, both employ ETX.
+#define USE_OF0                       0
+#define USE_MRHOF                     1
+
+#if USE_OF0
 #define RPL_CONF_SUPPORTED_OFS        {&rpl_of0}
 #define RPL_CONF_OF_OCP               RPL_OCP_OF0
 //#define RPL_CONF_STATS                1 // Does not print extra
 #define RPL_OF0_CONF_SR               RPL_OF0_FIXED_SR
+#endif
+
+#if USE_MRHOF
+#define RPL_CONF_SUPPORTED_OFS        {&rpl_mrhof}
+#define RPL_CONF_OF_OCP               RPL_OCP_MRHOF
+#endif
+
+// Use metric container which contains hop count needed for Layered
+#define RPL_CONF_WITH_MC              1
+#define RPL_CONF_DAG_MC               RPL_DAG_MC_HOPCOUNT
 
 // Enable DAO Ack for robustness
 #if BUILD_WITH_LAYERED
