@@ -222,7 +222,48 @@ best_dag(rpl_dag_t *d1, rpl_dag_t *d2)
 static void
 update_metric_container(rpl_instance_t *instance)
 {
+#if !RPL_WITH_MC
   instance->mc.type = RPL_DAG_MC_NONE;
+#else
+  rpl_dag_t *dag;
+
+  dag = instance->current_dag;
+  if(dag == NULL || !dag->joined) {
+    LOG_WARN("Cannot update the metric container when not joined\n");
+    return;
+  }
+
+  if(dag->rank == ROOT_RANK(instance)) {
+    /* Configure MC at root only, other nodes are auto-configured when joining */
+    instance->mc.type = RPL_DAG_MC;
+    instance->mc.flags = 0;
+    instance->mc.aggr = RPL_DAG_MC_AGGR_ADDITIVE;
+    instance->mc.prec = 0;
+    dag->depth = 0;
+  }
+
+  /* Handle the different MC types */
+  switch(instance->mc.type) {
+    case RPL_DAG_MC_HOPCOUNT:
+      // Set the dag depth to our parent depth + 1
+      if(dag->preferred_parent != NULL) {
+        dag->depth = dag->preferred_parent->mc.obj.hop_count + 1;
+        // Put in our current hop-count...
+        instance->mc.obj.hop_count = dag->depth;
+      }
+      else {
+        if(dag->rank != ROOT_RANK(instance)) {
+          dag->depth = 0xffff;
+        }
+      }
+
+    default:
+      LOG_WARN("MRHOF, non-supported MC %u\n", instance->mc.type);
+      break;
+  }
+
+  LOG_WARN("dag-depth is %u\n", dag->depth);
+#endif
 }
 /*---------------------------------------------------------------------------*/
 rpl_of_t rpl_of0 = {
