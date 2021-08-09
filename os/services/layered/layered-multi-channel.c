@@ -20,9 +20,21 @@
  */
 #if UIP_MAX_ROUTES != 0
 
-static uint8_t node_layer = 0;
-static uint8_t child_layer = 0;
-static uint8_t node_rank = 0;
+typedef struct {
+  uint16_t node_depth;
+  uint8_t node_layer;
+  uint16_t child_depth;
+  uint8_t child_layer;
+} layered_status_t;
+
+
+static layered_status_t current_status = {
+    .node_depth = 0xffff,
+    .node_layer = 0xff,
+    .child_depth = 0xffff,
+    .child_layer = 0xff,
+};
+
 static uint16_t slotframe_handle = 0;
 static struct tsch_slotframe *sf_layered;
 
@@ -43,9 +55,6 @@ static uint16_t channels[NUM_CHANNELS] = {1,2};
 #define SIXLO_HEADER_PART2_OFFSET 1
 #define SRC_ADDR_MODE_MASK        0x30
 #define SRC_ADDR_OFFSET           10
-
-// Macro to calculate child rank
-#define CHILD_RANK                (node_rank + 1)
 
 #define FIRST_COMMON_SLOT         (COMMON_SLOT_SPACING - 1)
 
@@ -126,20 +135,20 @@ get_node_timeslot(const linkaddr_t *addr)
 }
 /*---------------------------------------------------------------------------*/
 static uint16_t
-calculate_channel(uint8_t rank)
+calculate_channel(uint8_t depth)
 {
-  // Treat root as on rank 1
-  if(rank == 0) {
-    rank = 1;
+  // Treat root as on depth 1
+  if(depth == 0) {
+    depth = 1;
   }
 
   // -1 for arithmetic simplicity such that bottom is 0
-  uint16_t channel = ((rank-1) / LAYERED_NUM_LAYERS) % NUM_CHANNELS;
+  uint16_t channel = ((depth-1) / LAYERED_NUM_LAYERS) % NUM_CHANNELS;
 
   // Fetch actual channel from
   channel = channels[channel];
 
-//  LOG_INFO("Channel %u at rank %u\n", channel, rank++);
+//  LOG_INFO("Channel %u at depth %u\n", channel, depth++);
   return channel;
 }
 /*---------------------------------------------------------------------------*/
@@ -294,11 +303,11 @@ select_packet(uint16_t *slotframe, uint16_t *timeslot, uint16_t *channel_offset)
     }
     if(timeslot != NULL) {
       // Our own address, but for layer below us
-      *timeslot = calculate_layered_timeslot(&linkaddr_node_addr, child_layer);
+      *timeslot = calculate_layered_timeslot(&linkaddr_node_addr, current_status.child_layer);
     }
     if(channel_offset != NULL) {
-      // For rank below us
-      *channel_offset = calculate_channel(CHILD_RANK);
+      // For depth below us
+      *channel_offset = calculate_channel(current_status.child_depth);
     }
     LOG_DBG("Selected %u/%u for beacon\n", *timeslot, *channel_offset);
     return 1;
@@ -355,10 +364,10 @@ select_packet(uint16_t *slotframe, uint16_t *timeslot, uint16_t *channel_offset)
     *slotframe = slotframe_handle;
   }
   if(timeslot != NULL) {
-    *timeslot = calculate_layered_timeslot(&source_lladdr, node_layer);
+    *timeslot = calculate_layered_timeslot(&source_lladdr, current_status.node_layer);
   }
   if(channel_offset != NULL) {
-    *channel_offset = calculate_channel(node_rank);
+    *channel_offset = calculate_channel(current_status.node_depth);
   }
   LOG_DBG("Selected %u/%u for App packet originating from ",
            *timeslot, *channel_offset);
@@ -421,10 +430,10 @@ static bool cell_already_there(uint16_t timeslot, uint16_t channel,
 
 static void
 schedule_upwards_tx_cell(
-    const linkaddr_t *linkaddr, uint8_t layer, uint8_t rank, bool remove) {
+    const linkaddr_t *linkaddr, uint8_t layer, uint8_t depth, bool remove) {
   uint8_t link_options = LINK_OPTION_TX;
   uint16_t timeslot = calculate_layered_timeslot(linkaddr, layer);
-  uint16_t channel = calculate_channel(rank);
+  uint16_t channel = calculate_channel(depth);
 
   // TODO this stopped DAO from propagating, so currently broadcast is set
   rpl_dag_t* rpl_dag = rpl_get_any_dag();
@@ -463,10 +472,10 @@ schedule_upwards_tx_cell(
 
 static void
 schedule_upwards_rx_cell(
-    const linkaddr_t *linkaddr, uint8_t layer, uint8_t rank, bool remove) {
+    const linkaddr_t *linkaddr, uint8_t layer, uint8_t depth, bool remove) {
   uint8_t link_options = LINK_OPTION_RX;
   uint16_t timeslot = calculate_layered_timeslot(linkaddr, layer);
-  uint16_t channel = calculate_channel(rank);
+  uint16_t channel = calculate_channel(depth);
 
   // Don't add stats for RX cells
 //#if LAYERED_STATS
@@ -490,9 +499,7 @@ schedule_upwards_rx_cell(
                timeslot, channel);
       LOG_INFO_LLADDR(linkaddr);
       LOG_INFO_("\n");
-      //TODO check if cell already added first?
-
-        tsch_schedule_add_link(sf_layered, link_options, LINK_TYPE_NORMAL,
+      tsch_schedule_add_link(sf_layered, link_options, LINK_TYPE_NORMAL,
                              &tsch_broadcast_address, timeslot, channel, 1);
     }
   }
@@ -500,10 +507,10 @@ schedule_upwards_rx_cell(
 
 static void
 schedule_downwards_tx_cell(
-    const linkaddr_t *linkaddr, uint8_t layer, uint8_t rank, bool remove) {
+    const linkaddr_t *linkaddr, uint8_t layer, uint8_t depth, bool remove) {
   uint8_t link_options = LINK_OPTION_TX;
   uint16_t timeslot = calculate_layered_timeslot(linkaddr, layer);
-  uint16_t channel = calculate_channel(rank);
+  uint16_t channel = calculate_channel(depth);
 
 #if LAYERED_STATS
   if(!remove) {
@@ -533,10 +540,10 @@ schedule_downwards_tx_cell(
 
 static void
 schedule_downwards_rx_cell(
-    const linkaddr_t *linkaddr, uint8_t layer, uint8_t rank, bool remove) {
+    const linkaddr_t *linkaddr, uint8_t layer, uint8_t depth, bool remove) {
   uint8_t link_options = LINK_OPTION_RX;
   uint16_t timeslot = calculate_layered_timeslot(linkaddr, layer);
-  uint16_t channel = calculate_channel(rank);
+  uint16_t channel = calculate_channel(depth);
 
   // Don't add stats for RX cells
 //#if LAYERED_STATS
@@ -565,17 +572,17 @@ schedule_downwards_rx_cell(
 
 // TODO NOTE! This does not use same notation as in paper,
 // here we have the most lowered-number layer closest to the sink
-static uint8_t calculate_layer(uint8_t rank) {
+static uint8_t calculate_layer(uint16_t depth) {
   // Treat the root as on layer 1
-  if(rank == 0) {
-    rank = 1;
+  if(depth == 0) {
+    depth = 1;
   }
 
   // For arithmetic simplicity
-  rank--;
+  depth--;
 
   // Calc layer (0 or 1)
-  uint8_t layer = rank % LAYERED_NUM_LAYERS;
+  uint8_t layer = depth % LAYERED_NUM_LAYERS;
 
   // And back to layer 1 and 2
   layer++;
@@ -584,45 +591,22 @@ static uint8_t calculate_layer(uint8_t rank) {
 }
 
 static void
-add_cells(const linkaddr_t *linkaddr, uint8_t rank, bool default_route) {
+add_cells(const linkaddr_t *linkaddr, layered_status_t* status, bool default_route) {
   if(linkaddr == NULL) {
     LOG_ERR("linkaddr NULL!\n");
     return;
   }
 
-  // Calculate ranks
-  uint8_t node_new_rank = rank;
-  if(node_new_rank != node_rank) {
-    LOG_WARN("Node switched rank from %u to %u\n",
-             node_rank, node_new_rank);
-    node_rank = node_new_rank;
-  }
-
-  // Calculate layers
-  uint8_t node_new_layer = calculate_layer(node_rank);
-  if(node_new_layer != node_layer) {
-    LOG_WARN("Node switched layer from %u to %u\n",
-             node_layer, node_new_layer);
-    node_layer = node_new_layer;
-  }
-
-  uint8_t child_new_layer = calculate_layer(CHILD_RANK);
-  if(child_new_layer != child_layer) {
-    LOG_WARN("Child switched layer from %u to %u\n",
-             child_layer, child_new_layer);
-    child_layer = child_new_layer;
-  }
-
-  LOG_INFO("Scheduling cells (node/child rank %u/%u, layer %u/%u)\n",
-           node_rank, CHILD_RANK, node_layer, child_layer);
+  LOG_INFO("Scheduling cells (node/child depth %u/%u, layer %u/%u)\n",
+           status->node_depth, status->child_depth, status->node_layer, status->child_layer);
 
   // Receive traffic forwarded by our child
   // The originating node (could be the child) is indicated in linkaddr, and
-  // The layer and rank would be the one below our own
+  // The layer and depth would be the one below our own
   // This cell is not necessary if this was the default-route, i.e.
   // the originating node would be ourself
   if(!default_route) {
-    schedule_upwards_rx_cell(linkaddr, child_layer, CHILD_RANK, false);
+    schedule_upwards_rx_cell(linkaddr, status->child_layer, status->child_depth, false);
   }
 
   // Forward upward traffic originated at the node indicated by the linkaddr
@@ -630,78 +614,106 @@ add_cells(const linkaddr_t *linkaddr, uint8_t rank, bool default_route) {
   // Not needed if we are root
   if(!is_root()) {
     // If it was a default route we are the originating node,
-    // use our address and rank
+    // use our address and depth
     if(default_route) {
       schedule_upwards_tx_cell(
-          &linkaddr_node_addr, node_layer, node_rank, false);
+          &linkaddr_node_addr, status->node_layer, status->node_depth, false);
     }
     else {
-      schedule_upwards_tx_cell(linkaddr, node_layer, node_rank, false);
+      schedule_upwards_tx_cell(linkaddr, status->node_layer, status->node_depth, false);
     }
   }
 
   // Send beacons to our childs
-  // Use our own addr, but at the layer and rank below us
+  // Use our own addr, but at the layer and depth below us
   if(default_route) {
-    schedule_downwards_tx_cell(&linkaddr_node_addr, child_layer, CHILD_RANK, false);
+    schedule_downwards_tx_cell(&linkaddr_node_addr, status->child_layer, status->child_depth, false);
   }
 
   // Receive beacons from parent
-  // This should follow our parent address, yet our layer and rank
+  // This should follow our parent address, yet our layer and depth
   // It is not necessary if we are root
   if(default_route && !is_root()) {
-    schedule_downwards_rx_cell(linkaddr, node_layer, node_rank, false);
+    schedule_downwards_rx_cell(linkaddr, status->node_layer, status->node_depth, false);
   }
 }
 
 static void
-remove_cells(const linkaddr_t *linkaddr, uint8_t rank, bool default_route) {
+remove_cells(const linkaddr_t *linkaddr, layered_status_t* status, bool default_route) {
   if(linkaddr == NULL) {
     LOG_ERR("linkaddr NULL!\n");
     return;
   }
 
-  LOG_INFO("Removing cells (node/child rank %u/%u, layer %u/%u)\n",
-           node_rank, CHILD_RANK, node_layer, child_layer);
+  LOG_INFO("Removing cells (node/child depth %u/%u, layer %u/%u)\n",
+           status->node_depth, status->child_depth, status->node_layer, status->child_layer);
 
   // We will no longer receive traffic forwarded by our child
   // The originating node (could be the child) is indicated in linkaddr, and
-  // The layer and rank would be the one below our own
+  // The layer and depth would be the one below our own
   // This cell is not necessary if this was the default-route, i.e.
   // the originating node would be ourself
   if(!default_route) {
-    schedule_upwards_rx_cell(linkaddr, child_layer, CHILD_RANK, true);
+    schedule_upwards_rx_cell(linkaddr, status->child_layer, status->child_depth, true);
   }
 
-  // No longer forward upward traffic originated
-  // at the node indicated by the linkaddr
+  // No longer forward upward traffic originated at the node indicated by linkaddr
   // The layer is our own
   // Not needed if we are root
   if(!is_root()) {
     // If it was a default route we are the originating node,
-    // use our address and rank
+    // use our address and depth
     if(default_route) {
       schedule_upwards_tx_cell(
-          &linkaddr_node_addr, node_layer, node_rank, true);
+          &linkaddr_node_addr, status->node_layer, status->node_depth, true);
     }
     else {
-      schedule_upwards_tx_cell(linkaddr, node_layer, node_rank, true);
+      schedule_upwards_tx_cell(linkaddr, status->node_layer, status->node_depth, true);
     }
   }
 
   // No longer send beacons to our childs since we might have moved
-  // Use our own addr, but at the layer and rank below us
+  // Use our own addr, but at the layer and depth below us
   // This is not necessary if we have no childs (except if we are root)
   if(default_route) {
     schedule_downwards_tx_cell(
-        &linkaddr_node_addr, child_layer, CHILD_RANK, true);
+        &linkaddr_node_addr, status->child_layer, status->child_depth, true);
   }
 
   // No longer receive beacons from this parent
-  // This should follow our parent address, yet our layer and rank
+  // This should follow our parent address, yet our layer and depth
   // It is not necessary if we are root
   if(default_route && !is_root()) {
-    schedule_downwards_rx_cell(linkaddr, node_layer, node_rank, true);
+    schedule_downwards_rx_cell(linkaddr, status->node_layer, status->node_depth, true);
+  }
+}
+
+static void update_current_status(uint16_t node_new_depth) {
+  if(node_new_depth != current_status.node_depth) {
+    LOG_INFO("Node switched depth from %u to %u\n",
+             current_status.node_depth, node_new_depth);
+    current_status.node_depth = node_new_depth;
+  }
+
+  uint8_t node_new_layer = calculate_layer(current_status.node_depth);
+  if(node_new_layer != current_status.node_layer) {
+    LOG_INFO("Node switched layer from %u to %u\n",
+             current_status.node_layer, node_new_layer);
+    current_status.node_layer = node_new_layer;
+  }
+
+  uint8_t child_new_depth = node_new_depth + 1;
+  if(child_new_depth != current_status.child_depth) {
+    LOG_INFO("Child switched depth from %u to %u\n",
+             current_status.child_depth, child_new_depth);
+    current_status.child_depth = child_new_depth;
+  }
+
+  uint8_t child_new_layer = calculate_layer(current_status.child_depth);
+  if(child_new_layer != current_status.child_layer) {
+    LOG_INFO("Child switched layer from %u to %u\n",
+             current_status.child_layer, child_new_layer);
+    current_status.child_layer = child_new_layer;
   }
 }
 
@@ -710,8 +722,7 @@ route_callback(int event,
                const uip_ipaddr_t *route,
                const uip_ipaddr_t *ipaddr,
                int num_routes,
-               bool route_update)
-{
+               bool route_update) {
 
   // Fetch the link-layer address by dissecting the IP
   linkaddr_t route_lladdr = {{0}};
@@ -719,15 +730,18 @@ route_callback(int event,
 
   rpl_dag_t* rpl_dag = rpl_get_any_dag();
 
-#if RPL_DAG_MC == RPL_DAG_MC_HOPCOUNT && RPL_CONF_OF_OCP == RPL_OCP_MRHOF
-  // Fetch depth from dag. TODO harmonize when using Of0 as well
-  uint8_t depth = rpl_dag->depth;
-#else
-  // Calculate from rank to hop count (TODO no idea why -1). 3 is STEP_OF_RANK
-  uint8_t depth = ((rpl_dag->rank / RPL_MIN_HOPRANKINC) - 1) / 3;
-  LOG_INFO("RPL joined: %u, rank %u, depth: %u\n",
-           rpl_dag->joined, rpl_dag->rank, depth);
-#endif
+  if(rpl_dag == NULL) {
+    LOG_ERR("No dag!\n");
+    return;
+  }
+
+  // Fetch depth from dag
+  uint16_t node_new_depth = rpl_dag->depth;
+  if(node_new_depth == 0xffff) {
+    LOG_ERR("New depth invalid!\n");
+    // TODO if this happens before all routes are removed we might be in trouble?
+  }
+
   // Observed:
   // 1. We get periodic adding of default route
   // 2. Default route and regular route are separate things - not duplicated
@@ -744,6 +758,9 @@ route_callback(int event,
 //    return;
 //  }
 
+  layered_status_t previous_status = current_status;
+  update_current_status(node_new_depth);
+
   if(event == UIP_DS6_NOTIFICATION_DEFRT_ADD) {
     LOG_INFO("Added default route to ");
     LOG_INFO_6ADDR(route);
@@ -752,8 +769,9 @@ route_callback(int event,
     LOG_INFO_(" via ");
     LOG_INFO_6ADDR(ipaddr);
     LOG_INFO_("\n");
-    add_cells(&route_lladdr, depth, true);
+    add_cells(&route_lladdr, &current_status, true);
   }
+  // TODO Does this work well if we have moved depth?
   else if(event == UIP_DS6_NOTIFICATION_DEFRT_RM) {
     LOG_INFO("Removed default route ");
     LOG_INFO_6ADDR(route);
@@ -762,7 +780,7 @@ route_callback(int event,
     LOG_INFO_(" via ");
     LOG_INFO_6ADDR(ipaddr);
     LOG_INFO_("\n");
-    remove_cells(&route_lladdr, depth, true);
+    remove_cells(&route_lladdr, &previous_status, true);
   }
   else if(event == UIP_DS6_NOTIFICATION_ROUTE_ADD) {
     LOG_INFO("Added route ");
@@ -772,8 +790,9 @@ route_callback(int event,
     LOG_INFO_(" via ");
     LOG_INFO_6ADDR(ipaddr);
     LOG_INFO_("\n");
-    add_cells(&route_lladdr, depth, false);
+    add_cells(&route_lladdr, &current_status, false);
   }
+  // TODO Does this work well if we have moved depth?
   else if(event == UIP_DS6_NOTIFICATION_ROUTE_RM) {
     LOG_INFO("Removed route ");
     LOG_INFO_6ADDR(route);
@@ -782,7 +801,7 @@ route_callback(int event,
     LOG_INFO_(" via ");
     LOG_INFO_6ADDR(ipaddr);
     LOG_INFO_("\n");
-    remove_cells(&route_lladdr, depth, false);
+    remove_cells(&route_lladdr, &current_status, false);
   }
 }
 
@@ -821,11 +840,15 @@ init(uint16_t sf_handle)
 
   add_common_slots();
 
-  // If we are root we already know our rank,
+  // If we are root we already know our depth,
   // so we can add the downward beacon cell
   if(is_root()) {
     LOG_INFO("Adding downward cell for root\n");
-    add_cells(&linkaddr_node_addr, 0, true);
+    current_status.node_depth = 0;
+    current_status.child_depth = 1;
+    current_status.node_layer = calculate_layer(current_status.node_depth);
+    current_status.child_layer = calculate_layer(current_status.child_depth);
+    add_cells(&linkaddr_node_addr, &current_status, true);
   }
 }
 /*---------------------------------------------------------------------------*/
