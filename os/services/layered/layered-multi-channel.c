@@ -54,7 +54,7 @@ static uint16_t channels[NUM_CHANNELS] = {1,2};
 #define HOP_LIMIT_MASK            0x03
 #define SIXLO_HEADER_PART2_OFFSET 1
 #define SRC_ADDR_MODE_MASK        0x30
-#define SRC_ADDR_OFFSET           10
+#define SRC_ADDR_OFFSET           3
 
 #define FIRST_COMMON_SLOT         (COMMON_SLOT_SPACING - 1)
 
@@ -133,6 +133,22 @@ get_node_timeslot(const linkaddr_t *addr)
     return 0xffff;
   }
 }
+
+static uint16_t calculate_next_common_slot(void) {
+  // TODO No guarantee that ASN is updated at this point, but this is
+  // just RPL traffic so any delays should be fine
+  uint16_t current_ts = (tsch_current_asn.ls4b % LAYERED_SF_LEN);
+
+  for(uint16_t i = FIRST_COMMON_SLOT;
+      i<LAYERED_SF_LEN;
+      i+=COMMON_SLOT_SPACING) {
+    if(current_ts < i) {
+      return i;
+    }
+  }
+  return FIRST_COMMON_SLOT;
+}
+
 /*---------------------------------------------------------------------------*/
 static uint16_t
 calculate_channel(uint8_t depth)
@@ -227,6 +243,12 @@ calculate_layered_timeslot(const linkaddr_t *linkaddr, uint16_t layer) {
   // Hash of node id
   uint16_t timeslot = get_node_timeslot(linkaddr);
 
+  if(timeslot == 0xffff) {
+    LOG_ERR("TEST FAILED invalid timeslot\n");
+    // Return a common slot
+    return calculate_next_common_slot();
+  }
+
   // TODO Because timeslots are 0-indexed
   timeslot--;
 
@@ -243,6 +265,7 @@ calculate_layered_timeslot(const linkaddr_t *linkaddr, uint16_t layer) {
 static bool
 find_source_address(linkaddr_t* source_lladdr) {
   // Use a really bad way to figure out if the originating node address
+  // For some reason PACKETBUF_ADDR_SENDER contain our own address
   uint8_t* data = packetbuf_dataptr();
 
   if(packetbuf_datalen() < 12) {
@@ -267,29 +290,20 @@ find_source_address(linkaddr_t* source_lladdr) {
 //    LOG_INFO("inline hoplimit\n");
   }
 
-  // TODO get last byte of the address and hack it into the lladdr cooja-style
-  uint8_t node_id = *(data + src_addr_offset);
-  source_lladdr->u8[7] = node_id;
-  source_lladdr->u8[5] = node_id;
-  source_lladdr->u8[3] = node_id;
-  source_lladdr->u8[1] = node_id;
-//  LOG_INFO("Found node id %u at %u\n", node_id, src_addr_offset);
+  linkaddr_t* fetched_source_address = (linkaddr_t*)(data + src_addr_offset);
+
+  // Create an ipaddr and fill the interface id from the buf
+  uip_ipaddr_t ipaddr = {0};
+  memcpy(ipaddr.u8 + 8, fetched_source_address->u8, LINKADDR_SIZE);
+
+  // Use ds6 to properly decode lladdr from IP.
+  uip_ds6_set_lladdr_from_iid((uip_lladdr_t*) source_lladdr, &ipaddr);
+
+  LOG_DBG("Found node ");
+  LOG_DBG_LLADDR(source_lladdr);
+  LOG_DBG_("\n");
+
   return true;
-}
-
-static uint16_t calculate_next_common_slot(void) {
-  // TODO No guarantee that ASN is updated at this point, but this is
-  // just RPL traffic so any delays should be fine
-  uint16_t current_ts = (tsch_current_asn.ls4b % LAYERED_SF_LEN);
-
-  for(uint16_t i = FIRST_COMMON_SLOT;
-      i<LAYERED_SF_LEN;
-      i+=COMMON_SLOT_SPACING) {
-    if(current_ts < i) {
-      return i;
-    }
-  }
-  return FIRST_COMMON_SLOT;
 }
 
 /*---------------------------------------------------------------------------*/
