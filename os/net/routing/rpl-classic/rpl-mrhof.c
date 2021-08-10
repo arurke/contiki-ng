@@ -313,6 +313,7 @@ update_metric_container(rpl_instance_t *instance)
           dag->depth = 0xffff;
         }
       }
+      break;
 
     default:
       LOG_WARN("MRHOF, non-supported MC %u\n", instance->mc.type);
