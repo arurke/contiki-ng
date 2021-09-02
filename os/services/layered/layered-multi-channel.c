@@ -408,6 +408,7 @@ is_root(void) {
   return NETSTACK_ROUTING.node_is_root();
 }
 
+#if LAYERED_STATS
 static void add_link_to_stats(uint16_t timeslot, uint16_t channel) {
   int i = 0;
   for(i = 0; i<STATS_NUM_LINKS; i++) {
@@ -426,6 +427,7 @@ static void add_link_to_stats(uint16_t timeslot, uint16_t channel) {
   }
   LOG_ERR("Stats is full!\n");
 }
+#endif
 
 static bool cell_already_there(uint16_t timeslot, uint16_t channel,
                                uint8_t link_options, enum link_type link_type) {
