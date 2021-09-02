@@ -736,26 +736,39 @@ static void update_current_status(uint16_t node_new_depth) {
 static void
 route_callback(int event,
                const uip_ipaddr_t *route,
-               const uip_ipaddr_t *ipaddr,
+               const uip_ipaddr_t *next_hop,
                int num_routes,
                bool route_update) {
 
-  // Fetch the link-layer address by dissecting the IP
+  bool route_added =
+      (event == UIP_DS6_NOTIFICATION_DEFRT_ADD ||
+          event == UIP_DS6_NOTIFICATION_ROUTE_ADD);
+
+  // Fetch the route link-layer address by dissecting the IP
   linkaddr_t route_lladdr = {{0}};
   uip_ds6_set_lladdr_from_iid((uip_lladdr_t*)&route_lladdr, route);
 
   rpl_dag_t* rpl_dag = rpl_get_any_dag();
-
   if(rpl_dag == NULL) {
     LOG_ERR("No dag!\n");
     return;
   }
 
+  layered_status_t previous_status = current_status;
+
   // Fetch depth from dag
   uint16_t node_new_depth = rpl_dag->depth;
   if(node_new_depth == 0xffff) {
-    LOG_ERR("New depth invalid!\n");
-    // TODO if this happens before all routes are removed we might be in trouble?
+    LOG_ERR("New depth invalid! %u\n", route_added);
+    // Our depth is invalid, probably we have lost all parents. Do not
+    // add cells for new routes as we don't know the depth, but allow removal of old
+    if(route_added) {
+      return;
+    }
+  }
+  else {
+    // Valid depth, update our status
+    update_current_status(node_new_depth);
   }
 
   // Observed:
@@ -774,8 +787,6 @@ route_callback(int event,
 //    return;
 //  }
 
-  layered_status_t previous_status = current_status;
-  update_current_status(node_new_depth);
 
   if(event == UIP_DS6_NOTIFICATION_DEFRT_ADD) {
     LOG_INFO("Added default route to ");
@@ -783,7 +794,7 @@ route_callback(int event,
     LOG_INFO_(" / ");
     LOG_INFO_LLADDR(&route_lladdr);
     LOG_INFO_(" via ");
-    LOG_INFO_6ADDR(ipaddr);
+    LOG_INFO_6ADDR(next_hop);
     LOG_INFO_("\n");
     add_cells(&route_lladdr, &current_status, true);
   }
@@ -794,7 +805,7 @@ route_callback(int event,
     LOG_INFO_(" / ");
     LOG_INFO_LLADDR(&route_lladdr);
     LOG_INFO_(" via ");
-    LOG_INFO_6ADDR(ipaddr);
+    LOG_INFO_6ADDR(next_hop);
     LOG_INFO_("\n");
     remove_cells(&route_lladdr, &previous_status, true);
   }
@@ -804,7 +815,7 @@ route_callback(int event,
     LOG_INFO_(" / ");
     LOG_INFO_LLADDR(&route_lladdr);
     LOG_INFO_(" via ");
-    LOG_INFO_6ADDR(ipaddr);
+    LOG_INFO_6ADDR(next_hop);
     LOG_INFO_("\n");
     add_cells(&route_lladdr, &current_status, false);
   }
@@ -815,7 +826,7 @@ route_callback(int event,
     LOG_INFO_(" / ");
     LOG_INFO_LLADDR(&route_lladdr);
     LOG_INFO_(" via ");
-    LOG_INFO_6ADDR(ipaddr);
+    LOG_INFO_6ADDR(next_hop);
     LOG_INFO_("\n");
     remove_cells(&route_lladdr, &current_status, false);
   }
