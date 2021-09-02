@@ -398,7 +398,7 @@ new_time_source(const struct tsch_neighbor *old, const struct tsch_neighbor *new
   LOG_INFO_LLADDR(tsch_queue_get_nbr_address(new));
   LOG_INFO_(". Add an rx cell here?\n"); //TODO
   LOG_INFO("ASN now is %"PRIu32" so TS should be %lu\n",
-           tsch_current_asn.ls4b, (tsch_current_asn.ls4b % 101));
+           tsch_current_asn.ls4b, (tsch_current_asn.ls4b % LAYERED_SF_LEN));
   LOG_INFO("asn-%x.%lx\n", tsch_current_asn.ms1b, tsch_current_asn.ls4b);
 }
 
