@@ -66,7 +66,10 @@
 // Disable RPL probing which takes up space in queues
 #define RPL_CONF_WITH_PROBING             0
 
-// Number of channels (4 available to allow for orchestra multi-channel)
+// Channels (min. 4 available to allow for orchestra multi-channel)
+#define CUSTOM_TSCH_HOPPING_SEQUENCE_16_16 (uint8_t[]){ 16, 17, 23, 18, 26, 15, 25, 22, 19, 11, 12, 13, 24, 14, 20, 21 }
+#define CUSTOM_TSCH_HOPPING_SEQUENCE_4_4 (uint8_t[]){ 18, 22, 24, 17 }
+// The TSCH_HOPPING_SEQUENCE_4_4 defined in TSCH avoid Wi-Fi channels
 #define TSCH_CONF_DEFAULT_HOPPING_SEQUENCE    TSCH_HOPPING_SEQUENCE_4_4
 #define ORCHESTRA_CONF_UNICAST_MAX_CHANNEL_OFFSET 2
 
