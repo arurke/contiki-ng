@@ -7,6 +7,7 @@
 #include "rpl.h"
 #include "rpl-private.h"
 #include "uip-icmp6.h"
+#include "lib/random.h"
 #include <inttypes.h>
 
 #include "sys/log.h"
@@ -135,18 +136,25 @@ get_node_timeslot(const linkaddr_t *addr)
 }
 
 static uint16_t calculate_next_common_slot(void) {
-  // TODO No guarantee that ASN is updated at this point, but this is
-  // just RPL traffic so any delays should be fine
-  uint16_t current_ts = (tsch_current_asn.ls4b % LAYERED_SF_LEN);
+  // Select common slot at random to ensure uniform distribution
+  // Experience shows ASN method below produced too much grouping
+  uint8_t random_common = random_rand() % NUM_COMMON_SLOTS;
+  uint8_t common = (random_common * COMMON_SLOT_SPACING) + FIRST_COMMON_SLOT;
+  //LOG_DBG("Common %u\n", common);
+  return common;
 
-  for(uint16_t i = FIRST_COMMON_SLOT;
-      i<LAYERED_SF_LEN;
-      i+=COMMON_SLOT_SPACING) {
-    if(current_ts < i) {
-      return i;
-    }
-  }
-  return FIRST_COMMON_SLOT;
+//  // TODO No guarantee that ASN is updated at this point, but this is
+//  // just RPL traffic so any delays should be fine
+//  uint16_t current_ts = (tsch_current_asn.ls4b % LAYERED_SF_LEN);
+//
+//  for(uint16_t i = FIRST_COMMON_SLOT;
+//      i<LAYERED_SF_LEN;
+//      i+=COMMON_SLOT_SPACING) {
+//    if(current_ts < i) {
+//      return i;
+//    }
+//  }
+//  return FIRST_COMMON_SLOT;
 }
 
 /*---------------------------------------------------------------------------*/
