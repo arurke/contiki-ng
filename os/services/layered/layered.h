@@ -69,7 +69,8 @@ void layered_callback_child_removed(const linkaddr_t *addr);
 #define LAYERED_STATS 1
 #if LAYERED_STATS
 void layered_stats_update(struct tsch_neighbor *n, struct tsch_packet *p,
-                      struct tsch_link *link, uint8_t mac_tx_status);
+                          struct tsch_link *link, uint8_t channel_offset,
+                          uint8_t mac_tx_status);
 void layered_print_stats();
 #else
 #define layered_stats_update(n, p, l, m)

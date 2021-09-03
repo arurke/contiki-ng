@@ -64,6 +64,8 @@ static uint16_t channels[NUM_CHANNELS] = {1,2};
 typedef struct {
   uint16_t timeslot;
   uint16_t channel;
+  uint8_t options;
+  bool active;
   uint32_t tx_attempts;
   uint32_t no_ok_mac;
 } layered_stats_t;
@@ -72,47 +74,51 @@ static layered_stats_t layered_stats[STATS_NUM_LINKS] = {{0}};
 static uint32_t unknown_stats = 0;
 
 void layered_stats_update(struct tsch_neighbor *n, struct tsch_packet *p,
-                      struct tsch_link *link, uint8_t mac_tx_status) {
-  int i = 0;
-  for(i = 0; i < STATS_NUM_LINKS; i++) {
+                          struct tsch_link *link, uint8_t channel_offset,
+                          uint8_t mac_tx_status) {
+
+  // (channel offset in link cannot be trusted when TSCH_WITH_LINK_SELECTOR)
+  for(int i = 0; i < STATS_NUM_LINKS; i++) {
     if(layered_stats[i].timeslot == link->timeslot &&
-        layered_stats[i].channel == link->channel_offset) {
+        layered_stats[i].channel == channel_offset) {
+
       layered_stats[i].tx_attempts++;
+
       if(mac_tx_status != MAC_TX_OK) {
         layered_stats[i].no_ok_mac++;
       }
+
       return;
     }
   }
-
   unknown_stats++;
 }
+
 void layered_print_stats() {
+  tsch_schedule_print();
+
   LOG_INFO("Printing stats:\n");
   int i = 0;
   uint8_t num_links = 0;
   for(i = 0; i < STATS_NUM_LINKS; i++) {
     if(layered_stats[i].timeslot != 0 &&
         layered_stats[i].channel != 0) {
+
       num_links++;
 
-      struct tsch_link* link = tsch_schedule_get_link_by_timeslot(
-          sf_layered,
-          layered_stats[i].timeslot,
-          layered_stats[i].channel);
-
-      if(link->link_options & LINK_OPTION_SHARED) {
+      if(layered_stats[i].options & LINK_OPTION_SHARED) {
         LOG_INFO("BC: ");
       }
       else {
         LOG_INFO("UC: ");
       }
       LOG_INFO_("TS/CH %" PRIu16 "/%" PRIu16 ": %" PRIu32 " attempts, " \
-               " %" PRIu32 " no OK status\n",
+               " %" PRIu32 " no OK status",
                layered_stats[i].timeslot,
                layered_stats[i].channel,
                layered_stats[i].tx_attempts,
                layered_stats[i].no_ok_mac);
+      LOG_INFO_("%s\n", layered_stats[i].active ? "" : " - inactive");
     }
   }
 
@@ -122,8 +128,41 @@ void layered_print_stats() {
     LOG_ERR("Unknown stats %" PRIu32 "\n", unknown_stats);
   }
 }
-#endif
 
+static void stats_add_link(
+    uint16_t timeslot, uint16_t channel, uint8_t options) {
+  for(int i = 0; i < STATS_NUM_LINKS; i++) {
+    if(layered_stats[i].timeslot == timeslot &&
+           layered_stats[i].channel == channel) {
+      layered_stats[i].options = options;
+      layered_stats[i].active = true;
+      // Already exists;
+      return;
+    }
+
+    if(layered_stats[i].timeslot == 0 &&
+        layered_stats[i].channel == 0) {
+      layered_stats[i].timeslot = timeslot;
+      layered_stats[i].channel = channel;
+      layered_stats[i].options = options;
+      layered_stats[i].active = true;
+      return;
+    }
+  }
+  LOG_ERR("Stats is full!\n");
+}
+
+static void stats_deactivate_link(
+    uint16_t timeslot, uint16_t channel) {
+  for(int i = 0; i < STATS_NUM_LINKS; i++) {
+    if(layered_stats[i].timeslot == timeslot &&
+           layered_stats[i].channel == channel) {
+      layered_stats[i].active = false;
+      return;
+    }
+  }
+}
+#endif /* LAYERED_STATS */
 
 static uint16_t
 get_node_timeslot(const linkaddr_t *addr)
@@ -416,27 +455,6 @@ is_root(void) {
   return NETSTACK_ROUTING.node_is_root();
 }
 
-#if LAYERED_STATS
-static void add_link_to_stats(uint16_t timeslot, uint16_t channel) {
-  int i = 0;
-  for(i = 0; i<STATS_NUM_LINKS; i++) {
-    if(layered_stats[i].timeslot == timeslot &&
-           layered_stats[i].channel == channel) {
-      // Already exists;
-      return;
-    }
-
-    if(layered_stats[i].timeslot == 0 &&
-        layered_stats[i].channel == 0) {
-      layered_stats[i].timeslot = timeslot;
-      layered_stats[i].channel = channel;
-      return;
-    }
-  }
-  LOG_ERR("Stats is full!\n");
-}
-#endif
-
 static bool cell_already_there(uint16_t timeslot, uint16_t channel,
                                uint8_t link_options, enum link_type link_type) {
 
@@ -465,8 +483,11 @@ schedule_upwards_tx_cell(
       rpl_get_parent_lladdr(rpl_dag->preferred_parent);
 
 #if LAYERED_STATS
-  if(!remove) {
-    add_link_to_stats(timeslot, channel);
+  if(remove) {
+    stats_deactivate_link(timeslot, channel);
+  }
+  else {
+    stats_add_link(timeslot, channel, link_options);
   }
 #endif
 
@@ -503,7 +524,7 @@ schedule_upwards_rx_cell(
 
   // Don't add stats for RX cells
 //#if LAYERED_STATS
-//  add_link_to_stats(timeslot, channel);
+//  stats_add_link(timeslot, channel);
 //#endif
 
   // We set broadcast as the "destination address",
@@ -537,8 +558,11 @@ schedule_downwards_tx_cell(
   uint16_t channel = calculate_channel(depth);
 
 #if LAYERED_STATS
-  if(!remove) {
-    add_link_to_stats(timeslot, channel);
+  if(remove) {
+    stats_deactivate_link(timeslot, channel);
+  }
+  else {
+    stats_add_link(timeslot, channel, link_options);
   }
 #endif
 
@@ -571,7 +595,7 @@ schedule_downwards_rx_cell(
 
   // Don't add stats for RX cells
 //#if LAYERED_STATS
-//  add_link_to_stats(timeslot, channel);
+//  stats_add_link(timeslot, channel);
 //#endif
 
   // Allow all kinds of destinations (including broadcast)
@@ -593,6 +617,26 @@ schedule_downwards_rx_cell(
   }
 }
 
+static void schedule_common_cells(void) {
+  // Add common cells used for RPL and downward application traffic
+  for(uint16_t i = FIRST_COMMON_SLOT;
+      i < LAYERED_SF_LEN;
+      i += COMMON_SLOT_SPACING) {
+
+    uint16_t timeslot = i;
+    uint16_t channel = COMMON_CELL_CHANNEL;
+    uint8_t options = LINK_OPTION_RX | LINK_OPTION_TX | LINK_OPTION_SHARED;
+
+    LOG_INFO("Adding common cell %u/%u\n", timeslot, channel);
+
+#if LAYERED_STATS
+    stats_add_link(timeslot, channel, options);
+#endif
+
+    tsch_schedule_add_link(sf_layered, options, LINK_TYPE_NORMAL,
+                           &tsch_broadcast_address, i, channel, 1);
+  }
+}
 
 // TODO NOTE! This does not use same notation as in paper,
 // here we have the most lowered-number layer closest to the sink
@@ -840,24 +884,6 @@ route_callback(int event,
   }
 }
 
-static void add_common_slots(void) {
-  // Add common slots used for RPL and downward application traffic
-  for(uint16_t i = FIRST_COMMON_SLOT;
-      i<LAYERED_SF_LEN;
-      i+=COMMON_SLOT_SPACING) {
-    uint16_t timeslot = i;
-    uint16_t channel = COMMON_CELL_CHANNEL;
-    LOG_INFO("Adding common cell %u/%u\n", timeslot, channel);
-#if LAYERED_STATS
-    add_link_to_stats(timeslot, channel);
-#endif
-    tsch_schedule_add_link(sf_layered,
-              LINK_OPTION_RX | LINK_OPTION_TX | LINK_OPTION_SHARED,
-              LINK_TYPE_NORMAL, &tsch_broadcast_address,
-              i, channel, 1);
-  }
-}
-
 /*---------------------------------------------------------------------------*/
 static void
 init(uint16_t sf_handle)
@@ -873,7 +899,7 @@ init(uint16_t sf_handle)
   sf_layered = tsch_schedule_add_slotframe(
       slotframe_handle, LAYERED_SF_LEN);
 
-  add_common_slots();
+  schedule_common_cells();
 
   // If we are root we already know our depth,
   // so we can add the downward beacon cell

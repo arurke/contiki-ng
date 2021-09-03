@@ -49,7 +49,6 @@
 #include "net/routing/rpl-classic/rpl-private.h"
 #endif
 
-//TODO do a commit for orchestra?
 #include "sys/log.h"
 #define LOG_MODULE "Layered"
 #define LOG_LEVEL   LOG_LEVEL_INFO

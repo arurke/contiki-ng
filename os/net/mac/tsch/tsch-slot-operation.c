@@ -746,7 +746,9 @@ PT_THREAD(tsch_tx_slot(struct pt *pt, struct rtimer *t))
 
     // TODO ad-hoc update our scheduler-stats
 #if BUILD_WITH_LAYERED
-    layered_stats_update(current_neighbor, current_packet, current_link, mac_tx_status);
+    layered_stats_update(current_neighbor, current_packet, current_link,
+                         tsch_get_channel_offset(current_link, current_packet),
+                         mac_tx_status);
 #endif
 
     /* Log every tx attempt */
