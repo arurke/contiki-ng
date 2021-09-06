@@ -238,12 +238,18 @@ PROCESS_THREAD(app_process, ev, data)
       // Fetch current time in ticks
       uint64_t network_uptime = tsch_get_network_uptime_ticks();
 
+      uint16_t depth = 0;
+      rpl_dag_t* rpl_dag = rpl_get_any_dag();
+      if(rpl_dag != NULL) {
+        depth = rpl_dag->depth;
+      }
+
       // Send to root
       // NOTE! The ASN may not be precise (not updated by TSCH at this point)
       LOG_INFO("TX data num %u tick %"PRIu64" to ",
           count, network_uptime);
       LOG_INFO_6ADDR(&dest_ipaddr);
-      LOG_INFO_("\n");
+      LOG_INFO_("from depth %u\n", depth);
       snprintf(
           str,
           sizeof(str),
