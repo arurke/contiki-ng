@@ -79,6 +79,7 @@ const struct id_mac deployment_fit[] = {
 
 static struct simple_udp_connection udp_conn;
 static bool is_coordinator = false;
+static bool is_transmitting_node = true;
 static struct ctimer ct_periodic_debug;
 
 /*---------------------------------------------------------------------------*/
@@ -167,7 +168,17 @@ PROCESS_THREAD(app_process, ev, data)
              periodic_debug,
              NULL);
 
-  is_coordinator = (node_id == ROOT_NODE_ID);
+  if(node_id == ROOT_NODE_ID) {
+    is_coordinator = true;
+    is_transmitting_node = false;
+  }
+
+  // Uncomment to make only the specified node send packets
+  // 326, 328, 330, 332
+//  if(node_id != 8 && node_id != 2 &&
+//      node_id != 9 && node_id != 10) {
+//    is_transmitting_node = false;
+//  }
 
   if(is_coordinator) {
     /* Initialize DAG root. This also sets this node as TSCH coordinator */
@@ -177,7 +188,7 @@ PROCESS_THREAD(app_process, ev, data)
     simple_udp_register(&udp_conn, UDP_SERVER_PORT, NULL,
                         UDP_CLIENT_PORT, udp_rx_callback);
   }
-  else {
+  else if (is_transmitting_node){
     /* Initialize client UDP connection */
     simple_udp_register(&udp_conn, UDP_CLIENT_PORT, NULL,
                         UDP_SERVER_PORT, NULL);
@@ -209,11 +220,7 @@ PROCESS_THREAD(app_process, ev, data)
              intra_slotframe_delay_ticks);
   }
 
-  while(!is_coordinator && count < NUM_PACKETS) {
-    // Uncomment to make only the specified node send packets
-//    if(node_id != 15) {
-//      break;
-//    }
+  while(is_transmitting_node && count < NUM_PACKETS) {
 
     PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
 
@@ -267,9 +274,15 @@ PROCESS_THREAD(app_process, ev, data)
     PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
   }
 
-  if(application_success) {
-    LOG_INFO("Done\n");
+  if(is_transmitting_node) {
+    if(application_success) {
+        LOG_INFO("Done\n");
+      }
   }
+  else {
+    LOG_INFO("Not a transmitting node\n");
+  }
+
 
   PROCESS_END();
 }
