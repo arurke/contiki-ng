@@ -249,7 +249,7 @@ PROCESS_THREAD(app_process, ev, data)
       LOG_INFO("TX data num %u tick %"PRIu64" to ",
           count, network_uptime);
       LOG_INFO_6ADDR(&dest_ipaddr);
-      LOG_INFO_("from depth %u\n", depth);
+      LOG_INFO_(" from depth %u\n", depth);
       snprintf(
           str,
           sizeof(str),
