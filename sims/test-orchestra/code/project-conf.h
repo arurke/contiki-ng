@@ -71,6 +71,8 @@
 #define CUSTOM_TSCH_HOPPING_SEQUENCE_4_4 (uint8_t[]){ 18, 22, 24, 17 }
 // The TSCH_HOPPING_SEQUENCE_4_4 defined in TSCH avoid Wi-Fi channels
 #define TSCH_CONF_DEFAULT_HOPPING_SEQUENCE    TSCH_HOPPING_SEQUENCE_4_4
+
+// Max. channel offset for the unicast slotframe. Minimum is 2.
 #define ORCHESTRA_CONF_UNICAST_MAX_CHANNEL_OFFSET 2
 
 // Length of EB SF (def. 397)
@@ -102,7 +104,13 @@
 // Num nodes supported for layers (including sink)
 #define LAYERED_CONF_MAX_NUM_NODES            49
 #define LAYERED_CONF_NUM_LAYERS               2
-#define LAYERED_CONF_COMMON_SLOT_SPACING      31
+#define LAYERED_CONF_COMMON_SLOT_SPACING      19
+//#define LAYERED_CONF_CHANNELS                 (uint8_t[]){1,2}
+#define LAYERED_CONF_CHANNELS                 ((uint8_t[]){1,2,3,4,5})
+
+#if BUILD_WITH_LAYERED
+#define TSCH_SCHEDULE_CONF_MAX_SLOTFRAMES     1
+#endif
 
 // Enable cell duty-cycle statistics
 // TODO this assumes cooja mote
@@ -112,13 +120,19 @@
 // No need for large packet support
 #define UIP_CONF_BUFFER_SIZE                  140
 
+// TODO Default is 16
+#define NBR_TABLE_CONF_MAX_NEIGHBORS          32
+
+// TODO Default is 16
+#define NETSTACK_MAX_ROUTE_ENTRIES            32
+
 // Disable support for packet fragmentation
 #define SICSLOWPAN_CONF_FRAG                  0
 
 // No need for process names (used for debugging)
 #define PROCESS_CONF_NO_PROCESS_NAMES         1
 
-// Disable stack checker? (it is not running native btw)
+// Disable stack checker? (not available on native and iotlab)
 #define STACK_CHECK_CONF_ENABLED              0
 
 #endif /* PROJECT_CONF_H_ */
