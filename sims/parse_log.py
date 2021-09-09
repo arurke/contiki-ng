@@ -552,7 +552,8 @@ def parse_logfile(file, quiet=False):
 
     # Output relevant metrics
     outputStats(dfs, "packets", "pdr", "mean", "Round-trip PDR (%)")
-    outputStats(dfs, "packets", "latency", "mean", "Round-trip latency (s)")
+    outputStats(dfs, "packets", "latency", "mean", "Latency mean (s)")
+    outputStats(dfs, "packets", "latency", "max", "Latency max (s)")
     outputStats(dfs, "queue", "queue_fill", "mean", "Queue fill")
     outputStats(dfs, "app_parent_switch", "app_parent_switch", "count", "Parent switch during application")
 
@@ -563,7 +564,7 @@ def parse_logfile(file, quiet=False):
     outputStats(dfs, "ranks", "hop_count", "mean", "Hop count mean")
     outputStats(dfs, "switches", "pswitch", "count", "RPL parent switches (#)")
     outputStats(dfs, "dag_inits", "event", "count", "RPL joining DAG (#)")
-    outputStats(dfs, "trickle", "trickle", "mean", "RPL Trickle period (min)")
+    #outputStats(dfs, "trickle", "trickle", "mean", "RPL Trickle period (min)")
 
     outputStats(dfs, "DIS", "message", "count", "RPL DIS sent (#)", "rpl-dis")
     outputStats(dfs, "unicast-DIO", "message", "count", "RPL uDIO sent (#)", "rpl-udio")
