@@ -142,6 +142,11 @@ link_stats_packet_sent(const linkaddr_t *lladdr, int status, int numtx)
     return;
   }
 
+  if(packetbuf_attr(PACKETBUF_ATTR_TEST) == 1) {
+    LOG_WARN("Skipping app packet %u\n", packetbuf_attr(PACKETBUF_ATTR_TEST));
+    return;
+  }
+
   stats = nbr_table_get_from_lladdr(link_stats, lladdr);
   if(stats == NULL) {
     /* If transmission failed, do not add the neighbor, as the neighbor might not exist anymore */

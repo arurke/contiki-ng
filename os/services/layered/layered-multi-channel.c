@@ -372,6 +372,7 @@ select_packet(uint16_t *slotframe, uint16_t *timeslot, uint16_t *channel_offset)
       *channel_offset = calculate_channel(current_status.child_depth);
     }
     LOG_DBG("Selected %u/%u for beacon\n", *timeslot, *channel_offset);
+    packetbuf_set_attr(PACKETBUF_ATTR_TEST, 2);
     return 1;
   }
 
@@ -388,6 +389,7 @@ select_packet(uint16_t *slotframe, uint16_t *timeslot, uint16_t *channel_offset)
       *channel_offset = COMMON_CELL_CHANNEL;
     }
     LOG_DBG("Selected %u/%u for RPL packet\n", *timeslot, *channel_offset);
+    packetbuf_set_attr(PACKETBUF_ATTR_TEST, 3);
     return 1;
   }
 
@@ -405,6 +407,7 @@ select_packet(uint16_t *slotframe, uint16_t *timeslot, uint16_t *channel_offset)
       *channel_offset = COMMON_CELL_CHANNEL;
     }
     LOG_DBG("Selected %u/%u for KA packet\n", *timeslot, *channel_offset);
+    packetbuf_set_attr(PACKETBUF_ATTR_TEST, 5);
     return 1;
   }
 
@@ -431,6 +434,9 @@ select_packet(uint16_t *slotframe, uint16_t *timeslot, uint16_t *channel_offset)
   if(channel_offset != NULL) {
     *channel_offset = calculate_channel(current_status.node_depth);
   }
+
+  packetbuf_set_attr(PACKETBUF_ATTR_TEST, 1);
+
   LOG_DBG("Selected %u/%u for App packet originating from ",
            *timeslot, *channel_offset);
   LOG_DBG_LLADDR(&source_lladdr);
