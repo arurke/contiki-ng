@@ -39,6 +39,10 @@
 //#define RPL_CONF_DIO_REFRESH_DAO_ROUTES   0
 #endif
 
+// TX power in iotlab
+#define RF2XX_TX_POWER                    PHY_POWER_m17dBm
+//#define RF2XX_RX_RSSI_THRESHOLD           RF2XX_PHY_RX_THRESHOLD__m84dBm
+#define RF2XX_RX_RSSI_THRESHOLD           RF2XX_PHY_RX_THRESHOLD__m78dBm
 
 // Buffer size
 // 64 for grid
