@@ -384,6 +384,13 @@ def doParse(file, testbed):
                 if(ret == None):
                     continue
 
+                if ret['type'] == 'mac_tx':
+                    # Only application uses the non-shared normal cells
+                    if ret['normal'] == 1 and ret['shared'] == 0:
+                        ret['app_tx'] = 1
+                    else:
+                        ret['app_tx'] = 0
+
                 entry.update(ret)
                 #print("entry: ", str(entry))
                 if ret['type'] == 'mac_tx':
@@ -488,6 +495,9 @@ def parse_logfile(file, quiet=False):
               str(application_done_count) + "/" + str(num_tx_nodes))
         return
 
+    print("Application finished! " +
+          str(application_done_count) + "/" + str(num_tx_nodes))
+
     # Verify all nodes have joined the DAG
     num_non_root_nodes = dfs["energest"].node.nunique() - 1
     num_joined_nodes = dfs["dag_inits"].node.nunique()
@@ -518,6 +528,10 @@ def parse_logfile(file, quiet=False):
     # seriesObj = dfs["queue"].apply(lambda x: True if x["type"] == "drop" else False, axis = 1)
     # numRows = len(seriesObj[seriesObj == True].index)
 
+    # ETX for application cells
+    app_tx = dfs["mac_tx"][dfs["mac_tx"]["app_tx"] == 1]
+    app_tx_etx = app_tx["transmissions"].sum() / len(app_tx["transmissions"])
+
     print("global-stats:")
     print("  pdr: %.4f" % (dfs["packets"]["pdr"].mean()))
     print("  loss-rate: %.e" % (1 - (dfs["packets"]["pdr"].mean() / 100)))
@@ -532,6 +546,8 @@ def parse_logfile(file, quiet=False):
     print("  duty-cycle tx: %.2f" % (dfs["energest"]["duty_cycle_tx"].mean()))
     print("  duty-cycle rx: %.2f" % (dfs["energest"]["duty_cycle_rx"].mean()))
     print("  network-formation-time: %.3f" % (network_formation_time_ms / 1000))
+    print("  application-cells ETX: " + str(app_tx_etx))
+
     print("stats:")
 
     # Output relevant metrics
