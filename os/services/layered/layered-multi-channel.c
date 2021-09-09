@@ -39,10 +39,11 @@ static layered_status_t current_status = {
 static uint16_t slotframe_handle = 0;
 static struct tsch_slotframe *sf_layered;
 
-#define NUM_CHANNELS          2
 #define COMMON_CELL_CHANNEL   1
-// Avoid channel 0 due to stats not supporting it. TODO
-static uint16_t channels[NUM_CHANNELS] = {1,2};
+#define NUM_CHANNELS          LAYERED_NUM_CHANNELS
+#define CHANNELS              LAYERED_CHANNELS
+// Avoid channel 0 due to stats not supporting it.
+static uint8_t channels[NUM_CHANNELS] = CHANNELS;
 
 // For gruesome RPL heuristics
 #define SIXLO_NEXT_HEADER_OFFSET  2

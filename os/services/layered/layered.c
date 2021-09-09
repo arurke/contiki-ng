@@ -141,6 +141,8 @@ layered_init(void)
       all_rules[i]->init(i);
     }
   }
-  LOG_INFO("Inited. Max num nodes %u, layers %u, common slots %d, SF length %u\n",
-           LAYERED_MAX_NUM_NODES, LAYERED_NUM_LAYERS, NUM_COMMON_SLOTS, LAYERED_SF_LEN);
+
+  LOG_INFO("Max nodes %u, layers %u, channels %lu, common slots %d, SF len %u\n",
+           LAYERED_MAX_NUM_NODES, LAYERED_NUM_LAYERS, LAYERED_NUM_CHANNELS,
+           NUM_COMMON_SLOTS, LAYERED_SF_LEN);
 }

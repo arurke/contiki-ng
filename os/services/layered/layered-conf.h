@@ -39,6 +39,7 @@
 #define __LAYERED_CONF_H__
 
 #include "project-conf.h"
+#include <stdint.h>
 
 #ifdef LAYERED_CONF_RULES
 #define LAYERED_RULES LAYERED_CONF_RULES
@@ -64,6 +65,14 @@
 #else
 #define LAYERED_COMMON_SLOT_SPACING   37
 #endif
+
+#ifdef LAYERED_CONF_CHANNELS
+#define LAYERED_CHANNELS              LAYERED_CONF_CHANNELS
+#else
+#define LAYERED_CHANNELS              (uint8_t[]){1,2}
+#endif
+
+#define LAYERED_NUM_CHANNELS          sizeof(LAYERED_CHANNELS)
 
 // Num nodes * num layers + any common slots
 #define COMMON_SLOT_SPACING     LAYERED_COMMON_SLOT_SPACING
