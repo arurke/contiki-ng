@@ -471,6 +471,25 @@ static bool cell_already_there(uint16_t timeslot, uint16_t channel,
   return false;
 }
 
+// TODO There have been situation where we have two cells in same timeslot
+// This is not supported (see comment in TSCH). This is a hard-coded workaround.
+// Probably need an overhaul of the entire adding-cells-mechanism to handle
+// all RPL operations.
+static void remove_other_cells_in_timeslot(uint16_t timeslot, uint16_t channel) {
+  for(uint16_t i = 0; i < NUM_CHANNELS; i++) {
+    if(channels[i] != channel) {
+      struct tsch_link* existing_link =
+          tsch_schedule_get_link_by_timeslot(sf_layered, timeslot, channels[i]);
+
+      if(existing_link != NULL) {
+        tsch_schedule_remove_link(sf_layered, existing_link);
+        stats_deactivate_link(timeslot, channels[i]);
+        LOG_DBG("Removed existing cell %u/%u\n", timeslot, channels[i]);
+      }
+    }
+  }
+}
+
 static void
 schedule_upwards_tx_cell(
     const linkaddr_t *linkaddr, uint8_t layer, uint8_t depth, bool remove) {
@@ -510,6 +529,12 @@ schedule_upwards_tx_cell(
       LOG_INFO_(" for traffic from ");
       LOG_INFO_LLADDR(linkaddr);
       LOG_INFO_("\n");
+
+      // TODO There have been situation where we have two cells in same timeslot
+      // This is not supported. This is a workaround.
+      // Probably need an overhaul of the entire adding-cells-mechanism to handle
+      // all RPL operations.
+      remove_other_cells_in_timeslot(timeslot, channel);
       tsch_schedule_add_link(sf_layered, link_options, LINK_TYPE_NORMAL,
                              &tsch_broadcast_address, timeslot, channel, 1);
     }
@@ -545,6 +570,8 @@ schedule_upwards_rx_cell(
                timeslot, channel);
       LOG_INFO_LLADDR(linkaddr);
       LOG_INFO_("\n");
+
+      remove_other_cells_in_timeslot(timeslot, channel);
       tsch_schedule_add_link(sf_layered, link_options, LINK_TYPE_NORMAL,
                              &tsch_broadcast_address, timeslot, channel, 1);
     }
@@ -580,6 +607,8 @@ schedule_downwards_tx_cell(
   else {
     if(!cell_already_there(timeslot, channel, link_options, LINK_TYPE_ADVERTISING_ONLY)) {
       LOG_INFO("Adding downwards TX cell %u/%u\n", timeslot, channel);
+
+      remove_other_cells_in_timeslot(timeslot, channel);
       tsch_schedule_add_link(sf_layered, link_options,
                              LINK_TYPE_ADVERTISING_ONLY,
                              &tsch_broadcast_address, timeslot, channel, 1);
@@ -611,6 +640,8 @@ schedule_downwards_rx_cell(
   else {
     if(!cell_already_there(timeslot, channel, link_options, LINK_TYPE_ADVERTISING_ONLY)) {
       LOG_INFO("Adding downwards RX cell %u/%u\n", timeslot, channel);
+
+      remove_other_cells_in_timeslot(timeslot, channel);
       tsch_schedule_add_link(sf_layered, link_options,
                              LINK_TYPE_ADVERTISING_ONLY,
                              &tsch_broadcast_address, timeslot, channel, 1);
