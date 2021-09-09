@@ -9,6 +9,8 @@
 //#define LOG_CONF_LEVEL_FRAMER         LOG_LEVEL_INFO
 #define LOG_CONF_WITH_COMPACT_ADDR    1
 
+#define TSCH_STATS_CONF_ON            0
+
 #if BUILD_WITH_DEPLOYMENT
 #define DEPLOYMENT_MAPPING deployment_fit
 #endif
@@ -27,6 +29,8 @@
 #if USE_MRHOF
 #define RPL_CONF_SUPPORTED_OFS        {&rpl_mrhof}
 #define RPL_CONF_OF_OCP               RPL_OCP_MRHOF
+// TODO test added reliability
+#define RPL_MRHOF_CONF_SQUARED_ETX    0
 #endif
 
 // Use metric container which contains hop count needed for Layered
