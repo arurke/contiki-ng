@@ -9,7 +9,8 @@
 //#define LOG_CONF_LEVEL_FRAMER         LOG_LEVEL_INFO
 #define LOG_CONF_WITH_COMPACT_ADDR    1
 
-#define TSCH_STATS_CONF_ON            0
+// Abort application run if topology change during operation
+#define APP_CONF_ABORT_ON_TOPOLOGY_CHANGE   1
 
 #if BUILD_WITH_DEPLOYMENT
 #define DEPLOYMENT_MAPPING deployment_fit
@@ -70,6 +71,8 @@
 
 // Increase number of links for grid-setup
 #define TSCH_SCHEDULE_CONF_MAX_LINKS      64
+
+#define TSCH_STATS_CONF_ON                0
 
 // Disable RPL probing which takes up space in queues
 #define RPL_CONF_WITH_PROBING             1
