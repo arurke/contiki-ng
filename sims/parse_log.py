@@ -542,8 +542,9 @@ def parse_logfile(file, quiet=False):
     app_max_hop_count = hop_count_df[hop_count_df["app_started"] == 1]["hop_count"].max()
 
     # ETX for application cells
-    app_tx = dfs["mac_tx"][dfs["mac_tx"]["app_tx"] == 1]
-    app_tx_etx = app_tx["transmissions"].sum() / len(app_tx["transmissions"])
+    mac_tx_df = dfs["mac_tx"]
+    app_tx = mac_tx_df[mac_tx_df["app_tx"] == 1]
+    app_tx_etx = app_tx["transmissions"].sum() / len(app_tx["transmissions"][app_tx["result"] == "ok"])
 
     print("global-stats:")
     print("  pdr: %.4f" % (dfs["packets"]["pdr"].mean()))
@@ -573,9 +574,9 @@ def parse_logfile(file, quiet=False):
 
     # outputStats(dfs, "energest", "duty_cycle", "mean", "Radio duty cycle (%)")
     outputStats(dfs, "ranks", "rank", "mean", "RPL rank (ETX-128)")
-    outputStats(dfs, "ranks", "hop_count", "max", "Hop count max")
-    outputStats(dfs, "ranks", "hop_count", "min", "Hop count min")
-    outputStats(dfs, "ranks", "hop_count", "mean", "Hop count mean")
+    outputStats(dfs, "hop_count", "hop_count", "max", "Hop count max")
+    outputStats(dfs, "hop_count", "hop_count", "min", "Hop count min")
+    outputStats(dfs, "hop_count", "hop_count", "mean", "Hop count mean")
     outputStats(dfs, "switches", "pswitch", "count", "RPL parent switches (#)")
     outputStats(dfs, "dag_inits", "event", "count", "RPL joining DAG (#)")
     #outputStats(dfs, "trickle", "trickle", "mean", "RPL Trickle period (min)")
