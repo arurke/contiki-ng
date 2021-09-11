@@ -31,6 +31,7 @@ print
 network_formation_time_ms = None
 parents = {}
 first_unixtime = None
+application_start = None
 application_done_count = 0
 
 metrics = ["packets", "energest", "ranks", "hop_count", "nbr_count", "app_parent_switch",
@@ -259,6 +260,7 @@ def parseLine(line, testbed):
 
 def doParse(file, testbed):
     global network_formation_time_ms
+    global application_start
     unknown_line_count = 0
     time = None
     arrays = {}
@@ -299,6 +301,8 @@ def doParse(file, testbed):
 
                 entry.update(ret)
                 if(ret['event'] == 'send' and ret['type'] == 'data'):
+                    if application_start is None:
+                        application_start = entry["timestamp"]
                     # populate series of sent requests
                     entry['pdr'] = 0.
                     arrays["packets"].append(entry)
@@ -361,8 +365,13 @@ def doParse(file, testbed):
                 if(ret['event'] == 'rpl_stats'):
                     arrays["ranks"].append(entry)
                     arrays["trickle"].append(entry)
-                    arrays["hop_count"].append(entry)
                     arrays["nbr_count"].append(entry)
+                    if application_start is None:
+                        entry["app_started"] = 0
+                    else:
+                        entry["app_started"] = 1
+                    arrays["hop_count"].append(entry)
+
                 elif(ret['event'] == 'switch'):
                     arrays["switches"].append(entry)
                 elif(ret['event'] == 'DAGinit'):
@@ -528,6 +537,10 @@ def parse_logfile(file, quiet=False):
     # seriesObj = dfs["queue"].apply(lambda x: True if x["type"] == "drop" else False, axis = 1)
     # numRows = len(seriesObj[seriesObj == True].index)
 
+    # Max. hop count after app started
+    hop_count_df = dfs["hop_count"]
+    app_max_hop_count = hop_count_df[hop_count_df["app_started"] == 1]["hop_count"].max()
+
     # ETX for application cells
     app_tx = dfs["mac_tx"][dfs["mac_tx"]["app_tx"] == 1]
     app_tx_etx = app_tx["transmissions"].sum() / len(app_tx["transmissions"])
@@ -547,6 +560,7 @@ def parse_logfile(file, quiet=False):
     print("  duty-cycle rx: %.2f" % (dfs["energest"]["duty_cycle_rx"].mean()))
     print("  network-formation-time: %.3f" % (network_formation_time_ms / 1000))
     print("  application-cells ETX: " + str(app_tx_etx))
+    print("  Max. hop count during app: " + str(app_max_hop_count))
 
     print("stats:")
 
