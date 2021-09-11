@@ -23,20 +23,14 @@ IOTLAB="$LOGIN@$SITE.iot-lab.info"
 NGDIR="${HOME}/vizaworkspace/contiki-ng-arurke"
 APPLICATION=node
 
-#CODEDIR="${NGDIR}/sims/test-orchestra/code"
 CODEDIR=$2
-
 EXPDIR="${NGDIR}/sims/test-orchestra/testbed"
-
-#LOGDIR="${NGDIR}/sims/executions/$EXPNAME/logs
 LOGDIR=$3
 
 TARGET=iotlab
 FIRMWARE=${CODEDIR}/${APPLICATION}.${TARGET}
-MAKEFLAGS_FROM_CLI=$6
-CFLAGSEXTRA="${MAKEFLAGS_FROM_CLI}"
-
-#--------------------- DEFINE VARIABLES ---------------------#
+CFLAGSEXTRA_FROM_CLI=$6
+CFLAGSEXTRA="${CFLAGSEXTRA_FROM_CLI}"
 
 #----------------------- CATCH SIGINT -----------------------#
 # For a clean exit from the experiment
@@ -52,13 +46,12 @@ function ctrl_c() {
 #sed -i "s/#define\ SEND_BUFFER_SIZE\ .*/#define\ SEND_BUFFER_SIZE\ $3/g" $CODEDIR/broadcast-example.c
 #sed -i "s/#define\ NB_PACKETS\ .*/#define\ NB_PACKETS\ $5/g" $CODEDIR/broadcast-example.c
 
-
 #--------------------- COMPILE FIRMWARE ---------------------#
 echo "Compiling firmware in $CODEDIR with extra flags: $CFLAGSEXTRA"
-#cd $CODEDIR
-#make TARGET=iotlab-m3 -j8 || { echo "Compilation failed."; exit 1; }
-make -C $CODEDIR CFLAGSEXTRA="$CFLAGSEXTRA" ARCH_PATH=${NGDIR}/iot-lab-contiki-ng/arch/ TESTBED=1 CONTIKI=${NGDIR} TARGET=${TARGET} BOARD=m3 -j8 || { echo "Compilation failed."; exit 1; }
 
+# "chronic" eats stdout unless there is an error
+chronic make -C $CODEDIR clean || { echo "Clean failed"; exit 1; }
+chronic make -C $CODEDIR CFLAGSEXTRA="$CFLAGSEXTRA" ARCH_PATH=${NGDIR}/iot-lab-contiki-ng/arch/ TESTBED=1 CONTIKI=${NGDIR} TARGET=${TARGET} BOARD=m3 -j8 || { echo "Compilation failed"; exit 1; }
 
 #-------------------- LAUNCH EXPERIMENTS --------------------#
 echo "Submitting experiment $EXPNAME"
@@ -72,18 +65,15 @@ iotlab-experiment wait -i $EXPID
 
 # Flash nodes
 echo "Flashing nodes with $FIRMWARE"
-iotlab-node --flash $FIRMWARE -i $EXPID 
+chronic iotlab-node --flash $FIRMWARE -i $EXPID
 
 # Wait for experiment termination
 iotlab-experiment wait -i $EXPID --state Terminated
 
-
 #----------------------- RETRIEVE LOG -----------------------#
+mkdir $LOGDIR
+
 ssh $IOTLAB "tar -C ~/.iot-lab/${EXPID}/ -cvzf $EXPNAME.tar.gz serial_output"
-
-# Ad-hoc while we don't have run concept 
-#mkdir $LOGDIR/
-
 scp "$IOTLAB":~/$EXPNAME.tar.gz $LOGDIR/$EXPNAME.tar.gz
 cd $LOGDIR
 tar -xvf $EXPNAME.tar.gz
