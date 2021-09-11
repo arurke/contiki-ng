@@ -115,7 +115,8 @@ layered_callback_packet_ready(void)
 }
 /*---------------------------------------------------------------------------*/
 void
-layered_callback_new_time_source(const struct tsch_neighbor *old, const struct tsch_neighbor *new)
+layered_callback_new_time_source(const struct tsch_neighbor *old,
+                                 const struct tsch_neighbor *new)
 {
   /* Assumes that the time source is also the RPL parent.
    * This is the case if the following is set:
@@ -143,6 +144,7 @@ layered_init(void)
   }
 
   LOG_INFO("Max nodes %u, layers %u, channels %lu, common slots %d, SF len %u\n",
-           LAYERED_MAX_NUM_NODES, LAYERED_NUM_LAYERS, LAYERED_NUM_CHANNELS,
+           LAYERED_MAX_NUM_NODES, LAYERED_NUM_LAYERS,
+           (unsigned long) LAYERED_NUM_CHANNELS,
            NUM_COMMON_SLOTS, LAYERED_SF_LEN);
 }
