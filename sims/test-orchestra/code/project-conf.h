@@ -1,12 +1,13 @@
 #ifndef PROJECT_CONF_H_
 #define PROJECT_CONF_H_
 
-#define LOG_CONF_LEVEL_MAC            LOG_LEVEL_WARN
+#define LOG_CONF_LEVEL_MAC            LOG_LEVEL_DBG
 //#define LOG_CONF_LEVEL_TCPIP          LOG_LEVEL_DBG
-//#define LOG_CONF_LEVEL_IPV6           LOG_LEVEL_DBG
+#define LOG_CONF_LEVEL_IPV6           LOG_LEVEL_INFO
 #define LOG_CONF_LEVEL_RPL            LOG_LEVEL_DBG
 //#define LOG_CONF_LEVEL_6LOWPAN        LOG_LEVEL_WARN
 //#define LOG_CONF_LEVEL_FRAMER         LOG_LEVEL_INFO
+#define LOG_CONF_LEVEL_LAYERED        LOG_LEVEL_DBG
 #define LOG_CONF_WITH_COMPACT_ADDR    1
 
 // Abort application run if topology change during operation

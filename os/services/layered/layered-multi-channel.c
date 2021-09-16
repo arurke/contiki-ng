@@ -12,7 +12,7 @@
 
 #include "sys/log.h"
 #define LOG_MODULE "Layered"
-#define LOG_LEVEL LOG_LEVEL_INFO
+#define LOG_LEVEL   LOG_LEVEL_LAYERED
 
 /*
  * The body of this rule should be compiled only when "nbr_routes" is available,

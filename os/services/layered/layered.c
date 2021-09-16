@@ -51,7 +51,7 @@
 
 #include "sys/log.h"
 #define LOG_MODULE "Layered"
-#define LOG_LEVEL   LOG_LEVEL_INFO
+#define LOG_LEVEL   LOG_LEVEL_LAYERED
 
 /* The set of Layered rules in use */
 const struct layered_rule *all_rules[] = LAYERED_RULES;
