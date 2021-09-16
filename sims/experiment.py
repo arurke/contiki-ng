@@ -7,13 +7,15 @@ import pandas as pd
 from dataclasses import dataclass
 from datetime import datetime
 from simconfig import simconfig_parse
+from experiment_config import experiment_config_parse
 from parse_log import parse_logs_scenarios
 from plot import plot_time_series
 from plot import plot_pdr_latency
 from plot import plot_duty_cycle
 from plot import plot_queue_util_selected_nodes
-from stats import stats_for_scenarios
-#from stats_triscale import stats_for_scenarios
+from plot import plot_etx_comparison
+#from stats import stats_for_scenarios
+from stats_triscale import stats_for_scenarios
 from simxml import simxml_make_xml_for_all_scenarios
 
 # Constants
@@ -41,6 +43,8 @@ class Config:
     do_run: bool
     execution_id: str
     scenarios: dict
+    duration: int
+    nodes: str
 
 def create_run_sim_commands(sim_name, scenarios, num_runs):
     scenario_run_cmds = []
@@ -57,19 +61,29 @@ def create_run_sim_commands(sim_name, scenarios, num_runs):
 
     return scenario_run_cmds
 
-def create_run_testbed_commands(sim_name, scenarios, num_runs):
-    scenario_run_cmds = []
+def create_run_testbed_commands(sim_name, scenarios, num_runs, duration, nodes):
     for scenario in scenarios:
-        run_name = sim_name + "_scenario_" + scenario['name']
-        # Ad-hoc run0 while we do not have run-concept with testbed
-        logs_path = scenario['path'] + "run0/"
-        src_path = scenario['path'] + CODE_FOLDER_NAME
-        scenario_run_cmd = "./run-testbed.sh " + run_name + " " + src_path + \
-            " " + logs_path + " " + DURATION_MIN + " grenoble,m3," + NODES + \
-            " -DSEND_CONF_INTERVAL=1000"
-        scenario_run_cmds.append(scenario_run_cmd)
 
-    return scenario_run_cmds
+        # For testbed we add an array of run-cmds, one for each run
+        # (with simulator, multiple runs are handled in the simulator-running-script)
+        scenario_run_cmds = []
+        for run in range(num_runs):
+            run_name = sim_name + "_scenario_" + scenario['name']
+            # Ad-hoc run0 while we do not have run-concept with testbed
+            logs_path = scenario['path'] + "run" + str(run) + "/"
+            src_path = scenario['path'] + CODE_FOLDER_NAME
+            scenario_run_cmd = "./run-testbed.sh " + run_name + " " + src_path + \
+                " " + logs_path + " " + str(duration) + " grenoble,m3," + nodes
+
+            # We need to separate words in cmd into array for subprocess
+            run_cmd_array = scenario_run_cmd.split(' ')
+            # Add cflagsextra now because they may contain spaces
+            run_cmd_array.append(scenario['cflagsextra'])
+
+            # Add finished command to the scenario run-cmd array
+            scenario_run_cmds.append(run_cmd_array)
+
+        scenario['run_cmd'] = scenario_run_cmds
 
 def process_results(scenarios, execution_dir):
     # Get raw DFs for all runs of all scenarios.
@@ -133,8 +147,6 @@ def prepare_filesystem(sim_name, sim_dir, scenarios, executions_dir, execution_d
         if not os.path.exists(scenario['path']):
             print("Generating scenario dir", scenario['path'])
             os.mkdir(scenario['path'])
-            # Ad-hoc while we don't have run-concept with testbed
-            os.mkdir(scenario['path'] + "/run0")
 
     copy_node_code(sim_dir, scenarios)
     copy_sim_config_file(sim_dir, sim_name, execution_dir)
@@ -251,11 +263,18 @@ def parse_config():
             analyse_execution_id + "/" +  sim_cfg_filename
 
     # Parse config-file
-    parsedconfig, num_runs, csc_baseline, scenarios = simconfig_parse(sim_cfg_path)
+    parsedconfig, experiment_config, scenarios = \
+        experiment_config_parse(sim_cfg_path)
 
     # Sim name is same as config file
     sim_name = sim_cfg_filename[:-4] # Remove ".ini"
-    csc_baseline_path = sim_dir + csc_baseline
+    csc_baseline_path = sim_dir + experiment_config["csc_baseline"]
+
+    # Let num-runs from command-line override
+    if cmd_num_runs is None:
+        num_runs = experiment_config["num_runs"]
+    else:
+        num_runs = cmd_num_runs
 
     if analyse_execution_id is not None:
         execution_id = analyse_execution_id
@@ -267,7 +286,8 @@ def parse_config():
     
     config = Config(type, sim_name, sim_dir, executions_dir, execution_dir,
                     csc_baseline_path, sim_cfg_path, num_runs, skip_post,
-                    do_run, execution_id, scenarios)
+                    do_run, execution_id, scenarios,
+                    experiment_config["duration"], experiment_config["nodes"])
 
     print_config(config)
 
@@ -284,10 +304,69 @@ def print_config(config):
     print("\tCSC Baseline: ", config.csc_baseline_path)
     print("\t# scenarios:  ", len(config.scenarios))
     print("\t# runs:       ", config.num_runs)
+    if config.duration is not None:
+        print("\tDuration:     ", config.duration)
+    if config.nodes is not None:
+        print("\tNodes:        ", config.nodes)
     print("\tSkip post:    ", str(config.skip_post))
     print("\tDo execution: ", str(config.do_run))
     print("\tExecution id: ", config.execution_id)
     print("\tExecution dir:", config.execution_dir)
+
+def run_simulation(run_cmds):
+    #CNG_PATH = "/home/andreas/vizaworkspace/contiki-ng"
+    # Starting contiker cmd (had trouble using the alias with subprocess.Popen
+    # Changed -it to -i based on
+    # https://stackoverflow.com/questions/43099116/error-the-input-device-is-not-a-tty
+    #contiker_cmd = \
+    #    "docker run --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 " \
+    #    "--mount type=bind,source=" + CNG_PATH + \
+    #    ",destination=/home/user/contiki-ng -e DISPLAY=$DISPLAY " \
+    #    "-v /tmp/.X11-unix:/tmp/.X11-unix -v /dev/bus/usb:/dev/bus/usb " \
+    #    "-i contiker/contiki-ng"
+
+    # Note that "contiker" alias does not work with Popen
+    # Therefore made contiker_notty (without TTY, or else shell gets garbled
+    # after execution) into a bash-script and placed in /usr/local/bin
+    # see https://stackoverflow.com/questions/12060863/python-subprocess-call-a-bash-alias
+    process_list = []
+    for run_cmd in run_cmds:
+        # Needed stdout and stdin to avoid terminal
+        # stop working after execution
+        # shell needed so that it would find contiker_notty
+        print("Executing:", run_cmd)
+        process = subprocess.Popen(run_cmd,
+                                   shell=True,
+                                   stdout=subprocess.PIPE,
+                                   stdin=subprocess.PIPE)
+        process_list.append(process)
+
+    exit_codes = [process.wait() for process in process_list]
+    print("\nExecutions exited with:", exit_codes)
+    if not all(code == 0 for code in exit_codes):
+        return False
+
+    return True
+
+def run_testbed(scenarios, num_runs):
+    for scenario in scenarios:
+        print("\nRunning scenario:")
+        print("\tName:      " + scenario['name'])
+        print("\tNum runs:  " + str(num_runs))
+        print("\tCflagsextra: " + scenario['cflagsextra'])
+
+        for run in range(num_runs):
+            print("\nStarting run:")
+            print("\tRun:       " + str(run))
+            print("\tTime now:  " + str(datetime.now()))
+            #print("\tFull cmd:  " + str(scenario['run_cmd'][run]))
+            print("")
+            process = subprocess.run(scenario['run_cmd'][run])
+
+            if process.returncode is not 0:
+                return False
+
+    return True
 
 def main():
     start_time = datetime.now()
@@ -310,51 +389,28 @@ def main():
                                       config.csc_baseline_path,
                                       config.scenarios,
                                       parsedconfig)
-            
+
             print("Making simulation-run commands")
             run_cmds = create_run_sim_commands(
                 config.sim_name, config.scenarios, config.num_runs)
 
+            print("\nStarting simulation!")
+            if not run_simulation(run_cmds):
+                print("\nError in executions. Exiting.")
+                exit()
+
+
         if config.type == "testbed":
             print("Making testbed-run commands")
-            run_cmds = create_run_testbed_commands(
-                config.sim_name, config.scenarios, config.num_runs)
+            create_run_testbed_commands(
+                config.sim_name, config.scenarios,
+                config.num_runs, config.duration,
+                config.nodes)
 
-
-        # Run experiment
-        print("\nStarting experiment!")
-        #CNG_PATH = "/home/andreas/vizaworkspace/contiki-ng"
-        # Starting contiker cmd (had trouble using the alias with subprocess.Popen
-        # Changed -it to -i based on 
-        # https://stackoverflow.com/questions/43099116/error-the-input-device-is-not-a-tty
-        #contiker_cmd = \
-        #    "docker run --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 " \
-        #    "--mount type=bind,source=" + CNG_PATH + \
-        #    ",destination=/home/user/contiki-ng -e DISPLAY=$DISPLAY " \
-        #    "-v /tmp/.X11-unix:/tmp/.X11-unix -v /dev/bus/usb:/dev/bus/usb " \
-        #    "-i contiker/contiki-ng"
-    
-        # Note that "contiker" alias does not work with Popen
-        # Therefore made contiker_notty (without TTY, or else shell gets garbled
-        # after execution) into a bash-script and placed in /usr/local/bin
-        # see https://stackoverflow.com/questions/12060863/python-subprocess-call-a-bash-alias
-        process_list = []
-        for run_cmd in run_cmds:
-            # Needed stdout and stdin to avoid terminal
-            # stop working after execution
-            # shell needed so that it would find contiker_notty
-            print("Executing:", run_cmd)
-            process = subprocess.Popen(run_cmd,
-                                       shell=True,
-                                       stdout=subprocess.PIPE,
-                                       stdin=subprocess.PIPE)
-            process_list.append(process)
-
-        exit_codes = [process.wait() for process in process_list]
-        print("\nExecutions exited with:", exit_codes)
-        if not all(code == 0 for code in exit_codes):
-            print("\nError in executions. Exiting.")
-            exit()
+            print("\nStarting testbed!")
+            if not run_testbed(config.scenarios, config.num_runs):
+                print("\nError in executions. Exiting.")
+                exit()
 
         cleanup(config.scenarios)
 
