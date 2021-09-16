@@ -3,7 +3,6 @@
 
 # Inspiration: https://gitlab.irisa.fr/0000H82G/traces/-/tree/master/scripts
 
-
 set -e
 
 #---------------------- TEST ARGUMENTS ----------------------#
@@ -73,10 +72,10 @@ iotlab-experiment wait -i $EXPID --state Terminated
 #----------------------- RETRIEVE LOG -----------------------#
 mkdir $LOGDIR
 
-ssh $IOTLAB "tar -C ~/.iot-lab/${EXPID}/ -cvzf $EXPNAME.tar.gz serial_output"
-scp "$IOTLAB":~/$EXPNAME.tar.gz $LOGDIR/$EXPNAME.tar.gz
+ssh $IOTLAB "cd ~/.iot-lab/${EXPID}/ && tar -czf $EXPNAME.tar.gz serial_output && rm serial_output"
+scp "$IOTLAB":~/.iot-lab/${EXPID}/$EXPNAME.tar.gz $LOGDIR/$EXPNAME.tar.gz
 cd $LOGDIR
-tar -xvf $EXPNAME.tar.gz
+tar -xf $EXPNAME.tar.gz && rm $EXPNAME.tar.gz
 
 mv serial_output $EXPNAME.scriptlog
 echo "Downloaded log: $EXPNAME.scriptlog"
