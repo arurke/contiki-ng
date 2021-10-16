@@ -50,11 +50,11 @@
 //#define RF2XX_RX_RSSI_THRESHOLD           RF2XX_PHY_RX_THRESHOLD__m84dBm
 #define RF2XX_RX_RSSI_THRESHOLD           RF2XX_PHY_RX_THRESHOLD__m78dBm
 
-// Buffer size
+// Buffer size (note that actual size is -1 due to ringbuf, see issue #1532)
 // 64 for grid
 #define PACKET_BUFFER_SIZE                64
 // 16 for 9-hop linear
-#define PACKET_BUFFER_SIZE                16
+//#define PACKET_BUFFER_SIZE                16
 // 8 for 2-hop topology
 //#define PACKET_BUFFER_SIZE                8
 
@@ -62,12 +62,12 @@
 #define QUEUEBUF_CONF_NUM                 PACKET_BUFFER_SIZE
 
 // Max queue size per neighbor
-#define TSCH_QUEUE_CONF_NUM_PER_NEIGHBOR  PACKET_BUFFER_SIZE
+#define TSCH_QUEUE_CONF_NUM_PER_NEIGHBOR  (PACKET_BUFFER_SIZE - 32)
 
 // Disable use of pending bit which allows nodes to use more slots
 #define TSCH_CONF_BURST_MAX_LEN           0
 
-// Allow very deep networks (default 32)
+// Allow very deep networks (default 32) TODO use for depth?
 #define TSCH_CONF_MAX_JOIN_PRIORITY       64
 
 // Increase number of links for grid-setup
