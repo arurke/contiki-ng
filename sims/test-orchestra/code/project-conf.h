@@ -64,6 +64,9 @@
 // Max queue size per neighbor
 #define TSCH_QUEUE_CONF_NUM_PER_NEIGHBOR  (PACKET_BUFFER_SIZE - 32)
 
+// Increase incoming packets buffer (def. 4)
+#define TSCH_CONF_MAX_INCOMING_PACKETS    8
+
 // Disable use of pending bit which allows nodes to use more slots
 #define TSCH_CONF_BURST_MAX_LEN           0
 
