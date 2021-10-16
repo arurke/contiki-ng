@@ -160,9 +160,9 @@ static bool has_parent_changed(void) {
 PROCESS_THREAD(app_process, ev, data)
 {
   static struct etimer periodic_timer;
-  static unsigned count = 0;
+  static uint32_t packet_count = 0;
+  static uint32_t packet_skipped = 0;
   static char str[64];
-  static bool application_success = true;
   static uip_ipaddr_t dest_ipaddr;
 
   PROCESS_BEGIN();
@@ -224,7 +224,7 @@ PROCESS_THREAD(app_process, ev, data)
              intra_slotframe_delay_ticks);
   }
 
-  while(is_transmitting_node && count < NUM_PACKETS) {
+  while(is_transmitting_node && packet_count < NUM_PACKETS) {
 
     PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
 
@@ -234,7 +234,6 @@ PROCESS_THREAD(app_process, ev, data)
       if(has_parent_changed()) {
         LOG_WARN("Parent switch\n");
 #if APP_ABORT_ON_TOPOLOGY_CHANGE
-        application_success = false;
         break;
 #endif
       }
@@ -250,22 +249,28 @@ PROCESS_THREAD(app_process, ev, data)
 
       // Send to root
       // NOTE! The ASN may not be precise (not updated by TSCH at this point)
-      LOG_INFO("TX data num %u tick %"PRIu64" to ",
-          count, network_uptime);
+      LOG_INFO("TX data num %lu tick %"PRIu64" to ",
+               packet_count, network_uptime);
       LOG_INFO_6ADDR(&dest_ipaddr);
       LOG_INFO_(" from depth %u\n", depth);
       snprintf(
           str,
           sizeof(str),
-          "num %04d oTick %09"PRIu64"",
-          count, network_uptime);
+          "num %04lu oTick %09"PRIu64"",
+          packet_count, network_uptime);
       simple_udp_sendto(&udp_conn, str, strlen(str), &dest_ipaddr);
-      count++;
+      packet_count++;
     }
     else {
-      LOG_ERR("No conn!\n");
-      application_success = false;
-      break;
+      if(packet_count == 0) {
+        LOG_ERR("No conn!\n");
+        break;
+      }
+      else {
+        LOG_ERR("Lost conn! Skipping packet!\n");
+        packet_skipped++;
+        packet_count++;
+      }
     }
 
     // Minus one to align with slotframe
@@ -285,8 +290,8 @@ PROCESS_THREAD(app_process, ev, data)
   }
 
   if(is_transmitting_node) {
-    if(application_success) {
-        LOG_INFO("Done\n");
+    if(packet_count >= NUM_PACKETS) {
+        LOG_INFO("Done, sent %lu\n", packet_count - packet_skipped);
       }
   }
   else {
