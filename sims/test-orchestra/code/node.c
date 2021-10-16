@@ -146,7 +146,7 @@ static bool has_parent_changed(void) {
   }
 
   // If we did not have a parent, set the new one as our parent
-  if(linkaddr_cmp(previous_parent_linkaddr, &linkaddr_null)) {
+  if(linkaddr_cmp(&previous_parent_linkaddr, &linkaddr_null)) {
     linkaddr_copy(&previous_parent_linkaddr, new_parent_linkaddr);
   }
 
