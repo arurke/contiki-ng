@@ -369,10 +369,10 @@ def run_testbed(scenarios, num_runs):
     return True
 
 def main():
+    parsedconfig, config = parse_config()
+
     start_time = datetime.now()
     print("Started:", start_time)
-
-    parsedconfig, config = parse_config()
 
     prepare_datastructures(config.scenarios, config.execution_dir)
 
