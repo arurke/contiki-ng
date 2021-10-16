@@ -643,6 +643,7 @@ def parse_logs_scenarios(scenarios, quiet=False):
         raw_dfs = parse_logs_scenario(scenario['path'], scenario['name'])
 
         # Add the raw DFs to the scenario dict in the scenarios list
+        scenario["raw_dfs"] = {}
         for df_name in raw_dfs:
             metric_df_name = "raw_" + df_name + "_dfs"
-            scenario[metric_df_name] = raw_dfs[df_name]
+            scenario["raw_dfs"][metric_df_name] = raw_dfs[df_name]

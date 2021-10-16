@@ -120,7 +120,8 @@ def analyze_scenario(runs_df, scenario_name):
 def stats_for_scenario(scenario, write_runs_csv=False):
     # Get stats per run (which are typically not very interesting)
     # We only work on packet DF for now
-    runs_df = analyze_runs(scenario['raw_packets_dfs'], scenario['raw_energest_dfs'])
+    runs_df = analyze_runs(scenario['raw_dfs']['raw_packets_dfs'],
+                           scenario['raw_dfs']['raw_energest_dfs'])
     #print("Analyzed runs: " + str(scenario['raw_packets_dfs'].keys()))
 
     # Analyze the run-stats to get scenario-stats

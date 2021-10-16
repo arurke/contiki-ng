@@ -108,11 +108,11 @@ def plot_pdr_latency(scenarios_df, execution_dir, title=False):
     print("Made figure", fig_path)
 
 def plot_time_series(scenario, nodeid, run_id, skip_end = 0):
-    if run_id not in scenario['raw_packets_dfs']:
+    if run_id not in scenario['raw_dfs']['raw_packets_dfs']:
         return
 
     # Copy the DF so that we can make changes without messing up the original
-    df = scenario['raw_packets_dfs'][run_id].copy()
+    df = scenario['raw_dfs']['raw_packets_dfs'][run_id].copy()
     if skip_end != 0:
         df = df[:-skip_end]
 
@@ -168,7 +168,7 @@ def plot_time_series(scenario, nodeid, run_id, skip_end = 0):
 
 
     # Queue fill
-    queue_df = scenario['raw_queue_dfs'][run_id].copy()
+    queue_df = scenario['raw_dfs']['raw_queue_dfs'][run_id].copy()
 
     # Switch timestamp from absolute to relative to first packet and
     # convert to float (i.e. seconds since t0) using total_seconds()
@@ -200,7 +200,7 @@ def plot_time_series(scenario, nodeid, run_id, skip_end = 0):
 
 
     # Duty cycle
-    dc_df = scenario['raw_energest_dfs'][run_id].copy()
+    dc_df = scenario['raw_dfs']['raw_energest_dfs'][run_id].copy()
 
     # Switch timestamp from absolute to relative to first packet and
     # convert to float (i.e. seconds since t0) using total_seconds()
@@ -249,7 +249,7 @@ def plot_time_series(scenario, nodeid, run_id, skip_end = 0):
     print("Made figure", fig_path)
 
     # Retransmissions
-    retx_df = scenario['raw_mac_tx_dfs'][run_id].copy()
+    retx_df = scenario['raw_dfs']['raw_mac_tx_dfs'][run_id].copy()
 
     # Set timestamp as index
     #retx_df.set_index("timestamp", inplace=True)
@@ -291,7 +291,7 @@ def plot_time_series(scenario, nodeid, run_id, skip_end = 0):
     print("Made figure", fig_path)
 
     # Hop count bar chart
-    hop_df = scenario['raw_hop_count_dfs'][run_id].copy()
+    hop_df = scenario['raw_dfs']['raw_hop_count_dfs'][run_id].copy()
 
     # Set timestamp as index
     #hop_df.set_index("timestamp", inplace=True)
@@ -316,7 +316,7 @@ def plot_time_series(scenario, nodeid, run_id, skip_end = 0):
     print("Made figure", fig_path)
 
     # Neighbor count bar chart
-    nbr_df = scenario['raw_nbr_count_dfs'][run_id].copy()
+    nbr_df = scenario['raw_dfs']['raw_nbr_count_dfs'][run_id].copy()
 
     # Set timestamp as index
     #nbr_df.set_index("timestamp", inplace=True)
