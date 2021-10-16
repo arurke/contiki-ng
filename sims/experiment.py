@@ -267,8 +267,11 @@ def parse_config():
         experiment_config_parse(sim_cfg_path)
 
     # Sim name is same as config file
-    sim_name = sim_cfg_filename[:-4] # Remove ".ini"
-    csc_baseline_path = sim_dir + experiment_config["csc_baseline"]
+    exp_name = sim_cfg_filename[:-4] # Remove ".ini"
+    if "csc_baseline" in experiment_config:
+        csc_baseline_path = sim_dir + experiment_config["csc_baseline"]
+    else:
+        csc_baseline_path = None
 
     # Let num-runs from command-line override
     if cmd_num_runs is None:
