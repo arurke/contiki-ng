@@ -497,12 +497,15 @@ def parse_logfile(file, quiet=False):
 
     dfs = convert_data_arrays_to_dfs(data_arrays)
 
+    if len(dfs) == 0:
+        return None
+
     # Verify application has finished on all nodes
     num_tx_nodes = dfs["packets"].node.nunique()
     if application_done_count != num_tx_nodes:
         print("Application not finished! " +
               str(application_done_count) + "/" + str(num_tx_nodes))
-        return
+        return None
 
     print("Application finished! " +
           str(application_done_count) + "/" + str(num_tx_nodes))
@@ -513,12 +516,13 @@ def parse_logfile(file, quiet=False):
     if num_joined_nodes != num_non_root_nodes:
         print("Not all nodes joined DAO! " +
               str(num_joined_nodes) + "/" + str(num_non_root_nodes))
-        return
+        return None
 
-    #print(dfs)
-
-    if len(dfs) == 0:
-        return
+    # Topology changes after app started
+    if "app_parent_switch" in dfs:
+        print("Parent switch during application!")
+        outputStats(dfs, "app_parent_switch", "node", "count", "Parent switch during application")
+        return None
 
     packets_sent = dfs["packets"]["pdr"].count();
     # A packet which is not received is stored with PDR = 0
@@ -613,6 +617,10 @@ def parse_logs_dir(directory):
             print("Parsing " + logfile)
 
             run_dfs = parse_logfile(logfile, logging.getLogger() == logging.INFO)
+
+            if run_dfs is None:
+                print("Skipped run " + name_of_run + "!")
+                continue
 
             for df_name in run_dfs:
                 # Add this DF to the dictionary of DFs
