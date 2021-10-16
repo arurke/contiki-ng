@@ -1218,8 +1218,8 @@ send_packet(mac_callback_t sent, void *ptr)
       LOG_WARN_LLADDR(addr);
       LOG_WARN_(" seqno %u, queue %u/%u %u/%u, len %u %u\n",
              tsch_packet_seqno, tsch_queue_nbr_packet_count(n),
-             TSCH_QUEUE_NUM_PER_NEIGHBOR, tsch_queue_global_packet_count(),
-             QUEUEBUF_NUM, p->header_len, queuebuf_datalen(p->qb));
+             TSCH_QUEUE_NUM_PER_NEIGHBOR - 1, tsch_queue_global_packet_count(),
+             QUEUEBUF_NUM - 1, p->header_len, queuebuf_datalen(p->qb));
     }
   }
   if(ret != MAC_TX_DEFERRED) {
