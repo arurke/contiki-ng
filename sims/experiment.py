@@ -363,7 +363,7 @@ def run_testbed(scenarios, num_runs):
             print("")
             process = subprocess.run(scenario['run_cmd'][run])
 
-            if process.returncode is not 0:
+            if process.returncode != 0:
                 return False
 
     return True
