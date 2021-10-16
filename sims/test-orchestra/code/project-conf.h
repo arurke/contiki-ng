@@ -118,7 +118,11 @@
 #define LAYERED_CONF_NUM_LAYERS               2
 #define LAYERED_CONF_COMMON_SLOT_SPACING      19
 //#define LAYERED_CONF_CHANNELS                 (uint8_t[]){1,2}
+
+// Convenience variable. No spatial reuse up to 10 hops.
+#if NO_SPATIAL_REUSE
 #define LAYERED_CONF_CHANNELS                 ((uint8_t[]){1,2,3,4,5})
+#endif
 
 #if BUILD_WITH_LAYERED
 #define TSCH_SCHEDULE_CONF_MAX_SLOTFRAMES     1
