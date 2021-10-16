@@ -32,7 +32,7 @@ DURATION_MIN = "80"
 @dataclass
 class Config:
     type: str
-    sim_name: str
+    exp_name: str
     sim_dir: str
     executions_dir: str
     execution_dir: str
@@ -61,14 +61,14 @@ def create_run_sim_commands(sim_name, scenarios, num_runs):
 
     return scenario_run_cmds
 
-def create_run_testbed_commands(sim_name, scenarios, num_runs, duration, nodes):
+def create_run_testbed_commands(exp_name, scenarios, num_runs, duration, nodes):
     for scenario in scenarios:
 
         # For testbed we add an array of run-cmds, one for each run
         # (with simulator, multiple runs are handled in the simulator-running-script)
         scenario_run_cmds = []
         for run in range(num_runs):
-            run_name = sim_name + "_scenario_" + scenario['name']
+            run_name = exp_name + "_scenario_" + scenario['name']
             # Ad-hoc run0 while we do not have run-concept with testbed
             logs_path = scenario['path'] + "run" + str(run) + "/"
             src_path = scenario['path'] + CODE_FOLDER_NAME
@@ -114,9 +114,9 @@ def process_results(scenarios, execution_dir):
     print("Scenarios stats:\n", scenarios_df)
 
 # Create execution-id
-def create_execution_id(sim_name, executions_dir):
+def create_execution_id(exp_name, executions_dir):
     # ID should be: [config_name]-[date]-[id] (id is incremental)
-    new_execution_id = sim_name + \
+    new_execution_id = exp_name + \
                         "_" + datetime.now().strftime("%Y%m%d")
     
     # Find next available id
@@ -132,7 +132,7 @@ def prepare_datastructures(scenarios, execution_dir):
         scenario['path'] = execution_dir + scenario['name'] + "/"
 
 # Make executions/[execution-id]/[scenario-name] directories
-def prepare_filesystem(sim_name, sim_dir, scenarios, executions_dir, execution_dir):
+def prepare_filesystem(exp_name, sim_dir, scenarios, executions_dir, execution_dir):
     print("\nPreparing filesystem")
 
     if not os.path.exists(executions_dir):
@@ -149,12 +149,12 @@ def prepare_filesystem(sim_name, sim_dir, scenarios, executions_dir, execution_d
             os.mkdir(scenario['path'])
 
     copy_node_code(sim_dir, scenarios)
-    copy_sim_config_file(sim_dir, sim_name, execution_dir)
+    copy_sim_config_file(sim_dir, exp_name, execution_dir)
 
     print("Filesystem prepared")
 
-def copy_sim_config_file(sim_dir, sim_name, execution_dir):
-    config_file_name = sim_name + ".ini"
+def copy_sim_config_file(sim_dir, exp_name, execution_dir):
+    config_file_name = exp_name + ".ini"
     config_file_src = sim_dir + config_file_name
     config_file_dst = execution_dir + config_file_name
     print("Copying config from", config_file_src, "to", config_file_dst)
@@ -279,12 +279,12 @@ def parse_config():
     if analyse_execution_id is not None:
         execution_id = analyse_execution_id
     else:
-        execution_id = create_execution_id(sim_name, executions_dir)
+        execution_id = create_execution_id(exp_name, executions_dir)
 
     # Folder for this execution
     execution_dir = executions_dir + execution_id + "/"
     
-    config = Config(type, sim_name, sim_dir, executions_dir, execution_dir,
+    config = Config(type, exp_name, sim_dir, executions_dir, execution_dir,
                     csc_baseline_path, sim_cfg_path, num_runs, skip_post,
                     do_run, execution_id, scenarios,
                     experiment_config["duration"], experiment_config["nodes"])
@@ -298,7 +298,7 @@ def print_config(config):
         print("\nNo execution! Analyzing: ", config.execution_id)
     print("\nExperiment config:")
     print("\tType:         ", config.type)
-    print("\tSim-name:     ", config.sim_name)
+    print("\tName:         ", config.exp_name)
     print("\tDirectory:    ", config.sim_dir)
     print("\tConfig:       ", config.sim_cfg_path)
     print("\tCSC Baseline: ", config.csc_baseline_path)
@@ -377,7 +377,7 @@ def main():
     prepare_datastructures(config.scenarios, config.execution_dir)
 
     if config.do_run: 
-        prepare_filesystem(config.sim_name,
+        prepare_filesystem(config.exp_name,
                              config.sim_dir,
                              config.scenarios,
                              config.executions_dir,
@@ -385,14 +385,14 @@ def main():
 
         if config.type == "simulation":
             print("Making XML for all scenarios")
-            simxml_make_xml_for_all_scenarios(config.sim_name,
+            simxml_make_xml_for_all_scenarios(config.exp_name,
                                       config.csc_baseline_path,
                                       config.scenarios,
                                       parsedconfig)
 
             print("Making simulation-run commands")
             run_cmds = create_run_sim_commands(
-                config.sim_name, config.scenarios, config.num_runs)
+                config.exp_name, config.scenarios, config.num_runs)
 
             print("\nStarting simulation!")
             if not run_simulation(run_cmds):
@@ -403,7 +403,7 @@ def main():
         if config.type == "testbed":
             print("Making testbed-run commands")
             create_run_testbed_commands(
-                config.sim_name, config.scenarios,
+                config.exp_name, config.scenarios,
                 config.num_runs, config.duration,
                 config.nodes)
 
