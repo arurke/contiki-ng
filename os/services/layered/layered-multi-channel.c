@@ -442,6 +442,12 @@ select_packet(uint16_t *slotframe, uint16_t *timeslot, uint16_t *channel_offset)
   LOG_DBG_LLADDR(&source_lladdr);
   LOG_DBG_("\n");
 
+  struct tsch_link* link =
+      tsch_schedule_get_link_by_timeslot(sf_layered, *timeslot, *channel_offset);
+  if(link == NULL) {
+    LOG_ERR("Link not existing or TSCH locked\n");
+  }
+
   return 1;
 }
 /*---------------------------------------------------------------------------*/
