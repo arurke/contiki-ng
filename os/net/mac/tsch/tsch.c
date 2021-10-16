@@ -1209,8 +1209,8 @@ send_packet(mac_callback_t sent, void *ptr)
       LOG_ERR_LLADDR(addr);
       LOG_ERR_(" with seqno %u, queue %u/%u %u/%u\n",
           tsch_packet_seqno, tsch_queue_nbr_packet_count(n),
-          TSCH_QUEUE_NUM_PER_NEIGHBOR, tsch_queue_global_packet_count(),
-          QUEUEBUF_NUM);
+          TSCH_QUEUE_NUM_PER_NEIGHBOR - 1, tsch_queue_global_packet_count(),
+          QUEUEBUF_NUM - 1);
       ret = MAC_TX_QUEUE_FULL;
     } else {
       p->header_len = hdr_len;
