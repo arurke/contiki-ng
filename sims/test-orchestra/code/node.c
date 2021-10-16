@@ -133,7 +133,7 @@ static bool has_parent_changed(void) {
     new_parent_linkaddr = rpl_get_parent_lladdr(rpl_dag->preferred_parent);
   }
 
-  // If there is no parent
+  // If we have no parent or not connected to a DAG
   if(new_parent_linkaddr == NULL) {
     // Was there no parent previously?
     if(linkaddr_cmp(&previous_parent_linkaddr, &linkaddr_null))  {
@@ -145,11 +145,12 @@ static bool has_parent_changed(void) {
     }
   }
 
-  if(linkaddr_cmp(new_parent_linkaddr, &linkaddr_null)) {
+  // If we did not have a parent, set the new one as our parent
+  if(linkaddr_cmp(previous_parent_linkaddr, &linkaddr_null)) {
     linkaddr_copy(&previous_parent_linkaddr, new_parent_linkaddr);
   }
 
-  if(!linkaddr_cmp(&previous_parent_linkaddr, new_parent_linkaddr)) {
+  if(linkaddr_cmp(&previous_parent_linkaddr, new_parent_linkaddr)) {
     return false;
   }
 
@@ -289,6 +290,15 @@ PROCESS_THREAD(app_process, ev, data)
     PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
   }
 
+  // Regular nodes which are not transmitting
+  while(!is_coordinator && !is_transmitting_node) {
+    if(has_parent_changed()) {
+      LOG_WARN("Parent switch\n");
+    }
+    etimer_set(&periodic_timer, CLOCK_SECOND * 5);
+    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
+  }
+
   if(is_transmitting_node) {
     if(packet_count >= NUM_PACKETS) {
         LOG_INFO("Done, sent %lu\n", packet_count - packet_skipped);
@@ -297,7 +307,6 @@ PROCESS_THREAD(app_process, ev, data)
   else {
     LOG_INFO("Not a transmitting node\n");
   }
-
 
   PROCESS_END();
 }
