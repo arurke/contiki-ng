@@ -82,13 +82,7 @@ def parseRPL(log):
         return {'event': 'rpl_stats', 'rank': rank, 'trickle': trickle,
                 'hop_count': hop_count, 'nbr_count': nbr_count}
 
-    res = re.compile('parent switch: .*? -> .*?-([0-9a-fA-F]+)$').match(log)
-    if res:
-        parent = res.group(1)
-        #print("Parent switch!")
-        return {'event': 'switch', 'pswitch': parent }
-
-    # Also catch parent switches to NULL (instead of 6L-dddd)
+    # Parent switch (broad regexp to catch both NULL and 6L-xxxx
     res = re.compile('parent switch: .*? -> (.*?)$').match(log)
     if res:
         parent = res.group(1)
@@ -167,6 +161,8 @@ def parseApp(log):
                 'id': id,
                 'src': src }
 
+    # This might be completely redundant and covered by RPL logs
+    # (maybe useful if want to disable RPL logging?)
     res = re.compile('Parent switch').match(log)
     if res:
         return {'event': 'app_parent_switch'}
@@ -498,6 +494,7 @@ def parse_logfile(file, quiet=False):
     dfs = convert_data_arrays_to_dfs(data_arrays)
 
     if len(dfs) == 0:
+        print("Empty DFs!")
         return None
 
     # Verify application has finished on all nodes
@@ -556,7 +553,7 @@ def parse_logfile(file, quiet=False):
     print("  packets-sent: %u" % (packets_sent))
     print("  packets-received: %u" % (packets_received))
     print("  packets-lost: %u" % (packets_sent - packets_received))
-    print("  queue-overflows %u" % (overflows))
+    print("  overflows app/all %u/%u" % (app_overflows,overflows))
 
     print("  latency mean: %.4f" % (dfs["packets"]["latency"].mean()))
     print("  latency max: %.4f" % (dfs["packets"]["latency"].max()))
@@ -609,6 +606,7 @@ def parse_logs_dir(directory):
     all_runs_dfs = defaultdict(dict)
 
     # Iterate all folders containing different runs in the directory
+    skipped_runs = 0
     for folder in glob.glob(directory):
         # Iterate and parse all log files in the folder
         # We have only one file pr run at the moment, but this might change
@@ -619,7 +617,8 @@ def parse_logs_dir(directory):
             run_dfs = parse_logfile(logfile, logging.getLogger() == logging.INFO)
 
             if run_dfs is None:
-                print("Skipped run " + name_of_run + "!")
+                print("Skipped run: " + name_of_run + "!")
+                skipped_runs += 1
                 continue
 
             for df_name in run_dfs:
@@ -629,6 +628,8 @@ def parse_logs_dir(directory):
                 csv_name = str(Path(logfile).parent) + "/" + df_name + ".csv"
                 run_dfs[df_name].to_csv(csv_name)
 
+    if skipped_runs != 0:
+        print("Skipped runs: " + str(skipped_runs))
     return all_runs_dfs
 
 def parse_logs_scenario(scenario_dir, scenario_name):
