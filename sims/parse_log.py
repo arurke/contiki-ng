@@ -257,6 +257,10 @@ def parseLine(line, testbed):
 def doParse(file, testbed):
     global network_formation_time_ms
     global application_start
+    global parents
+    parent = {}
+    network_formation_time_ms = None
+    application_start = None
     unknown_line_count = 0
     time = None
     arrays = {}
@@ -285,6 +289,7 @@ def doParse(file, testbed):
         entry = {
             "timestamp": timedelta(milliseconds=time),
             "node": nodeid,
+            "app_started": 0 if application_start is None else 1
         }
 
         try:
@@ -299,6 +304,7 @@ def doParse(file, testbed):
                 if(ret['event'] == 'send' and ret['type'] == 'data'):
                     if application_start is None:
                         application_start = entry["timestamp"]
+                        entry['app_started'] = 1
                     # populate series of sent requests
                     entry['pdr'] = 0.
                     arrays["packets"].append(entry)
@@ -362,10 +368,6 @@ def doParse(file, testbed):
                     arrays["ranks"].append(entry)
                     arrays["trickle"].append(entry)
                     arrays["nbr_count"].append(entry)
-                    if application_start is None:
-                        entry["app_started"] = 0
-                    else:
-                        entry["app_started"] = 1
                     arrays["hop_count"].append(entry)
 
                 elif(ret['event'] == 'switch'):
