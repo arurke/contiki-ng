@@ -518,14 +518,18 @@ def parse_logfile(file, quiet=False):
         return None
 
     # Topology changes after app started
-    if "app_parent_switch" in dfs:
-        print("Parent switch during application!")
-        outputStats(dfs, "app_parent_switch", "node", "count", "Parent switch during application")
-        return None
+    #if "app_parent_switch" in dfs:
+    #    print("Parent switch during application!")
+    #    outputStats(dfs, "app_parent_switch", "node", "count", "Parent switch during application")
+    #    return None
 
-    packets_sent = dfs["packets"]["pdr"].count();
-    # A packet which is not received is stored with PDR = 0
-    packets_received = dfs["packets"]["pdr"].sum() / 100
+    # Topology changes after app started
+    parent_switch_df = dfs["switches"]
+    parent_switch_count = len(parent_switch_df[parent_switch_df["app_started"] == 1])
+    if parent_switch_count > 0:
+        print("Parent switch during application!")
+        outputStats(dfs, "switches", "pswitch", "count", "RPL parent switches (#)")
+        return None
 
     # There are some rpoblems with the queue-stuff:
     # 1. All packets are counted, thus the queue overflow is larger than
@@ -537,8 +541,9 @@ def parse_logfile(file, quiet=False):
     # Drops (This does not take transmissions failures into account)
     overflows = dfs["queue"][dfs["queue"]["type"] == "overflow"]["type"].count()
 
-    # seriesObj = dfs["queue"].apply(lambda x: True if x["type"] == "drop" else False, axis = 1)
-    # numRows = len(seriesObj[seriesObj == True].index)
+    packets_sent = dfs["packets"]["pdr"].count();
+    # A packet which is not received is stored with PDR = 0
+    packets_received = dfs["packets"]["pdr"].sum() / 100
 
     # Max. hop count after app started
     hop_count_df = dfs["hop_count"]
@@ -573,7 +578,7 @@ def parse_logfile(file, quiet=False):
     outputStats(dfs, "packets", "latency", "mean", "Latency mean (s)")
     outputStats(dfs, "packets", "latency", "max", "Latency max (s)")
     outputStats(dfs, "queue", "queue_fill", "mean", "Queue fill")
-    outputStats(dfs, "app_parent_switch", "app_parent_switch", "count", "Parent switch during application")
+    #outputStats(dfs, "app_parent_switch", "app_parent_switch", "count", "Parent switch during application")
 
     # outputStats(dfs, "energest", "duty_cycle", "mean", "Radio duty cycle (%)")
     outputStats(dfs, "ranks", "rank", "mean", "RPL rank (ETX-128)")
