@@ -538,8 +538,14 @@ def parse_logfile(file, quiet=False):
     #    TODO Add a print at every manipulatio of queue to have a proper stat.
     # Needed?
 
-    # Drops (This does not take transmissions failures into account)
-    overflows = dfs["queue"][dfs["queue"]["type"] == "overflow"]["type"].count()
+    # App overflows (This does not take transmissions failures into account)
+    if "queue" in dfs:
+        overflows_df = dfs["queue"][dfs["queue"]["type"] == "overflow"]
+        overflows = len(overflows_df)
+        if "app" in overflows_df:
+            app_overflows = len(overflows_df[overflows_df["app"] == 1])
+        else:
+            app_overflows = 0
 
     packets_sent = dfs["packets"]["pdr"].count();
     # A packet which is not received is stored with PDR = 0
