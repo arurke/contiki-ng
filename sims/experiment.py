@@ -306,7 +306,7 @@ def print_config(config):
     print("\tConfig:       ", config.sim_cfg_path)
     print("\tCSC Baseline: ", config.csc_baseline_path)
     print("\t# scenarios:  ", len(config.scenarios))
-    print("\t# runs:       ", config.num_runs)
+    print("\t# runs pr sc.:", config.num_runs)
     if config.duration is not None:
         print("\tDuration:     ", config.duration)
     if config.nodes is not None:
@@ -354,9 +354,9 @@ def run_simulation(run_cmds):
 def run_testbed(scenarios, num_runs):
     for scenario in scenarios:
         print("\nRunning scenario:")
-        print("\tName:      " + scenario['name'])
-        print("\tNum runs:  " + str(num_runs))
-        print("\tCflagsextra: " + scenario['cflagsextra'])
+        print("\tName:          " + scenario['name'])
+        print("\t# runs pr sc.: " + str(num_runs))
+        print("\tCflagsextra:   " + scenario['cflagsextra'])
 
         for run in range(num_runs):
             print("\nStarting run:")
