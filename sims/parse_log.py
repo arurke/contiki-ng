@@ -500,6 +500,10 @@ def parse_logfile(file, quiet=False):
         return None
 
     # Verify application has finished on all nodes
+    if "packets" not in dfs:
+        print("No packets sent!")
+        return None
+
     num_tx_nodes = dfs["packets"].node.nunique()
     if application_done_count != num_tx_nodes:
         print("Application not finished! " +
