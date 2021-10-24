@@ -153,8 +153,10 @@ static bool has_parent_changed(void) {
   if(linkaddr_cmp(&previous_parent_linkaddr, new_parent_linkaddr)) {
     return false;
   }
-
-  return true;
+  else {
+    linkaddr_copy(&previous_parent_linkaddr, new_parent_linkaddr);
+    return true;
+  }
 }
 
 /*---------------------------------------------------------------------------*/
