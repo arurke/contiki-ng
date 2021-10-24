@@ -174,16 +174,18 @@ def parseApp(log):
     return None
 
 def parseTSCH(log):
-    res = re.compile('! can\'t send packet to LL-([0-9a-fA-F]+) with seqno (\d+), queue (\d+)\/(\d+) (\d+)\/(\d+)').match(log)
+    res = re.compile('! can\'t send packet to LL-([0-9a-fA-F]+) with seqno (\d+), queue (\d+)\/(\d+) (\d+)\/(\d+) app (\d+)').match(log)
     if res:
         queue_num = int(res.group(5))
         queue_size = int(res.group(6))
         queue_fill = (queue_num / queue_size) * 100
+        app = int(res.group(7))
         return {'event': 'mac',
                 'type': 'overflow',
                 'queue_num': queue_num,
                 'queue_size': queue_size,
-                'queue_fill':queue_fill}
+                'queue_fill': queue_fill,
+                'app': app}
 
     res = re.compile('TX to LL-([0-9a-fA-F]+) seqno (\d+), queue (\d+)\/(\d+) (\d+)\/(\d+)').match(log)
     if res:
@@ -196,7 +198,7 @@ def parseTSCH(log):
                 'queue_size': queue_size,
                 'queue_fill':queue_fill}
 
-    res = re.compile('sf \d+, cell (\d+)\/(\d+), normal: (\d+), shared: (\d+), tx: (\d+), asn: (\d+), res: (.*)').match(log)
+    res = re.compile('sf \d+, cell (\d+)\/(\d+), normal: (\d+), shared: (\d+), tx: (\d+), asn: (\d+), app: (\d+), res: (.*)').match(log)
     if res:
         timeslot = int(res.group(1))
         channel = int(res.group(2))
@@ -205,7 +207,8 @@ def parseTSCH(log):
         transmissions = int(res.group(5))
         retransmissions = transmissions - 1
         asn = int(res.group(6))
-        result = res.group(7)
+        app = int(res.group(7))
+        result = res.group(8)
         return {'event': 'mac',
                 'type': 'mac_tx',
                 'timeslot': timeslot,
@@ -215,6 +218,7 @@ def parseTSCH(log):
                 'transmissions':transmissions,
                 'retransmissions':retransmissions,
                 'asn':asn,
+                'app':app,
                 'result':result}
 
     return None
@@ -390,17 +394,11 @@ def doParse(file, testbed):
                 ret = parseTSCH(log)
                 if(ret == None):
                     continue
-
-                if ret['type'] == 'mac_tx':
-                    # Only application uses the non-shared normal cells
-                    if ret['normal'] == 1 and ret['shared'] == 0:
-                        ret['app_tx'] = 1
-                    else:
-                        ret['app_tx'] = 0
-
                 entry.update(ret)
-                #print("entry: ", str(entry))
                 if ret['type'] == 'mac_tx':
+                    # Note that although only application use non-shared
+                    # normal cells, there are exceptions when cells are
+                    # removed/added after packet has been assigned ts/ch
                     arrays['mac_tx'].append(entry)
                 else:
                     arrays["queue"].append(entry)
@@ -561,7 +559,7 @@ def parse_logfile(file, quiet=False):
 
     # ETX for application cells
     mac_tx_df = dfs["mac_tx"]
-    app_tx = mac_tx_df[mac_tx_df["app_tx"] == 1]
+    app_tx = mac_tx_df[mac_tx_df["app"] == 1]
     app_tx_etx = app_tx["transmissions"].sum() / len(app_tx["transmissions"][app_tx["result"] == "ok"])
 
     print("global-stats:")
