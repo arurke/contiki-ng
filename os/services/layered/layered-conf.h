@@ -65,6 +65,9 @@
 #else
 #define LAYERED_NUM_LAYERS      2
 #endif
+#if LAYERED_NUM_LAYERS != 2
+#error Only two layers are currently supported in Layered
+#endif
 
 #ifdef LAYERED_CONF_COMMON_SLOT_SPACING
 #define LAYERED_COMMON_SLOT_SPACING   LAYERED_CONF_COMMON_SLOT_SPACING

@@ -883,6 +883,31 @@ route_callback(int event,
 //    return;
 //  }
 
+  // Moving of layer/depth works surprisingly fine:
+  // 1. We receive DIO with new depth in it
+  // 2. Default route is refreshed so our callback is called and we notice new depth
+  //    1. Seems there is no delay between receiving DIO and route refresh.
+  // 3. Adding the "new" default route. There are three cells to consider:
+  //    1. TX app upwards (based on our ID)
+  //    2. TX broadcast downwards (based on our ID)
+  //    3. RX broadcast downwards (based on parent ID)
+  //
+  //    When moving cell #1 or #2 above, they always collide with the old allocation:
+  //    #1 is e.g. on timeslot 10 and #2 is on timeslot 60. When moving to different layer,
+  //    #1 is on 60, and #2 is on 10. New allocations always clean up old allocations in
+  //    the timeslot first - thus old stuff is removed.
+  //
+  //    The problem area is #3 which is based on the parent ID and does not have an
+  //    equivalent "partner" which always help clean up. Thus, when adding default route
+  //    (or more precisely update), we need to remove this particular allocation if there.
+
+  // 4. Receiving DAO from child, triggers update of their cells. Cleaning up of the
+  //    previous allocations happens in the same fashion as above (RX and TX cell
+  //    for switch timeslots and thus cleans up).
+  //    TODO There might be a delay before receiving the DAO. Potential optimization.
+
+  // TODO the logic above is only true for two layers! Alternative is to keep track of
+  // all allocations and then change all when we learn new depth
 
   if(event == UIP_DS6_NOTIFICATION_DEFRT_ADD) {
     LOG_INFO("Added default route to ");
@@ -892,9 +917,13 @@ route_callback(int event,
     LOG_INFO_(" via ");
     LOG_INFO_6ADDR(next_hop);
     LOG_INFO_("\n");
+    // Ref. above. Do ad-hoc removal of RX of beacons from parent
+    if(!is_root()) {
+      schedule_downwards_rx_cell(&route_lladdr, previous_status.node_layer,
+                                 previous_status.node_depth, true);
+    }
     add_cells(&route_lladdr, &current_status, true);
   }
-  // TODO Does this work well if we have moved depth?
   else if(event == UIP_DS6_NOTIFICATION_DEFRT_RM) {
     LOG_INFO("Removed default route ");
     LOG_INFO_6ADDR(route);
@@ -915,7 +944,6 @@ route_callback(int event,
     LOG_INFO_("\n");
     add_cells(&route_lladdr, &current_status, false);
   }
-  // TODO Does this work well if we have moved depth?
   else if(event == UIP_DS6_NOTIFICATION_ROUTE_RM) {
     LOG_INFO("Removed route ");
     LOG_INFO_6ADDR(route);
