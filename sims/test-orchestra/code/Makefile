@@ -1,7 +1,10 @@
 CONTIKI_PROJECT = node
 all: $(CONTIKI_PROJECT)
-#CONTIKI=../../..
+ifeq ($(TARGET),cooja)
+CONTIKI=../../..
+else
 CONTIKI=../../../../../..
+endif
 
 # Add any given extra-config from command-line (e.g. simulation-scripts)
 CFLAGS += $(CFLAGSEXTRA)
