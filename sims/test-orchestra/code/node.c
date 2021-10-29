@@ -259,7 +259,7 @@ PROCESS_THREAD(app_process, ev, data)
       snprintf(
           str,
           sizeof(str),
-          "num %04lu oTick %09"PRIu64"",
+          "num %04"PRIu32" oTick %09"PRIu64"",
           packet_count, network_uptime);
       simple_udp_sendto(&udp_conn, str, strlen(str), &dest_ipaddr);
       packet_count++;
