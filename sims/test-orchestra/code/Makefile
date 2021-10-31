@@ -21,10 +21,10 @@ MAKE_MAC = MAKE_MAC_TSCH
 MAKE_ROUTING = MAKE_ROUTING_RPL_CLASSIC
 
 # Use Orchestra
-MODULES += os/services/orchestra
+#MODULES += os/services/orchestra
 
 # Use Layered
-#MODULES += os/services/layered
+MODULES += os/services/layered
 
 ifdef TESTBED
 CFLAGS += -DTESTBED=$(TESTBED)

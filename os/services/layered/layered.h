@@ -53,6 +53,13 @@ struct layered_rule {
 
 struct layered_rule layered_multi_channel;
 
+typedef enum {
+  LAYERED_PACKET_TYPE_APP = 1,
+  LAYERED_PACKET_TYPE_BEACON = 2,
+  LAYERED_PACKET_TYPE_RPL = 3,
+  LAYERED_PACKET_TYPE_KEEPALIVE = 4
+} layered_packet_type_t;
+
 /* Call from application to start Layered */
 void layered_init(void);
 /* Callbacks requied for Layered to operate */
@@ -64,6 +71,10 @@ void layered_callback_new_time_source(const struct tsch_neighbor *old, const str
 void layered_callback_child_added(const linkaddr_t *addr);
 /* Set with #define NETSTACK_CONF_ROUTING_NEIGHBOR_REMOVED_CALLBACK layered_callback_child_removed */
 void layered_callback_child_removed(const linkaddr_t *addr);
+/* Calculate cell coordinates. Frame type is 802154_FRAME_TYPE */
+bool layered_calc_packet_cell(uint16_t frame_type, const uint8_t* data, uint16_t data_len,
+    uint16_t *slotframe, uint16_t *timeslot, uint16_t *channel_offset,
+    layered_packet_type_t* packet_type);
 
 // TODO ad-hoc
 #define LAYERED_STATS 1

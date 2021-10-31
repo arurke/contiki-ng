@@ -43,6 +43,7 @@ def process_results(scenarios, execution_dir):
     # The DFs are inserted into scenarios
     # Add True as second argument to squelch output
     parse_logs_scenarios(scenarios)
+    #return
 
     # Make time-series from the raw DFs
     for scenario in scenarios:

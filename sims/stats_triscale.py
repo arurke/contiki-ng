@@ -5,11 +5,18 @@ import sys
 sys.path.append('triscale')
 import triscale as triscale
 
-NUM_ROWS_SKIP_SS_START = 100
-NUM_ROWS_SKIP_SS_END = 20
-TIME_TO_SKIP_STEADY_STATE = "2 Min"
+NUM_ROWS_SKIP_SS_START = 1
+NUM_ROWS_SKIP_SS_END = 1
+TIME_TO_SKIP_STEADY_STATE = "1 Sec"
 
 def calculate_metric(input_df, metric, measure, check_convergence=False):
+    
+    if measure == "absolute_etx":
+        app_tx_etx = input_df["transmissions"].sum() / \
+            len(input_df[input_df["result"] == "ok"])
+        print("ETX: " + str(app_tx_etx))
+        return app_tx_etx
+    
     # TriScale expects an index + two columns x and y
     
     # First make a copy so we can edit freely
@@ -33,11 +40,15 @@ def calculate_metric(input_df, metric, measure, check_convergence=False):
             plot=False, showplot=False, verbose=False)
     return measure
 
-def analyze_run(packets_df, energest_df, queue_df):
+def analyze_run(packets_df, energest_df, queue_df, mac_tx_df):
+    # Make DF with app-mac-packets only
+    app_mac_tx_df = mac_tx_df[mac_tx_df["app"] == 1].copy()
+    
     # Create DFs with steady state (i.e. drop at start and end)
     ss_packets_df = packets_df.copy()
     ss_energest_df = energest_df.copy()
     ss_queue_df = queue_df.copy()
+    ss_app_mac_tx_df = app_mac_tx_df.copy()
     
     packet_start = packets_df.index.values[0]
     packet_start_ss = packet_start + pd.Timedelta(TIME_TO_SKIP_STEADY_STATE)
@@ -53,6 +64,8 @@ def analyze_run(packets_df, energest_df, queue_df):
         ss_packets_df[NUM_ROWS_SKIP_SS_START:-NUM_ROWS_SKIP_SS_END]
     ss_queue_df = \
         ss_queue_df[NUM_ROWS_SKIP_SS_START:-NUM_ROWS_SKIP_SS_END]
+    ss_app_mac_tx_df = \
+        ss_app_mac_tx_df[NUM_ROWS_SKIP_SS_START:-NUM_ROWS_SKIP_SS_END]
 
     # Make queue DF per node
     ss_queue_df_2 = ss_queue_df.copy()
@@ -62,9 +75,10 @@ def analyze_run(packets_df, energest_df, queue_df):
 
     # Make the following metrics for the given measures for the given DFs
     # The-per-node is a bit hackish - gave them special prefix
-    default_measures = ["mean", 50, 99, 99.9, "maximum"]
+    default_measures = ["mean", 50, 95, 99, 99.9, "maximum"]
     metric_packets = [{"metric": "latency", "measures":default_measures},
                       {"metric": "pdr", "measures":["mean"]}]
+    metric_mac_app_tx = [{"metric": "mac_app_tx_etx", "measures":["absolute_etx"]}]
     metric_energest = [{"metric": "duty_cycle", "measures":default_measures},
                        {"metric": "duty_cycle_tx", "measures":default_measures},
                        {"metric": "duty_cycle_rx", "measures":default_measures}]
@@ -72,6 +86,8 @@ def analyze_run(packets_df, energest_df, queue_df):
     dfs = [{"df":packets_df, "metric":metric_packets, "prefix":""},
            {"df":energest_df, "metric":metric_energest, "prefix":""},
            {"df":queue_df, "metric":metric_queue, "prefix":""},
+           {"df":app_mac_tx_df, "metric":metric_mac_app_tx, "prefix":""},
+           {"df":ss_app_mac_tx_df, "metric":metric_mac_app_tx, "prefix":"ss_"},
            {"df":ss_packets_df, "metric":metric_packets, "prefix":"ss_"},
            {"df":ss_energest_df, "metric":metric_energest, "prefix":"ss_"},
            {"df":ss_queue_df, "metric":metric_queue, "prefix":"ss_"},
@@ -124,37 +140,93 @@ def analyze_scenario(runs_df, scenario_name):
     scenario_entry = {"scenario": scenario_name}
     default_percentile = 95
     default_confidence = 95
+    adhoc_percentile = 50
+    adhoc_confidence = 95
     
     kpis = [{"metric":"latency",
-                "settings":{"percentile": default_percentile,
-                       "confidence": default_confidence,
-                       "bounds":[0.001,12],
+                # "name":"_p" + str(adhoc_percentile) + "_%" + str(adhoc_confidence) + "_U",
+                "name":"",
+                "settings":{"percentile": adhoc_percentile,
+                       "confidence": adhoc_confidence,
+                       "bounds":[0.001,120],
                        "bound":"upper"}},
-               {"metric":"pdr",
-                "settings":{"percentile": 5,
+             {"metric":"latency",
+                # "name":"_p" + str(adhoc_percentile) + "_%" + str(adhoc_confidence) + "_U",
+                "name":"_U",
+                "settings":{"percentile": adhoc_percentile,
+                       "confidence": adhoc_confidence,
+                       "bounds":[0.001,120],
+                       "bound":"upper"}},
+             {"metric":"latency",
+                # "name":"_p" + str(adhoc_percentile) + "_%" + str(adhoc_confidence) + "_U",
+                "name":"_L",
+                "settings":{"percentile": adhoc_percentile,
+                       "confidence": adhoc_confidence,
+                       "bounds":[0.001,120],
+                       "bound":"lower"}},
+                {"metric":"pdr",
+                #"name":"_p" + str(adhoc_percentile) + "_%" + str(adhoc_confidence) + "_L",
+                "name":"",
+                "settings":{"percentile": default_percentile,
                        "confidence": default_confidence,
                        "bounds":[0,100],
                        "bound":"lower"}},
+               {"metric":"pdr",
+                #"name":"_p" + str(adhoc_percentile) + "_%" + str(adhoc_confidence) + "_L",
+                "name":"_L",
+                "settings":{"percentile": adhoc_percentile,
+                       "confidence": adhoc_confidence,
+                       "bounds":[0,100],
+                       "bound":"lower"}},
+               {"metric":"pdr",
+                #"name":"_p" + str(adhoc_percentile) + "_%" + str(adhoc_confidence) + "_L",
+                "name":"_U",
+                "settings":{"percentile": adhoc_percentile,
+                       "confidence": adhoc_confidence,
+                       "bounds":[0,100],
+                       "bound":"upper"}},
                {"metric":"duty_cycle",
+                #"name":"_p" + str(default_percentile) + "_%" + str(default_confidence) + "_U",
+                "name":"",
                 "settings":{"percentile": default_percentile,
                        "confidence": default_confidence,
                        "bounds":[0,100],
                        "bound":"upper"}},
                {"metric":"duty_cycle_tx",
+                #"name":"_p" + str(default_percentile) + "_%" + str(default_confidence) + "_U",
+                "name":"",
                 "settings":{"percentile": default_percentile,
                        "confidence": default_confidence,
                        "bounds":[0,100],
                        "bound":"upper"}},
                {"metric":"duty_cycle_rx",
+                #"name":"_p" + str(default_percentile) + "_%" + str(default_confidence) + "_U",
+                "name":"",
                 "settings":{"percentile": default_percentile,
                        "confidence": default_confidence,
                        "bounds":[0,100],
                        "bound":"upper"}},
                {"metric":"queue_fill",
+                #"name":"_p" + str(default_percentile) + "_%" + str(default_confidence) + "_U",
+                "name":"",
                 "settings":{"percentile": default_percentile,
                        "confidence": default_confidence,
                        "bounds":[0,100],
-                       "bound":"upper"}}]
+                       "bound":"upper"}},
+               {"metric":"mac_app_tx_etx",
+                #"name":"_p" + str(adhoc_percentile) + "_%" + str(adhoc_confidence) + "_U",
+                "name":"_U",
+                "settings":{"percentile": adhoc_percentile,
+                       "confidence": adhoc_confidence,
+                       "bounds":[0,100],
+                       "bound":"upper"}},
+               {"metric":"mac_app_tx_etx",
+                #"name":"_p" + str(adhoc_percentile) + "_%" + str(adhoc_confidence) + "_L",
+                "name":"_L",
+                "settings":{"percentile": adhoc_percentile,
+                       "confidence": adhoc_confidence,
+                       "bounds":[0,100],
+                       "bound":"lower"}}]
     
     # TODO this needs some fixing as the naming of the columns in the resulting
     # DF will say _mean, _median, etc. while it is actually the default_percentile

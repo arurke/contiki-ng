@@ -30,11 +30,11 @@
 #ifdef APP_CONF_DELAY_TX
 #define APP_DELAY_TX      APP_CONF_DELAY_TX
 #else
-#define APP_DELAY_TX      60
+#define APP_DELAY_TX      600
 #endif
 
 
-#define NUM_PACKETS       100
+#define NUM_PACKETS       200
 
 
 #if TESTBED
@@ -182,10 +182,12 @@ PROCESS_THREAD(app_process, ev, data)
 
   // Uncomment to make only the specified node send packets
   // 326, 328, 330, 332
-//  if(node_id != 8 && node_id != 2 &&
-//      node_id != 9 && node_id != 10) {
-//    is_transmitting_node = false;
-//  }
+#if TESTBED
+  if(node_id != 0x0d && node_id != 0x0e &&
+      node_id != 0x0f && node_id != 0x10) {
+    is_transmitting_node = false;
+  }
+#endif
 
   if(is_coordinator) {
     /* Initialize DAG root. This also sets this node as TSCH coordinator */

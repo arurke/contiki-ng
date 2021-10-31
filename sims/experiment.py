@@ -26,8 +26,7 @@ BUILD_COOJA_NAME = "node.cooja"
 EXECUTIONS_FOLDER_NAME = "executions"
 MAKEFILE = "Makefile"
 #NODES = "358+343+328+313+298+290+203+188"
-NODES = "358+356+354+351+348+346+344+342+340+338+336+334+332+330+328+326+324+322+320+318"
-DURATION_MIN = "80"
+NODES = "358+356+354+351+348+346+344+342+340+338+336+334+332+330+328+326"
 
 @dataclass
 class Config:
@@ -92,12 +91,14 @@ def process_results(scenarios, execution_dir):
     parse_logs_scenarios(scenarios)
 
     # Make time-series from the raw DFs
-    for scenario in scenarios:
-        plot_time_series(scenario, 350, 'run0', 0)
-        plot_time_series(scenario, 353, 'run0', 0)
+ #   for scenario in scenarios:
+ #       plot_time_series(scenario, 350, 'run0', 0)
+ #       plot_time_series(scenario, 353, 'run0', 0)
 
     # Get stats from the DFs
     scenarios_df = stats_for_scenarios(scenarios, True)
+
+    plot_etx_comparison(scenarios_df, execution_dir)
 
     # Save DF to CSV
     df_csv = execution_dir + "scenarios_df.csv"

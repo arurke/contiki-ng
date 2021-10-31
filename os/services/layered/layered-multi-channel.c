@@ -218,10 +218,9 @@ calculate_channel(uint8_t depth)
 /*---------------------------------------------------------------------------*/
 
 // Find if packet is RPL by analyzing packet
-static bool is_rpl_packet_heuristic(void) {
-  uint8_t* data = packetbuf_dataptr();
+static bool is_rpl_packet_heuristic(const uint8_t* data, uint16_t data_len) {
 
-  if(packetbuf_datalen() < 7) {
+  if(data_len < 7) {
 //    LOG_DBG("Too short for RPL\n");
     return false;
   }
@@ -276,14 +275,14 @@ static bool is_rpl_packet_heuristic(void) {
 //  return false;
 //}
 
-static bool is_rpl_packet(void) {
+static bool is_rpl_packet(const uint8_t* data, uint16_t data_len) {
 //  return is_rpl_packet_via_packetbuf();
-  return is_rpl_packet_heuristic();
+  return is_rpl_packet_heuristic(data, data_len);
 }
 
-static bool heuristic_is_keepalive(void) {
+static bool heuristic_is_keepalive(uint16_t data_len) {
   // Keep-alives are empty packets (only MAC headers)
-  return packetbuf_datalen() == 0;
+  return data_len == 0;
 }
 
 static uint16_t
@@ -311,21 +310,29 @@ calculate_layered_timeslot(const linkaddr_t *linkaddr, uint16_t layer) {
 }
 
 static bool
-find_source_address(linkaddr_t* source_lladdr) {
+find_source_address(const uint8_t* data, uint16_t data_len, linkaddr_t* source_lladdr) {
   // Use a really bad way to figure out if the originating node address
   // For some reason PACKETBUF_ADDR_SENDER contain our own address
-  uint8_t* data = packetbuf_dataptr();
+  //uint8_t* data = packetbuf_dataptr();
 
-  if(packetbuf_datalen() < 12) {
+  if(data_len < 12) {
     LOG_ERR("Too short for source address!\n");
     return false;
   }
 
+
+//  LOG_DBG("Len: %u. Hex:", data_len);
+//  for(int i = 0; i < data_len; i++) {
+//    LOG_DBG_("%02x", data[i]);
+//  }
+//  LOG_DBG_("\n");
+
   // Is source address compressed? If yes, we are transmitting
   if(((*(data + SIXLO_HEADER_PART2_OFFSET)) & SRC_ADDR_MODE_MASK) == 0x30) {
-    memcpy(source_lladdr,
-           packetbuf_addr(PACKETBUF_ADDR_SENDER),
-           sizeof(linkaddr_t));
+    memcpy(source_lladdr, &linkaddr_node_addr, sizeof(linkaddr_t));
+//    memcpy(source_lladdr,
+//           packetbuf_addr(PACKETBUF_ADDR_SENDER),
+//           sizeof(linkaddr_t));
 //    LOG_INFO("We are sending, header: 0x%02x\n", (*(data + 1)));
     return true;
   }
@@ -347,106 +354,252 @@ find_source_address(linkaddr_t* source_lladdr) {
   // Use ds6 to properly decode lladdr from IP.
   uip_ds6_set_lladdr_from_iid((uip_lladdr_t*) source_lladdr, &ipaddr);
 
-  LOG_DBG("Found node ");
-  LOG_DBG_LLADDR(source_lladdr);
-  LOG_DBG_("\n");
+  // This may be called by TSCH
+//  LOG_DBG("Found node ");
+//  LOG_DBG_LLADDR(source_lladdr);
+//  LOG_DBG_("\n");
 
   return true;
 }
 
 /*---------------------------------------------------------------------------*/
+static layered_packet_type_t
+find_packet_type(uint16_t frame_type, const uint8_t* data, uint16_t data_len) {
+
+  if(frame_type == FRAME802154_BEACONFRAME) {
+    return LAYERED_PACKET_TYPE_BEACON;
+  }
+
+  if(is_rpl_packet(data, data_len)) {
+    return LAYERED_PACKET_TYPE_RPL;
+  }
+
+  if(heuristic_is_keepalive(data_len)) {
+    return LAYERED_PACKET_TYPE_KEEPALIVE;
+  }
+
+  // Lastly assume it is application
+  return LAYERED_PACKET_TYPE_APP;
+}
+
+bool
+layered_calc_packet_cell(uint16_t frame_type, const uint8_t* data, uint16_t data_len,
+    uint16_t *slotframe, uint16_t *timeslot, uint16_t *channel_offset,
+    layered_packet_type_t* packet_type)
+{
+
+  *packet_type = find_packet_type(frame_type, data, data_len);
+  switch(*packet_type) {
+    case LAYERED_PACKET_TYPE_BEACON:
+      // Use the downward TX slot for beacons
+      if(slotframe != NULL) {
+        *slotframe = slotframe_handle;
+      }
+      if(timeslot != NULL) {
+        // Our own address, but for layer below us
+        *timeslot = calculate_layered_timeslot(&linkaddr_node_addr, current_status.child_layer);
+      }
+      if(channel_offset != NULL) {
+        // For depth below us
+        *channel_offset = calculate_channel(current_status.child_depth);
+      }
+      return true;
+
+    case LAYERED_PACKET_TYPE_RPL:
+      // If a RPL packet, send in common
+      if(slotframe != NULL) {
+        *slotframe = slotframe_handle;
+      }
+      if(timeslot != NULL) {
+        *timeslot = calculate_next_common_slot();
+      }
+      if(channel_offset != NULL) {
+        *channel_offset = COMMON_CELL_CHANNEL;
+      }
+      return true;
+
+    case LAYERED_PACKET_TYPE_KEEPALIVE:
+      // If a TSCH keepalive, send it in the common slot
+      if(slotframe != NULL) {
+        *slotframe = slotframe_handle;
+      }
+      if(timeslot != NULL) {
+        *timeslot = calculate_next_common_slot();
+      }
+      if(channel_offset != NULL) {
+        *channel_offset = COMMON_CELL_CHANNEL;
+      }
+      return true;
+
+    case LAYERED_PACKET_TYPE_APP:
+    default:
+    {
+      // Find the originating node such that we can assign it to its
+      // correct cell
+      linkaddr_t source_lladdr = {{0}};
+      if(!find_source_address(data, data_len, &source_lladdr)) {
+        // Unable to find the source address, this should not happen
+        return false;
+      }
+
+      if(slotframe != NULL) {
+        *slotframe = slotframe_handle;
+      }
+      if(timeslot != NULL) {
+        *timeslot = calculate_layered_timeslot(&source_lladdr, current_status.node_layer);
+      }
+      if(channel_offset != NULL) {
+        *channel_offset = calculate_channel(current_status.node_depth);
+      }
+      return true;
+    }
+  }
+}
+
 static int
 select_packet(uint16_t *slotframe, uint16_t *timeslot, uint16_t *channel_offset)
 {
-  if(packetbuf_attr(PACKETBUF_ATTR_FRAME_TYPE) == FRAME802154_BEACONFRAME) {
-    // Use the downward TX slot for beacons
-    if(slotframe != NULL) {
-      *slotframe = slotframe_handle;
-    }
-    if(timeslot != NULL) {
-      // Our own address, but for layer below us
-      *timeslot = calculate_layered_timeslot(&linkaddr_node_addr, current_status.child_layer);
-    }
-    if(channel_offset != NULL) {
-      // For depth below us
-      *channel_offset = calculate_channel(current_status.child_depth);
-    }
-    LOG_DBG("Selected %u/%u for beacon\n", *timeslot, *channel_offset);
-    packetbuf_set_attr(PACKETBUF_ATTR_TEST, 2);
-    return 1;
-  }
-
-  // If a RPL packet, send in common
-  if(is_rpl_packet()) {
-
-    if(slotframe != NULL) {
-      *slotframe = slotframe_handle;
-    }
-    if(timeslot != NULL) {
-      *timeslot = calculate_next_common_slot();
-    }
-    if(channel_offset != NULL) {
-      *channel_offset = COMMON_CELL_CHANNEL;
-    }
-    LOG_DBG("Selected %u/%u for RPL packet\n", *timeslot, *channel_offset);
-    packetbuf_set_attr(PACKETBUF_ATTR_TEST, 3);
-    return 1;
-  }
-
-  // If a TSCH keepalive, send it in the common slot
-  if(heuristic_is_keepalive()) {
-    //LOG_INFO("This was a keepalive packet\n");
-
-    if(slotframe != NULL) {
-      *slotframe = slotframe_handle;
-    }
-    if(timeslot != NULL) {
-      *timeslot = calculate_next_common_slot();
-    }
-    if(channel_offset != NULL) {
-      *channel_offset = COMMON_CELL_CHANNEL;
-    }
-    LOG_DBG("Selected %u/%u for KA packet\n", *timeslot, *channel_offset);
-    packetbuf_set_attr(PACKETBUF_ATTR_TEST, 5);
-    return 1;
-  }
-
-  // It was neither beacon or RPL. So then we assume it is application
-  // let's find the originating node such that we can assign it to its
-  // correct cell
-  linkaddr_t source_lladdr = {{0}};
-  if(!find_source_address(&source_lladdr)) {
-    // Unable to find the source address, this should not happen
+  layered_packet_type_t packet_type = LAYERED_PACKET_TYPE_APP;
+  if(!layered_calc_packet_cell(packetbuf_attr(PACKETBUF_ATTR_FRAME_TYPE),
+                   packetbuf_dataptr(), packetbuf_datalen(),
+                   slotframe, timeslot, channel_offset,
+                   &packet_type)) {
     LOG_ERR("TEST FAILED %u\n", packetbuf_datalen());
     return 1;
   }
 
-//  LOG_DBG("App packet originated from: ");
-//  LOG_DBG_LLADDR(&source_lladdr);
-//  LOG_DBG_("\n");
+  // Update packet type attribute
+  packetbuf_set_attr(PACKETBUF_ATTR_TEST, packet_type);
 
-  if(slotframe != NULL) {
-    *slotframe = slotframe_handle;
-  }
-  if(timeslot != NULL) {
-    *timeslot = calculate_layered_timeslot(&source_lladdr, current_status.node_layer);
-  }
-  if(channel_offset != NULL) {
-    *channel_offset = calculate_channel(current_status.node_depth);
+  // Debug print
+  char type_str[] = "beacon";
+  switch(packet_type) {
+    case LAYERED_PACKET_TYPE_BEACON:
+      strcpy(type_str, "beacon");
+      break;
+    case LAYERED_PACKET_TYPE_RPL:
+      strcpy(type_str, "RPL");
+      break;
+    case LAYERED_PACKET_TYPE_KEEPALIVE:
+      strcpy(type_str, "KA");
+      break;
+    case LAYERED_PACKET_TYPE_APP:
+    default:
+      strcpy(type_str, "App");
+      break;
   }
 
-  packetbuf_set_attr(PACKETBUF_ATTR_TEST, 1);
-
-  LOG_DBG("Selected %u/%u for App packet originating from ",
-           *timeslot, *channel_offset);
-  LOG_DBG_LLADDR(&source_lladdr);
-  LOG_DBG_("\n");
+  if(packet_type == LAYERED_PACKET_TYPE_APP) {
+    linkaddr_t source_lladdr = {{0}};
+    find_source_address(
+        packetbuf_dataptr(), packetbuf_datalen(), &source_lladdr);
+    LOG_DBG("Selected %u/%u for %s packet originating from ",
+             *timeslot, *channel_offset, type_str);
+    LOG_DBG_LLADDR(&source_lladdr);
+    LOG_DBG_("\n");
+  }
+  else {
+    LOG_DBG("Selected %u/%u for %s packet\n",
+            *timeslot, *channel_offset, type_str);
+  }
 
   struct tsch_link* link =
       tsch_schedule_get_link_by_timeslot(sf_layered, *timeslot, *channel_offset);
   if(link == NULL) {
     LOG_ERR("Link not existing or TSCH locked\n");
   }
+
+  return 1;
+
+//  if(packetbuf_attr(PACKETBUF_ATTR_FRAME_TYPE) == FRAME802154_BEACONFRAME) {
+//    // Use the downward TX slot for beacons
+//    if(slotframe != NULL) {
+//      *slotframe = slotframe_handle;
+//    }
+//    if(timeslot != NULL) {
+//      // Our own address, but for layer below us
+//      *timeslot = calculate_layered_timeslot(&linkaddr_node_addr, current_status.child_layer);
+//    }
+//    if(channel_offset != NULL) {
+//      // For depth below us
+//      *channel_offset = calculate_channel(current_status.child_depth);
+//    }
+//    LOG_DBG("Selected %u/%u for beacon\n", *timeslot, *channel_offset);
+//    packetbuf_set_attr(PACKETBUF_ATTR_TEST, 2);
+//    return 1;
+//  }
+//
+//  // If a RPL packet, send in common
+//  if(is_rpl_packet()) {
+//
+//    if(slotframe != NULL) {
+//      *slotframe = slotframe_handle;
+//    }
+//    if(timeslot != NULL) {
+//      *timeslot = calculate_next_common_slot();
+//    }
+//    if(channel_offset != NULL) {
+//      *channel_offset = COMMON_CELL_CHANNEL;
+//    }
+//    LOG_DBG("Selected %u/%u for RPL packet\n", *timeslot, *channel_offset);
+//    packetbuf_set_attr(PACKETBUF_ATTR_TEST, 3);
+//    return 1;
+//  }
+//
+//  // If a TSCH keepalive, send it in the common slot
+//  if(heuristic_is_keepalive()) {
+//    //LOG_INFO("This was a keepalive packet\n");
+//
+//    if(slotframe != NULL) {
+//      *slotframe = slotframe_handle;
+//    }
+//    if(timeslot != NULL) {
+//      *timeslot = calculate_next_common_slot();
+//    }
+//    if(channel_offset != NULL) {
+//      *channel_offset = COMMON_CELL_CHANNEL;
+//    }
+//    LOG_DBG("Selected %u/%u for KA packet\n", *timeslot, *channel_offset);
+//    packetbuf_set_attr(PACKETBUF_ATTR_TEST, 5);
+//    return 1;
+//  }
+//
+//  // It was neither beacon or RPL. So then we assume it is application
+//  // let's find the originating node such that we can assign it to its
+//  // correct cell
+//  linkaddr_t source_lladdr = {{0}};
+//  if(!find_source_address(&source_lladdr)) {
+//    // Unable to find the source address, this should not happen
+//    LOG_ERR("TEST FAILED %u\n", packetbuf_datalen());
+//    return 1;
+//  }
+//
+////  LOG_DBG("App packet originated from: ");
+////  LOG_DBG_LLADDR(&source_lladdr);
+////  LOG_DBG_("\n");
+//
+//  if(slotframe != NULL) {
+//    *slotframe = slotframe_handle;
+//  }
+//  if(timeslot != NULL) {
+//    *timeslot = calculate_layered_timeslot(&source_lladdr, current_status.node_layer);
+//  }
+//  if(channel_offset != NULL) {
+//    *channel_offset = calculate_channel(current_status.node_depth);
+//  }
+//
+//  packetbuf_set_attr(PACKETBUF_ATTR_TEST, 1);
+//
+//  LOG_DBG("Selected %u/%u for App packet originating from ",
+//           *timeslot, *channel_offset);
+//  LOG_DBG_LLADDR(&source_lladdr);
+//  LOG_DBG_("\n");
+//
+//  struct tsch_link* link =
+//      tsch_schedule_get_link_by_timeslot(sf_layered, *timeslot, *channel_offset);
+//  if(link == NULL) {
+//    LOG_ERR("Link not existing or TSCH locked\n");
+//  }
 
   return 1;
 }

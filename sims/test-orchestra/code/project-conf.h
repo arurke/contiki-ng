@@ -48,7 +48,7 @@
 // TX power in iotlab
 #define RF2XX_TX_POWER                    PHY_POWER_m17dBm
 //#define RF2XX_RX_RSSI_THRESHOLD           RF2XX_PHY_RX_THRESHOLD__m84dBm
-#define RF2XX_RX_RSSI_THRESHOLD           RF2XX_PHY_RX_THRESHOLD__m78dBm
+//#define RF2XX_RX_RSSI_THRESHOLD           RF2XX_PHY_RX_THRESHOLD__m78dBm
 
 // Buffer size (note that actual size is -1 due to ringbuf, see issue #1532)
 // 64 for grid
@@ -97,7 +97,7 @@
 #define ORCHESTRA_CONF_COMMON_SHARED_PERIOD   31
 
 // Length of unicast SF (def. 17)
-#define ORCHESTRA_CONF_UNICAST_PERIOD         101
+#define ORCHESTRA_CONF_UNICAST_PERIOD         17
 
 // Is hash collision free? (def.  0)
 #define ORCHESTRA_CONF_COLLISION_FREE_HASH    1

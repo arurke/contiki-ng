@@ -602,11 +602,16 @@ tsch_tx_process_pending(void)
           break;
       }
 
-      LOG_WARN("sf %u, cell %d/%d, normal: %u, shared: %u, tx: %u, asn: %lu, res: %s\n",
+      // ASN cannot be trusted
+      // TODO With TSCH-queue re-calculating TS/CH, those fields may not be accurate since it is based
+      // on the packetbuf content. However, this should only be true when RPL topology changes.
+      LOG_WARN("sf %u, cell %d/%d, normal: %u, shared: %u, tx: %u, asn: %lu, app: %d, res: %s\n",
                slotframe->handle, timeslot, channel,
                link->link_type == LINK_TYPE_NORMAL ? true : false,
                link->link_options & LINK_OPTION_SHARED ? true : false,
-               p->transmissions, tsch_current_asn.ls4b, result);
+               p->transmissions, tsch_current_asn.ls4b,
+               packetbuf_attr(PACKETBUF_ATTR_TEST) == 1,
+               result);
     }
 
     /* Call packet_sent callback */
@@ -1207,10 +1212,11 @@ send_packet(mac_callback_t sent, void *ptr)
     if(p == NULL) {
       LOG_ERR("! can't send packet to ");
       LOG_ERR_LLADDR(addr);
-      LOG_ERR_(" with seqno %u, queue %u/%u %u/%u\n",
+      LOG_ERR_(" with seqno %u, queue %u/%u %u/%u app %d\n",
           tsch_packet_seqno, tsch_queue_nbr_packet_count(n),
           TSCH_QUEUE_NUM_PER_NEIGHBOR - 1, tsch_queue_global_packet_count(),
-          QUEUEBUF_NUM - 1);
+          QUEUEBUF_NUM - 1,
+          packetbuf_attr(PACKETBUF_ATTR_TEST) == 1);
       ret = MAC_TX_QUEUE_FULL;
     } else {
       p->header_len = hdr_len;

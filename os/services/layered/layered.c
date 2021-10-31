@@ -133,7 +133,6 @@ layered_callback_new_time_source(const struct tsch_neighbor *old,
 void
 layered_init(void)
 {
-  // TODO fix logging for orchestra?
   int i;
   /* Initialize all rules */
   for(i = 0; i < NUM_RULES; i++) {

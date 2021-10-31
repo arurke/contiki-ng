@@ -1,8 +1,10 @@
 # Makes stats for all
 import pandas as pd
 
-NUM_ROWS_SKIP_STEADY_STATE = 100
-TIME_TO_SKIP_STEADY_STATE = "2 Min"
+#NUM_ROWS_SKIP_STEADY_STATE = 100
+#TIME_TO_SKIP_STEADY_STATE = "2 Min"
+NUM_ROWS_SKIP_STEADY_STATE = 10
+TIME_TO_SKIP_STEADY_STATE = "10 sec"
 
 def analyze_run(packets_df, energest_df):
     run_entry = {}
@@ -64,7 +66,7 @@ def analyze_run(packets_df, energest_df):
     #run_entry['ss_channel_utilization_mean'] = ss_energest_df.channel_utilization.mean()
     #run_entry['ss_channel_utilization_50'] = ss_energest_df.channel_utilization.median()
     #run_entry['ss_channel_utilization_99'] = ss_energest_df.channel_utilization.quantile(0.99)
-    
+
     return pd.DataFrame([run_entry])
 
 def analyze_runs(raw_packets_dfs, raw_energest_dfs):

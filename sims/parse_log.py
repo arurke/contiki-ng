@@ -561,6 +561,8 @@ def parse_logfile(file, quiet=False):
     mac_tx_df = dfs["mac_tx"]
     app_tx = mac_tx_df[mac_tx_df["app"] == 1]
     app_tx_etx = app_tx["transmissions"].sum() / len(app_tx["transmissions"][app_tx["result"] == "ok"])
+    print("Num tx: " + str(app_tx["transmissions"].sum()))
+    print("Num ok tx: " + str(len(app_tx["transmissions"][app_tx["result"] == "ok"])))
 
     print("global-stats:")
     print("  pdr: %.4f" % (dfs["packets"]["pdr"].mean()))

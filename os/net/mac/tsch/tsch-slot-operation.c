@@ -250,7 +250,7 @@ tsch_release_lock(void)
 static uint8_t
 tsch_get_channel_offset(struct tsch_link *link, struct tsch_packet *p)
 {
-#if TSCH_WITH_LINK_SELECTOR
+#if TSCH_WITH_LINK_SELECTOR && !BUILD_WITH_LAYERED
   if(p != NULL) {
     uint16_t packet_channel_offset = queuebuf_attr(p->qb, PACKETBUF_ATTR_TSCH_CHANNEL_OFFSET);
     if(packet_channel_offset != 0xffff) {
@@ -364,6 +364,49 @@ get_packet_and_neighbor_for_link(struct tsch_link *link, struct tsch_neighbor **
       if(p == NULL) {
         /* Get neighbor queue associated to the link and get packet from it */
         n = tsch_queue_get_nbr(&link->addr);
+
+//        char address[10] = {0};
+//        linkaddr_t *lladdr = &(link->addr);
+//        if(lladdr == NULL || linkaddr_cmp(lladdr, &linkaddr_null)) {
+//            sprintf(address, "LL-NULL");
+//        }
+//        else {
+//          #if BUILD_WITH_DEPLOYMENT
+//          sprintf(address, "LL-%04x", deployment_id_from_lladdr(lladdr));
+//          #else /* BUILD_WITH_DEPLOYMENT */
+//          #if LINKADDR_SIZE == 8
+//          sprintf(address, "LL-%04x", UIP_HTONS(lladdr->u16[LINKADDR_SIZE/2-1]));
+//          #elif LINKADDR_SIZE == 2
+//          sprintf(address, "LL-%04x", UIP_HTONS(lladdr->u16));
+//          #endif
+//          #endif /* BUILD_WITH_DEPLOYMENT */
+//        }
+//
+//        char address2[10] = {0};
+//        lladdr = tsch_queue_get_nbr_address(n);
+//        if(lladdr == NULL || linkaddr_cmp(lladdr, &linkaddr_null)) {
+//            sprintf(address2, "LL-NULL");
+//        }
+//        else {
+//          #if BUILD_WITH_DEPLOYMENT
+//          sprintf(address2, "LL-%04x", deployment_id_from_lladdr(lladdr));
+//          #else /* BUILD_WITH_DEPLOYMENT */
+//          #if LINKADDR_SIZE == 8
+//          sprintf(address2, "LL-%04x", UIP_HTONS(lladdr->u16[LINKADDR_SIZE/2-1]));
+//          #elif LINKADDR_SIZE == 2
+//          sprintf(address2, "LL-%04x", UIP_HTONS(lladdr->u16));
+//          #endif
+//          #endif /* BUILD_WITH_DEPLOYMENT */
+//        }
+//
+//
+//        TSCH_LOG_ADD(tsch_log_message,
+//                      snprintf(log->message, sizeof(log->message),
+//                          "!asd %u/%u, a-l: %s, a-n: %s",
+//                            link->timeslot,
+//                            link->channel_offset, address, address2));
+
+
         p = tsch_queue_get_packet_for_nbr(n, link);
         /* if it is a broadcast slot and there were no broadcast packets, pick any unicast packet */
         if(p == NULL && n == n_broadcast) {
@@ -1058,13 +1101,37 @@ PT_THREAD(tsch_slot_operation(struct rtimer *t, void *ptr))
       /* Get a packet ready to be sent */
       current_packet = get_packet_and_neighbor_for_link(current_link, &current_neighbor);
       uint8_t do_skip_best_link = 0;
-//      if(current_packet == NULL) {
+      if(current_packet == NULL) {
 //        TSCH_LOG_ADD(tsch_log_message,
 //                        snprintf(log->message, sizeof(log->message),
-//                            "!no packet for %u/%u",
+//                            "!asd no packet for %u/%u",
 //                              current_link->timeslot,
 //                              current_link->channel_offset));
-//      }
+      }
+      else {
+//        char address[10] = {0};
+//        linkaddr_t *lladdr = tsch_queue_get_nbr_address(current_neighbor);
+//        if(lladdr == NULL || linkaddr_cmp(lladdr, &linkaddr_null)) {
+//            sprintf(address, "LL-NULL");
+//        }
+//        else {
+//          #if BUILD_WITH_DEPLOYMENT
+//          sprintf(address, "LL-%04x", deployment_id_from_lladdr(lladdr));
+//          #else /* BUILD_WITH_DEPLOYMENT */
+//          #if LINKADDR_SIZE == 8
+//          sprintf(address, "LL-%04x", UIP_HTONS(lladdr->u16[LINKADDR_SIZE/2-1]));
+//          #elif LINKADDR_SIZE == 2
+//          sprintf(address, "LL-%04x", UIP_HTONS(lladdr->u16));
+//          #endif
+//          #endif /* BUILD_WITH_DEPLOYMENT */
+//        }
+
+//        TSCH_LOG_ADD(tsch_log_message,
+//                        snprintf(log->message, sizeof(log->message),
+//                            "!asd packet for %u/%u %s",
+//                              current_link->timeslot,
+//                              current_link->channel_offset, address));
+      }
 //              TSCH_LOG_ADD(tsch_log_message,
 //                              snprintf(log->message, sizeof(log->message),
 //                                  "!mem %d", tsch_queue_global_packet_count()));
