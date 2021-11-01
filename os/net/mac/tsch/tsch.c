@@ -58,6 +58,10 @@
 #include "lib/random.h"
 #include "net/routing/routing.h"
 
+#if BUILD_WITH_LAYERED
+#include "layered.h"
+#endif
+
 #if TSCH_WITH_SIXTOP
 #include "net/mac/tsch/sixtop/sixtop.h"
 #endif
@@ -1208,7 +1212,20 @@ send_packet(mac_callback_t sent, void *ptr)
     struct tsch_neighbor *n;
     /* Enqueue packet */
     p = tsch_queue_add_packet(addr, max_transmissions, sent, ptr);
+#if BUILD_WITH_LAYERED
+    // RPL and KA packets are put into the broadcast queue (so that they are
+    // sent in common slots). To show the correct queue utilization below we
+    // fetch the broadcast neighbor if it is a RPL or KA packet
+    if(packetbuf_attr(PACKETBUF_ATTR_TEST) == LAYERED_PACKET_TYPE_RPL ||
+        packetbuf_attr(PACKETBUF_ATTR_TEST) == LAYERED_PACKET_TYPE_KEEPALIVE) {
+      n = tsch_queue_get_nbr(&tsch_broadcast_address);
+    }
+    else {
+      n = tsch_queue_get_nbr(addr);
+    }
+#else
     n = tsch_queue_get_nbr(addr);
+#endif
     if(p == NULL) {
       LOG_ERR("! can't send packet to ");
       LOG_ERR_LLADDR(addr);

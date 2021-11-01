@@ -263,15 +263,15 @@ tsch_queue_add_packet(const linkaddr_t *addr, uint8_t max_transmissions,
     // all RPL packets (including unicast) ends up in the broadcast queue
     // This will reduce reliability of unicast RPL packets
     // Note that this does not change the actual address in the packet
-    if(packetbuf_attr(PACKETBUF_ATTR_TEST) == 3) {
+    if(packetbuf_attr(PACKETBUF_ATTR_TEST) == LAYERED_PACKET_TYPE_RPL) {
       linkaddr_copy(&addr_to_use, &tsch_broadcast_address);
-      LOG_DBG("asd Added RPL packet to broadcast queue\n");
+      //LOG_DBG("asd Added RPL packet to broadcast queue\n");
     }
 
     // Do same for TSCH keepalive packets
-    if(packetbuf_attr(PACKETBUF_ATTR_TEST) == 4) {
+    if(packetbuf_attr(PACKETBUF_ATTR_TEST) == LAYERED_PACKET_TYPE_KEEPALIVE) {
       linkaddr_copy(&addr_to_use, &tsch_broadcast_address);
-      LOG_DBG("asd Added TSCH KA packet to broadcast queue\n");
+      //LOG_DBG("asd Added TSCH KA packet to broadcast queue\n");
     }
 #endif
 
@@ -292,8 +292,7 @@ tsch_queue_add_packet(const linkaddr_t *addr, uint8_t max_transmissions,
             /* Add to ringbuf (actual add committed through atomic operation) */
             n->tx_array[put_index] = p;
             ringbufindex_put(&n->tx_ringbuf);
-            LOG_DBG("packet is added put_index %u, packet %p\n",
-                   put_index, p);
+            LOG_DBG("packet is added put_index %u, packet %p\n", put_index, p);
             return p;
           } else {
             memb_free(&packet_memb, p);
