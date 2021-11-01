@@ -477,6 +477,12 @@ static struct tsch_packet* hack2(
   // and then reconstruct
   uint8_t packet_for_cell = 0xff;
 
+  if(tsch_is_locked()) {
+    TSCH_LOG_ADD(tsch_log_message,
+                 snprintf(log->message, sizeof(log->message),
+                   "!asdERR10!"));
+  }
+
   // Read out the queue into an array and check for match
   struct tsch_packet* packet_pointers[TSCH_QUEUE_NUM_PER_NEIGHBOR] = {0};
   uint8_t num_packets = 0;
@@ -487,6 +493,12 @@ static struct tsch_packet* hack2(
                    snprintf(log->message, sizeof(log->message),
                      "!asdERR1!"));
       return NULL;
+    }
+
+    if(tsch_is_locked()) {
+      TSCH_LOG_ADD(tsch_log_message,
+                   snprintf(log->message, sizeof(log->message),
+                     "!asdERR11!"));
     }
 
     // Calculate cell coordinates
@@ -512,19 +524,19 @@ static struct tsch_packet* hack2(
     }
 
     // 4. If no match, check if TS/CH matches any link. If no, delete pckt.
-    struct tsch_link* link =
-        tsch_schedule_get_link_by_timeslot(
-            tsch_schedule_get_slotframe_by_handle(packet_slotframe),
-            packet_timeslot, packet_channel_offset);
-    if(link == NULL) {
-      TSCH_LOG_ADD(tsch_log_message,
-                   snprintf(log->message, sizeof(log->message),
-                            "asd delete packet!, %u/%u/%u",
-                            packet_slotframe, packet_timeslot, packet_channel_offset));
-      //tsch_queue_remove_packet_from_queue(n);
-      // only removing needed is to not add it in later
-      continue;
-    }
+//    struct tsch_link* link =
+//        tsch_schedule_get_link_by_timeslot(
+//            tsch_schedule_get_slotframe_by_handle(packet_slotframe),
+//            packet_timeslot, packet_channel_offset);
+//    if(link == NULL) {
+//      TSCH_LOG_ADD(tsch_log_message,
+//                   snprintf(log->message, sizeof(log->message),
+//                            "asd delete packet!, %u/%u/%u",
+//                            packet_slotframe, packet_timeslot, packet_channel_offset));
+//      //tsch_queue_remove_packet_from_queue(n);
+//      // only removing needed is to not add it in later
+//      continue;
+//    }
 
     packet_pointers[num_packets] = n->tx_array[index_of_packet];
     num_packets++;
@@ -553,6 +565,12 @@ static struct tsch_packet* hack2(
       continue;
     }
 
+    if(tsch_is_locked()) {
+      TSCH_LOG_ADD(tsch_log_message,
+                   snprintf(log->message, sizeof(log->message),
+                     "!asdERR12!"));
+    }
+
     int16_t new_index_of_packet = ringbufindex_peek_put(&n->tx_ringbuf);
     if(new_index_of_packet != -1) {
       n->tx_array[new_index_of_packet] = packet_pointers[i];
@@ -564,6 +582,12 @@ static struct tsch_packet* hack2(
                      "asdERR3"));
       return NULL;
     }
+  }
+
+  if(tsch_is_locked()) {
+    TSCH_LOG_ADD(tsch_log_message,
+                 snprintf(log->message, sizeof(log->message),
+                   "!asdERR13!"));
   }
 
   if(packet_for_cell != 0xff) {
@@ -816,16 +840,16 @@ tsch_queue_get_packet_for_nbr(struct tsch_neighbor *n, struct tsch_link *link)
         struct tsch_packet* packet_for_this_cell = NULL;
         packet_for_this_cell = hack2(n, link->timeslot, link->channel_offset);
 
+        // For debugging only
+        uint8_t p_seq_no = queuebuf_attr(packet_qbuf, PACKETBUF_ATTR_MAC_SEQNO);
         // 5. Transmit matching packet, or if none, return.
         if(packet_for_this_cell == NULL) {
-       //              TSCH_LOG_ADD(tsch_log_message,
-       //                          snprintf(log->message, sizeof(log->message),
-       //                              "!asdNO get_i: %u, seq-no: %u, p-ts: %d, %u/%u",
-       //                              get_index,
-       //                              seq_no,
-       //                              packet_attr_timeslot,
-       //                                link->timeslot,
-       //                                link->channel_offset));
+                     TSCH_LOG_ADD(tsch_log_message,
+                                 snprintf(log->message, sizeof(log->message),
+                                     "!asdNO seq-no: %u, %u/%u",
+                                     p_seq_no,
+                                       link->timeslot,
+                                       link->channel_offset));
        //              TSCH_LOG_ADD(tsch_log_message,
        //                                    snprintf(log->message, sizeof(log->message),
        //                                        "!asd nope"));
@@ -836,16 +860,15 @@ tsch_queue_get_packet_for_nbr(struct tsch_neighbor *n, struct tsch_link *link)
        //                                           PACKETBUF_ATTR_TSCH_TIMESLOT);
        //              uint8_t p_seq_no = queuebuf_attr(n->tx_array[get_index]->qb,
        //                                               PACKETBUF_ATTR_MAC_SEQNO);
-       //              TSCH_LOG_ADD(tsch_log_message,
-       //                              snprintf(log->message, sizeof(log->message),
-       //                                  "!asdYES seq-no: %u, p-ts: %d, %u/%u",
-       //                                  p_seq_no,
-       //                                  timeslot,
-       //                                    link->timeslot,
-       //                                    link->channel_offset));
-          TSCH_LOG_ADD(tsch_log_message,
-                                snprintf(log->message, sizeof(log->message),
-                                    "!asd hacked"));
+                     TSCH_LOG_ADD(tsch_log_message,
+                                     snprintf(log->message, sizeof(log->message),
+                                         "!asdYES seq-no: %u, %u/%u",
+                                         p_seq_no,
+                                           link->timeslot,
+                                           link->channel_offset));
+//          TSCH_LOG_ADD(tsch_log_message,
+//                                snprintf(log->message, sizeof(log->message),
+//                                    "!asd hacked"));
           return packet_for_this_cell;
         }
 
