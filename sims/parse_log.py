@@ -419,8 +419,8 @@ def doParse(file, testbed):
     # Remove first packets such that we only get steady-state
     #arrays["packets"] = arrays["packets"][100:]
 
-    if testbed:
-        print("Mac-to-node-id map: " + str(mac_to_node_id_map))
+    #if testbed:
+        #print("Mac-to-node-id map: " + str(mac_to_node_id_map))
 
     print("Unknown line count: " + str(unknown_line_count))
 
