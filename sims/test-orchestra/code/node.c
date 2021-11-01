@@ -296,13 +296,15 @@ PROCESS_THREAD(app_process, ev, data)
 
   // Regular nodes which are not transmitting
   while(!is_coordinator && !is_transmitting_node) {
+    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
+
     if(has_parent_changed()) {
       LOG_WARN("Parent switch\n");
     }
     etimer_set(&periodic_timer, CLOCK_SECOND * 5);
-    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
   }
 
+  // Application is done, write final state
   if(is_transmitting_node) {
     if(packet_count >= NUM_PACKETS) {
         LOG_INFO("Done, sent %lu\n", packet_count - packet_skipped);
