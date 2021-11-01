@@ -36,8 +36,10 @@
 #endif
 
 // Use metric container which contains hop count needed for Layered
+#if BUILD_WITH_LAYERED
 #define RPL_CONF_WITH_MC              1
 #define RPL_CONF_DAG_MC               RPL_DAG_MC_HOPCOUNT
+#endif
 
 // Enable DAO Ack for robustness
 #if BUILD_WITH_LAYERED
