@@ -408,6 +408,27 @@ get_packet_and_neighbor_for_link(struct tsch_link *link, struct tsch_neighbor **
 
 
         p = tsch_queue_get_packet_for_nbr(n, link);
+
+        // Because we add all RPL and KA to the broadcast queue
+        // there is a possibility the packet returned here is not
+        // for broadcast (in other words, the neighbor is wrong). If so,
+        // correct the neighbor.
+        if(p != NULL && n == n_broadcast) {
+          // Get packet neighbor
+          linkaddr_t* packet_dest =
+              queuebuf_addr(p->qb, PACKETBUF_ADDR_RECEIVER);
+          struct tsch_neighbor* packet_dest_neighbor =
+              tsch_queue_get_nbr(packet_dest);
+
+          // Set packet neighbor as neighbor if mismatch
+          if(packet_dest_neighbor != n) {
+//              TSCH_LOG_ADD(tsch_log_message,
+//                  snprintf(log->message, sizeof(log->message),
+//                  "asd addr fixing"));
+            n = packet_dest_neighbor;
+          }
+        }
+
         /* if it is a broadcast slot and there were no broadcast packets, pick any unicast packet */
         if(p == NULL && n == n_broadcast) {
           p = tsch_queue_get_unicast_packet_for_any(&n, link);
@@ -586,6 +607,16 @@ PT_THREAD(tsch_tx_slot(struct pt *pt, struct rtimer *t))
       packet_len = queuebuf_datalen(current_packet->qb);
       /* if is this a broadcast packet, don't wait for ack */
       do_wait_for_ack = !current_neighbor->is_broadcast;
+
+      // Check if there is mismatch between current_neighbor and packet dest.
+//      linkaddr_t* packet_dest = NULL;
+//      packet_dest = queuebuf_addr(current_packet->qb, PACKETBUF_ADDR_RECEIVER);
+//      if(!linkaddr_cmp(packet_dest, tsch_queue_get_nbr_address(current_neighbor))) {
+//        TSCH_LOG_ADD(tsch_log_message,
+//            snprintf(log->message, sizeof(log->message),
+//            "asd addr mismatch"));
+//      }
+
       /* Unicast. More packets in queue for the neighbor? */
       burst_link_requested = 0;
       if(do_wait_for_ack

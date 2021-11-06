@@ -676,6 +676,9 @@ static struct tsch_packet* hack2(
 
 #if BUILD_WITH_LAYERED
 /* Returns the first packet from a neighbor queue */
+// Note that if neighbor is broadcast, the packet may belong to a different
+// unicast neighbor because we put all RPL and KA packets into
+// broadcast queue.
 struct tsch_packet *
 tsch_queue_get_packet_for_nbr(struct tsch_neighbor *n, struct tsch_link *link)
 {
@@ -841,18 +844,15 @@ tsch_queue_get_packet_for_nbr(struct tsch_neighbor *n, struct tsch_link *link)
         packet_for_this_cell = hack2(n, link->timeslot, link->channel_offset);
 
         // For debugging only
-        uint8_t p_seq_no = queuebuf_attr(packet_qbuf, PACKETBUF_ATTR_MAC_SEQNO);
+//        uint8_t p_seq_no = queuebuf_attr(packet_qbuf, PACKETBUF_ATTR_MAC_SEQNO);
         // 5. Transmit matching packet, or if none, return.
         if(packet_for_this_cell == NULL) {
-                     TSCH_LOG_ADD(tsch_log_message,
-                                 snprintf(log->message, sizeof(log->message),
-                                     "!asdNO seq-no: %u, %u/%u",
-                                     p_seq_no,
-                                       link->timeslot,
-                                       link->channel_offset));
-       //              TSCH_LOG_ADD(tsch_log_message,
-       //                                    snprintf(log->message, sizeof(log->message),
-       //                                        "!asd nope"));
+//                     TSCH_LOG_ADD(tsch_log_message,
+//                                 snprintf(log->message, sizeof(log->message),
+//                                     "!asdNO seq-no: %u, %u/%u",
+//                                     p_seq_no,
+//                                       link->timeslot,
+//                                       link->channel_offset));
           return NULL;
         }
         else {
@@ -860,15 +860,12 @@ tsch_queue_get_packet_for_nbr(struct tsch_neighbor *n, struct tsch_link *link)
        //                                           PACKETBUF_ATTR_TSCH_TIMESLOT);
        //              uint8_t p_seq_no = queuebuf_attr(n->tx_array[get_index]->qb,
        //                                               PACKETBUF_ATTR_MAC_SEQNO);
-                     TSCH_LOG_ADD(tsch_log_message,
-                                     snprintf(log->message, sizeof(log->message),
-                                         "!asdYES seq-no: %u, %u/%u",
-                                         p_seq_no,
-                                           link->timeslot,
-                                           link->channel_offset));
-//          TSCH_LOG_ADD(tsch_log_message,
-//                                snprintf(log->message, sizeof(log->message),
-//                                    "!asd hacked"));
+//                     TSCH_LOG_ADD(tsch_log_message,
+//                                     snprintf(log->message, sizeof(log->message),
+//                                         "!asdYES seq-no: %u, %u/%u",
+//                                         p_seq_no,
+//                                           link->timeslot,
+//                                           link->channel_offset));
           return packet_for_this_cell;
         }
 
