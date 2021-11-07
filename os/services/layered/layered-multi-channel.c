@@ -1070,12 +1070,18 @@ route_callback(int event,
     LOG_INFO_(" via ");
     LOG_INFO_6ADDR(next_hop);
     LOG_INFO_("\n");
-    // Ref. above. Do ad-hoc removal of RX of beacons from parent
-    if(!is_root()) {
-      schedule_downwards_rx_cell(&route_lladdr, previous_status.node_layer,
-                                 previous_status.node_depth, true);
+    // Ignore refreshes of the default route where the depth is not changed
+    if(!(route_update &&
+        previous_status.node_depth == current_status.node_depth)) {
+
+      // Ref. above. Do ad-hoc removal of RX of beacons from parent
+      if(!is_root()) {
+        schedule_downwards_rx_cell(&route_lladdr, previous_status.node_layer,
+                                   previous_status.node_depth, true);
+      }
+
+      add_cells(&route_lladdr, &current_status, true);
     }
-    add_cells(&route_lladdr, &current_status, true);
   }
   else if(event == UIP_DS6_NOTIFICATION_DEFRT_RM) {
     LOG_INFO("Removed default route ");
