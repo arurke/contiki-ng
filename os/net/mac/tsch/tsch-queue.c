@@ -264,12 +264,14 @@ tsch_queue_add_packet(const linkaddr_t *addr, uint8_t max_transmissions,
     // This will reduce reliability of unicast RPL packets
     // Note that this does not change the actual address in the packet
     if(packetbuf_attr(PACKETBUF_ATTR_TEST) == LAYERED_PACKET_TYPE_RPL) {
+      tsch_queue_add_nbr(&addr_to_use);
       linkaddr_copy(&addr_to_use, &tsch_broadcast_address);
       //LOG_DBG("asd Added RPL packet to broadcast queue\n");
     }
 
     // Do same for TSCH keepalive packets
     if(packetbuf_attr(PACKETBUF_ATTR_TEST) == LAYERED_PACKET_TYPE_KEEPALIVE) {
+      tsch_queue_add_nbr(&addr_to_use);
       linkaddr_copy(&addr_to_use, &tsch_broadcast_address);
       //LOG_DBG("asd Added TSCH KA packet to broadcast queue\n");
     }
@@ -361,7 +363,22 @@ tsch_queue_packet_sent(struct tsch_neighbor *n, struct tsch_packet *p,
 
   if(mac_tx_status == MAC_TX_OK) {
     /* Successful transmission */
-    tsch_queue_remove_packet_from_queue(n);
+
+#if BUILD_WITH_LAYERED
+    // If this was a RPL or KA packet it originated from the
+    // broadcast queue, and thus there is where we should remove the packet from
+    int packet_attr_type = queuebuf_attr(p->qb, PACKETBUF_ATTR_TEST);
+    if(packet_attr_type == LAYERED_PACKET_TYPE_RPL ||
+        packet_attr_type == LAYERED_PACKET_TYPE_KEEPALIVE) {
+      tsch_queue_remove_packet_from_queue(n_broadcast);
+    }
+    else {
+#endif
+      tsch_queue_remove_packet_from_queue(n);
+#if BUILD_WITH_LAYERED
+    }
+#endif
+
     in_queue = 0;
 
     /* Update CSMA state in the unicast case */
@@ -376,7 +393,20 @@ tsch_queue_packet_sent(struct tsch_neighbor *n, struct tsch_packet *p,
     /* Failed transmission */
     if(p->transmissions >= p->max_transmissions) {
       /* Drop packet */
-      tsch_queue_remove_packet_from_queue(n);
+#if BUILD_WITH_LAYERED
+      // If this was a RPL or KA packet it could have been originated from the
+      // broadcast queue, and thus there is where we should remove the packet from
+      int packet_attr_type = queuebuf_attr(p->qb, PACKETBUF_ATTR_TEST);
+      if(packet_attr_type == LAYERED_PACKET_TYPE_RPL ||
+          packet_attr_type == LAYERED_PACKET_TYPE_KEEPALIVE) {
+        tsch_queue_remove_packet_from_queue(n_broadcast);
+      }
+      else {
+#endif
+        tsch_queue_remove_packet_from_queue(n);
+#if BUILD_WITH_LAYERED
+      }
+#endif
       in_queue = 0;
     }
     /* Update CSMA state in the unicast case */

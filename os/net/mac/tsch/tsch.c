@@ -622,8 +622,10 @@ tsch_tx_process_pending(void)
     mac_call_sent_callback(p->sent, p->ptr, p->ret, p->transmissions);
     /* Free packet queuebuf */
     tsch_queue_free_packet(p);
+#if !BUILD_WITH_LAYERED
     /* Free all unused neighbors */
     tsch_queue_free_unused_neighbors();
+#endif
     /* Remove dequeued packet from ringbuf */
     ringbufindex_get(&dequeued_ringbuf);
   }
@@ -1028,6 +1030,14 @@ PROCESS_THREAD(tsch_send_eb_process, ev, data)
     } else {
       delay = TSCH_EB_PERIOD;
     }
+#if BUILD_WITH_LAYERED
+    static int counter = 0;
+    counter++;
+    if(counter > 10) {
+      tsch_queue_free_unused_neighbors();
+      counter = 0;
+    }
+#endif
     etimer_set(&eb_timer, delay);
     PROCESS_WAIT_UNTIL(etimer_expired(&eb_timer));
   }

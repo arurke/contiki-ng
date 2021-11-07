@@ -409,6 +409,7 @@ get_packet_and_neighbor_for_link(struct tsch_link *link, struct tsch_neighbor **
 
         p = tsch_queue_get_packet_for_nbr(n, link);
 
+#if BUILD_WITH_LAYERED
         // Because we add all RPL and KA to the broadcast queue
         // there is a possibility the packet returned here is not
         // for broadcast (in other words, the neighbor is wrong). If so,
@@ -417,17 +418,41 @@ get_packet_and_neighbor_for_link(struct tsch_link *link, struct tsch_neighbor **
           // Get packet neighbor
           linkaddr_t* packet_dest =
               queuebuf_addr(p->qb, PACKETBUF_ADDR_RECEIVER);
-          struct tsch_neighbor* packet_dest_neighbor =
-              tsch_queue_get_nbr(packet_dest);
+//          TSCH_LOG_ADD(tsch_log_message,
+//                            snprintf(log->message, sizeof(log->message),
+//                            "asd ERR packet-addr 0x%02x%02x%02x%02x%02x%02x%02x%02x",
+//                            packet_dest->u8[0], packet_dest->u8[1],
+//                            packet_dest->u8[2], packet_dest->u8[3],
+//                            packet_dest->u8[4], packet_dest->u8[5],
+//                            packet_dest->u8[6], packet_dest->u8[7]));
 
-          // Set packet neighbor as neighbor if mismatch
-          if(packet_dest_neighbor != n) {
+          // Broadcast-packets have a L2 destination address of 0x00..00.
+          // This is set in sicslowpan.
+          // Although the 802.15.4 seems to say broadcast address is 0xff..ff,
+          // which is also what the addr. associated to the queue is.
+          // And thus makes the checks below fail if we don't do this ad-hoc
+          // check for broadcast/0x00 first
+          // Unable to identify how this turns out correctly over the air
+          if(!linkaddr_cmp(packet_dest, &linkaddr_null)) {
+
+            struct tsch_neighbor* packet_dest_neighbor =
+                tsch_queue_get_nbr(packet_dest);
+
+            if(packet_dest_neighbor == NULL) {
 //              TSCH_LOG_ADD(tsch_log_message,
 //                  snprintf(log->message, sizeof(log->message),
-//                  "asd addr fixing"));
-            n = packet_dest_neighbor;
+//                  "asd ERR is NULL"));
+            }
+            // Set packet neighbor as neighbor if mismatch
+            else if(packet_dest_neighbor != n) {
+//                TSCH_LOG_ADD(tsch_log_message,
+//                    snprintf(log->message, sizeof(log->message),
+//                    "asd ERR addr fixing to 0x%02x%02x", packet_dest->u8[6], packet_dest->u8[7]));
+              n = packet_dest_neighbor;
+            }
           }
         }
+#endif
 
         /* if it is a broadcast slot and there were no broadcast packets, pick any unicast packet */
         if(p == NULL && n == n_broadcast) {
@@ -608,14 +633,20 @@ PT_THREAD(tsch_tx_slot(struct pt *pt, struct rtimer *t))
       /* if is this a broadcast packet, don't wait for ack */
       do_wait_for_ack = !current_neighbor->is_broadcast;
 
-      // Check if there is mismatch between current_neighbor and packet dest.
-//      linkaddr_t* packet_dest = NULL;
-//      packet_dest = queuebuf_addr(current_packet->qb, PACKETBUF_ADDR_RECEIVER);
-//      if(!linkaddr_cmp(packet_dest, tsch_queue_get_nbr_address(current_neighbor))) {
-//        TSCH_LOG_ADD(tsch_log_message,
-//            snprintf(log->message, sizeof(log->message),
-//            "asd addr mismatch"));
-//      }
+#if BUILD_WITH_LAYERED
+      // Check if there is mismatch between current_neighbor and packet dest
+      // Only necessary if packet destination is not broadcast
+      linkaddr_t* packet_dest =
+          queuebuf_addr(current_packet->qb, PACKETBUF_ADDR_RECEIVER);
+      if(!linkaddr_cmp(packet_dest, &linkaddr_null) &&
+          !linkaddr_cmp(packet_dest, tsch_queue_get_nbr_address(current_neighbor))) {
+        TSCH_LOG_ADD(tsch_log_message,
+            snprintf(log->message, sizeof(log->message),
+            "asd ERR addr mm %02x/%02x",
+            packet_dest->u8[7],
+            tsch_queue_get_nbr_address(current_neighbor)->u8[7]));
+      }
+#endif
 
       /* Unicast. More packets in queue for the neighbor? */
       burst_link_requested = 0;
@@ -1132,6 +1163,7 @@ PT_THREAD(tsch_slot_operation(struct rtimer *t, void *ptr))
       /* Get a packet ready to be sent */
       current_packet = get_packet_and_neighbor_for_link(current_link, &current_neighbor);
       uint8_t do_skip_best_link = 0;
+#if BUILD_WITH_LAYERED
       if(current_packet == NULL) {
 //        TSCH_LOG_ADD(tsch_log_message,
 //                        snprintf(log->message, sizeof(log->message),
@@ -1166,6 +1198,7 @@ PT_THREAD(tsch_slot_operation(struct rtimer *t, void *ptr))
 //              TSCH_LOG_ADD(tsch_log_message,
 //                              snprintf(log->message, sizeof(log->message),
 //                                  "!mem %d", tsch_queue_global_packet_count()));
+#endif
       if(current_packet == NULL && backup_link != NULL) {
         /* There is no packet to send, and this link does not have Rx flag. Instead of doing
          * nothing, switch to the backup link (has Rx flag) if any
