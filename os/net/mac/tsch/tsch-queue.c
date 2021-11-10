@@ -554,19 +554,19 @@ static struct tsch_packet* hack2(
     }
 
     // 4. If no match, check if TS/CH matches any link. If no, delete pckt.
-//    struct tsch_link* link =
-//        tsch_schedule_get_link_by_timeslot(
-//            tsch_schedule_get_slotframe_by_handle(packet_slotframe),
-//            packet_timeslot, packet_channel_offset);
-//    if(link == NULL) {
-//      TSCH_LOG_ADD(tsch_log_message,
-//                   snprintf(log->message, sizeof(log->message),
-//                            "asd delete packet!, %u/%u/%u",
-//                            packet_slotframe, packet_timeslot, packet_channel_offset));
-//      //tsch_queue_remove_packet_from_queue(n);
-//      // only removing needed is to not add it in later
-//      continue;
-//    }
+    struct tsch_link* link =
+        tsch_schedule_get_link_by_timeslot(
+            tsch_schedule_get_slotframe_by_handle(packet_slotframe),
+            packet_timeslot, packet_channel_offset);
+    if(link == NULL) {
+      TSCH_LOG_ADD(tsch_log_message,
+                   snprintf(log->message, sizeof(log->message),
+                            "asd delete packet!, %u/%u",
+                            packet_timeslot, packet_channel_offset));
+      //tsch_queue_remove_packet_from_queue(n);
+      // only removing needed is to not add it in later
+      continue;
+    }
 
     packet_pointers[num_packets] = n->tx_array[index_of_packet];
     num_packets++;
