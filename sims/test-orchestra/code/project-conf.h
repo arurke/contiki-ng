@@ -124,9 +124,12 @@
 #define LAYERED_CONF_COMMON_SLOT_SPACING      19
 //#define LAYERED_CONF_CHANNELS                 (uint8_t[]){1,2}
 
-// Convenience variable. No spatial reuse up to 10 hops.
-#if NO_SPATIAL_REUSE
-#define LAYERED_CONF_CHANNELS                 ((uint8_t[]){1,2,3,4,5})
+// Convenience variable for no spatial reuse.
+// 4 channels give no spatial reuse up to 8 hops
+// Note there is only 4 channels which dodges wi-fi
+// If increasing, remember to increase hopping sequence as well
+#if TEST_NO_SPATIAL_REUSE
+#define LAYERED_CONF_CHANNELS                 ((uint8_t[]){1,2,3,4})
 #endif
 
 #if BUILD_WITH_LAYERED
