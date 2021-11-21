@@ -43,6 +43,7 @@ class Config:
     execution_id: str
     scenarios: dict
     duration: int
+    app_warmup: int
     nodes: str
 
 def create_run_sim_commands(sim_name, scenarios, num_runs):
@@ -291,7 +292,9 @@ def parse_config():
     config = Config(type, exp_name, sim_dir, executions_dir, execution_dir,
                     csc_baseline_path, sim_cfg_path, num_runs, skip_post,
                     do_run, execution_id, scenarios,
-                    experiment_config["duration"], experiment_config["nodes"])
+                    experiment_config["duration"],
+                    experiment_config["app_warmup"],
+                    experiment_config["nodes"])
 
     print_config(config)
 
@@ -306,6 +309,7 @@ def print_config(config):
     print("\tDirectory:    ", config.sim_dir)
     print("\tConfig:       ", config.sim_cfg_path)
     print("\tCSC Baseline: ", config.csc_baseline_path)
+    print("\tApp. warmup:  ", config.app_warmup)
     print("\t# scenarios:  ", len(config.scenarios))
     print("\t# runs pr sc.:", config.num_runs)
     if config.duration is not None:

@@ -107,6 +107,7 @@ def analyze_run(packets_df, energest_df, queue_df, mac_tx_df):
     return pd.DataFrame([run_entry])
 
 def analyze_runs(raw_dfs):
+    #TODO get only app_started
     raw_packets_dfs = raw_dfs["raw_packets_dfs"]
     raw_energest_dfs = raw_dfs["raw_energest_dfs"]
     raw_queue_dfs = raw_dfs["raw_queue_dfs"]

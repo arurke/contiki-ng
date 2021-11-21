@@ -258,7 +258,7 @@ def parseLine(line, testbed):
 
     return None, None, None, None, None
 
-def doParse(file, testbed):
+def doParse(file, app_warmup, testbed):
     global network_formation_time_ms
     global application_start
     global parents
@@ -290,10 +290,13 @@ def doParse(file, testbed):
             unknown_line_count += 1
             continue
 
+        # app_warmup is given in minutes
+        app_start_time_ms = app_warmup * 60 * 1000
+
         entry = {
             "timestamp": timedelta(milliseconds=time),
             "node": nodeid,
-            "app_started": 0 if application_start is None else 1
+            "app_started": 0 if time < app_start_time_ms else 1
         }
 
         try:
@@ -306,10 +309,6 @@ def doParse(file, testbed):
 
                 entry.update(ret)
                 if(ret['event'] == 'send' and ret['type'] == 'data'):
-                    if application_start is None:
-                        application_start = entry["timestamp"]
-                        entry['app_started'] = 1
-                    # populate series of sent requests
                     entry['pdr'] = 0.
                     arrays["packets"].append(entry)
                     if network_formation_time_ms == None:
@@ -468,7 +467,7 @@ def convert_data_arrays_to_dfs(arrays):
 
     return dfs
 
-def parse_logfile(file, quiet=False):
+def parse_logfile(file, app_warmup, quiet=False):
     # Stop output. This solution is a mess and I dont understand it. TODO
     global print
     print = logging.info
@@ -489,7 +488,7 @@ def parse_logfile(file, quiet=False):
         print("Log is from simulator")
         testbed = False
 
-    data_arrays = doParse(file, testbed)
+    data_arrays = doParse(file, app_warmup, testbed)
 
     dfs = convert_data_arrays_to_dfs(data_arrays)
 
@@ -502,14 +501,20 @@ def parse_logfile(file, quiet=False):
         print("No packets sent!")
         return None
 
-    num_tx_nodes = dfs["packets"].node.nunique()
-    if application_done_count != num_tx_nodes:
-        print("Application not finished! " +
-              str(application_done_count) + "/" + str(num_tx_nodes))
-        return None
+    # Remove n last packets as we do not know if there was time to RX at sink
+    TIME_TO_SKIP_STEADY_STATE = "1 Min"
+    packet_end = dfs["packets"].index.values[-1]
+    packet_end_ss = packet_end - pd.Timedelta(TIME_TO_SKIP_STEADY_STATE)
+    dfs["packets"] = dfs["packets"][dfs["packets"].index < packet_end_ss]
 
-    print("Application finished! " +
-          str(application_done_count) + "/" + str(num_tx_nodes))
+    num_tx_nodes = dfs["packets"].node.nunique()
+    #if application_done_count != num_tx_nodes:
+    #    print("Application not finished! " +
+    #          str(application_done_count) + "/" + str(num_tx_nodes))
+    #    return None
+
+#    print("Application finished! " +
+#          str(application_done_count) + "/" + str(num_tx_nodes))
 
     # Verify all nodes have joined the DAG
     num_non_root_nodes = dfs["energest"].node.nunique() - 1
@@ -530,8 +535,8 @@ def parse_logfile(file, quiet=False):
     parent_switch_count = len(parent_switch_df[parent_switch_df["app_started"] == 1])
     if parent_switch_count > 0:
         print("Parent switch during application!")
-        outputStats(dfs, "switches", "pswitch", "count", "RPL parent switches (#)")
-        return None
+        #outputStats(dfs, "switches", "pswitch", "count", "RPL parent switches (#)")
+        #return None
 
     # There are some rpoblems with the queue-stuff:
     # 1. All packets are counted, thus the queue overflow is larger than
@@ -549,9 +554,11 @@ def parse_logfile(file, quiet=False):
         else:
             app_overflows = 0
 
-    packets_sent = dfs["packets"]["pdr"].count();
+    packets_df = dfs["packets"]
+    app_packets_df = packets_df[packets_df["app_started"] == 1]
+    packets_sent = len(app_packets_df);
     # A packet which is not received is stored with PDR = 0
-    packets_received = dfs["packets"]["pdr"].sum() / 100
+    packets_received = app_packets_df["pdr"].sum() / 100
 
     # Max. hop count after app started
     hop_count_df = dfs["hop_count"]
@@ -560,20 +567,21 @@ def parse_logfile(file, quiet=False):
     # ETX for application cells
     mac_tx_df = dfs["mac_tx"]
     app_tx = mac_tx_df[mac_tx_df["app"] == 1]
+    app_tx = app_tx[app_tx["app_started"] == 1]
     app_tx_etx = app_tx["transmissions"].sum() / len(app_tx["transmissions"][app_tx["result"] == "ok"])
     print("Num tx: " + str(app_tx["transmissions"].sum()))
     print("Num ok tx: " + str(len(app_tx["transmissions"][app_tx["result"] == "ok"])))
 
     print("global-stats:")
-    print("  pdr: %.4f" % (dfs["packets"]["pdr"].mean()))
-    print("  loss-rate: %.e" % (1 - (dfs["packets"]["pdr"].mean() / 100)))
+    print("  pdr: %.4f" % (app_packets_df["pdr"].mean()))
+    print("  loss-rate: %.e" % (1 - (app_packets_df["pdr"].mean() / 100)))
     print("  packets-sent: %u" % (packets_sent))
     print("  packets-received: %u" % (packets_received))
     print("  packets-lost: %u" % (packets_sent - packets_received))
     print("  overflows app/all %u/%u" % (app_overflows,overflows))
 
-    print("  latency mean: %.4f" % (dfs["packets"]["latency"].mean()))
-    print("  latency max: %.4f" % (dfs["packets"]["latency"].max()))
+    print("  latency mean: %.4f" % (app_packets_df["latency"].mean()))
+    print("  latency max: %.4f" % (app_packets_df["latency"].max()))
     print("  duty-cycle: %.2f" % (dfs["energest"]["duty_cycle"].mean()))
     print("  duty-cycle tx: %.2f" % (dfs["energest"]["duty_cycle_tx"].mean()))
     print("  duty-cycle rx: %.2f" % (dfs["energest"]["duty_cycle_rx"].mean()))
@@ -581,7 +589,7 @@ def parse_logfile(file, quiet=False):
     print("  application-cells ETX: " + str(app_tx_etx))
     print("  Max. hop count during app: " + str(app_max_hop_count))
 
-    print("stats:")
+    print("stats (includes before App):")
 
     # Output relevant metrics
     outputStats(dfs, "packets", "pdr", "mean", "Round-trip PDR (%)")
@@ -616,7 +624,7 @@ def parse_logfile(file, quiet=False):
 
 # Inspired by http://www.randalolson.com/2012/06/26/using-pandas-dataframes/
 # Parses all logs in directory into a dict of DFs
-def parse_logs_dir(directory):
+def parse_logs_dir(directory, app_warmup):
     directory = directory.rstrip('/') + "/*"
 
     # A ditionary of metrics containing dictionaries of DF from each run
@@ -631,7 +639,7 @@ def parse_logs_dir(directory):
             name_of_run = os.path.basename(folder)
             print("Parsing " + logfile)
 
-            run_dfs = parse_logfile(logfile, logging.getLogger() == logging.INFO)
+            run_dfs = parse_logfile(logfile, app_warmup, logging.getLogger() == logging.INFO)
 
             if run_dfs is None:
                 print("Skipped run: " + name_of_run + "!")
@@ -649,9 +657,9 @@ def parse_logs_dir(directory):
         print("Skipped runs: " + str(skipped_runs))
     return all_runs_dfs
 
-def parse_logs_scenario(scenario_dir, scenario_name):
+def parse_logs_scenario(scenario_dir, scenario_name, app_warmup):
 
-    dfs = parse_logs_dir(scenario_dir)
+    dfs = parse_logs_dir(scenario_dir, app_warmup)
 
     print("Parsed runs: " + str(dfs["energest"].keys()))
     return dfs
@@ -666,7 +674,9 @@ def parse_logs_scenarios(scenarios, quiet=False):
                     format="%(message)s")
 
     for scenario in scenarios:
-        raw_dfs = parse_logs_scenario(scenario['path'], scenario['name'])
+        raw_dfs = parse_logs_scenario(scenario['path'],
+                                      scenario['name'],
+                                      int(scenario['app_warmup']))
 
         # Add the raw DFs to the scenario dict in the scenarios list
         scenario["raw_dfs"] = {}

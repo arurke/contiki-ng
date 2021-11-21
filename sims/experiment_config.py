@@ -10,6 +10,7 @@ SIMULATION_CSC_BASELINE = "csc_baseline"
 TESTBED_SECTION = "testbed"
 TESTBED_DURATION = "duration"
 TESTBED_NODES = "nodes"
+TESTBED_APP_WARMUP = "app_warmup"
 
 SCENARIO_CFLAGSEXTRA = "cflagsextra"
 
@@ -39,6 +40,8 @@ def experiment_config_parse(filename):
                 int(config[TESTBED_SECTION][TESTBED_DURATION])
             experiment_config["nodes"] = \
                 config[TESTBED_SECTION][TESTBED_NODES]
+            experiment_config["app_warmup"] = \
+                config[TESTBED_SECTION][TESTBED_APP_WARMUP]
             continue
 
         # If not any of the above, it is a scenario
@@ -47,5 +50,11 @@ def experiment_config_parse(filename):
         scenario["cflagsextra"] = cflagsextra
         scenarios.append(scenario)
         continue
+
+    # Add some testbed config to all scenario for easier usage later
+    # TODO not the nicest solution
+    for scenario in scenarios:
+        if "app_warmup" not in scenario:
+            scenario["app_warmup"] = experiment_config["app_warmup"]
 
     return config, experiment_config, scenarios

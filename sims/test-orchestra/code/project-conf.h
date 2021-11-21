@@ -11,7 +11,9 @@
 #define LOG_CONF_WITH_COMPACT_ADDR    1
 
 // Abort application run if topology change during operation
-#define APP_CONF_ABORT_ON_TOPOLOGY_CHANGE   1
+#define APP_CONF_ABORT_ON_TOPOLOGY_CHANGE   0
+// Abort application if node does not have connection
+#define APP_ABORT_ON_NO_CONNECTION          0
 
 #if BUILD_WITH_DEPLOYMENT
 #define DEPLOYMENT_MAPPING deployment_fit

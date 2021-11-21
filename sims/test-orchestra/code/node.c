@@ -26,16 +26,20 @@
 #endif
 
 // Time to wait before sending app packets
-// 1800 (30 min) used for grid, 600 otherwise
+// Note that typically only the end of the app-packets are used in stats,
+// so starting early is not a problem
 #ifdef APP_CONF_DELAY_TX
 #define APP_DELAY_TX      APP_CONF_DELAY_TX
 #else
-#define APP_DELAY_TX      600
+#define APP_DELAY_TX      300
 #endif
 
-
-#define NUM_PACKETS       200
-
+// Number of packets. Typically we just send forever and let stats pick
+#ifdef APP_CONF_NUM_PACKETS
+#define APP_NUM_PACKETS   APP_CONF_NUM_PACKETS
+#else
+#define APP_NUM_PACKETS   2000000
+#endif
 
 #if TESTBED
 #if BUILD_WITH_DEPLOYMENT
@@ -229,7 +233,7 @@ PROCESS_THREAD(app_process, ev, data)
              intra_slotframe_delay_ticks);
   }
 
-  while(is_transmitting_node && packet_count < NUM_PACKETS) {
+  while(is_transmitting_node && packet_count < APP_NUM_PACKETS) {
 
     PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
 
@@ -269,7 +273,9 @@ PROCESS_THREAD(app_process, ev, data)
     else {
       if(packet_count == 0) {
         LOG_ERR("No conn!\n");
+#if APP_ABORT_ON_NO_CONNECTION
         break;
+#endif
       }
       else {
         LOG_ERR("Lost conn! Skipping packet!\n");
@@ -306,7 +312,7 @@ PROCESS_THREAD(app_process, ev, data)
 
   // Application is done, write final state
   if(is_transmitting_node) {
-    if(packet_count >= NUM_PACKETS) {
+    if(packet_count >= APP_NUM_PACKETS) {
         LOG_INFO("Done, sent %lu\n", packet_count - packet_skipped);
       }
   }
