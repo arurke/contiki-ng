@@ -554,7 +554,9 @@ def parse_logfile(file, app_warmup, quiet=False):
 
     # App overflows (This does not take transmissions failures into account)
     if "queue" in dfs:
-        overflows_df = dfs["queue"][dfs["queue"]["type"] == "overflow"]
+        queue_df = dfs["queue"]
+        overflows_df = queue_df[queue_df["type"] == "overflow"]
+        overflows_df = overflows_df[overflows_df["app_started"] == 1]
         overflows = len(overflows_df)
         if "app" in overflows_df:
             app_overflows = len(overflows_df[overflows_df["app"] == 1])
