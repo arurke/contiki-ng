@@ -35,7 +35,7 @@ application_start = None
 application_done_count = 0
 
 metrics = ["packets", "energest", "ranks", "hop_count", "nbr_count", "app_parent_switch",
-               "trickle", "switches", "dag_inits", "topology", "queue", "mac_tx"]
+               "trickle", "switches", "dag_inits", "topology", "queue", "mac_tx", "mac_err"]
 
 def calculateHops(node):
     hops = 0
@@ -174,6 +174,11 @@ def parseApp(log):
     return None
 
 def parseTSCH(log):
+    res = re.compile('.+? !dl-miss .+? err:1').match(log)
+    if res:
+        return {'event': 'mac',
+                'type': 'dl_miss_err'}
+
     res = re.compile('! can\'t send packet to LL-([0-9a-fA-F]+) with seqno (\d+), queue (\d+)\/(\d+) (\d+)\/(\d+) app (\d+)').match(log)
     if res:
         queue_num = int(res.group(5))
@@ -389,7 +394,7 @@ def doParse(file, app_warmup, testbed):
                         nodeEntry["children"] = calculateChildren(n)
                         arrays["topology"].append(nodeEntry)
 
-            if module == "TSCH" or module == "TSCH Queue":
+            if module == "TSCH" or module == "TSCH Queue" or module == "TSCH-LOG":
                 ret = parseTSCH(log)
                 if(ret == None):
                     continue
@@ -399,6 +404,8 @@ def doParse(file, app_warmup, testbed):
                     # normal cells, there are exceptions when cells are
                     # removed/added after packet has been assigned ts/ch
                     arrays['mac_tx'].append(entry)
+                elif ret['type'] == 'dl_miss_err':
+                    arrays['mac_err'].append(entry)
                 else:
                     arrays["queue"].append(entry)
 
@@ -569,6 +576,11 @@ def parse_logfile(file, app_warmup, quiet=False):
     app_tx = mac_tx_df[mac_tx_df["app"] == 1]
     app_tx = app_tx[app_tx["app_started"] == 1]
     app_tx_etx = app_tx["transmissions"].sum() / len(app_tx["transmissions"][app_tx["result"] == "ok"])
+
+    # dl-miss with error
+    mac_err_df = dfs["mac_err"]
+    dl_miss_err = len(mac_err_df[mac_err_df["type"] == "dl_miss_err"])
+
     print("Num tx: " + str(app_tx["transmissions"].sum()))
     print("Num ok tx: " + str(len(app_tx["transmissions"][app_tx["result"] == "ok"])))
 
@@ -588,6 +600,7 @@ def parse_logfile(file, app_warmup, quiet=False):
     print("  network-formation-time: %.3f" % (network_formation_time_ms / 1000))
     print("  application-cells ETX: " + str(app_tx_etx))
     print("  Max. hop count during app: " + str(app_max_hop_count))
+    print("  dl-miss w/err: " + str(dl_miss_err))
 
     print("stats (includes before App):")
 
