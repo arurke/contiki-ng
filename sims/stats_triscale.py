@@ -116,10 +116,10 @@ def analyze_runs(raw_dfs):
     runs_df_dict = []
     for key in raw_packets_dfs.keys():
         runs_df_dict.append(
-            analyze_run(raw_packets_dfs[key],
-                        raw_energest_dfs[key],
-                        raw_queue_dfs[key],
-                        raw_mac_tx_dfs[key]))
+            analyze_run(raw_packets_dfs[key][raw_packets_dfs[key]["app_started"] == 1],
+                        raw_energest_dfs[key][raw_energest_dfs[key]["app_started"] == 1],
+                        raw_queue_dfs[key][raw_queue_dfs[key]["app_started"] == 1],
+                        raw_mac_tx_dfs[key][raw_mac_tx_dfs[key]["app_started"] == 1]))
 
     return pd.concat(runs_df_dict, ignore_index=True)
 
