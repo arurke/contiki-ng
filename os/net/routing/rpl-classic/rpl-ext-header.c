@@ -447,7 +447,7 @@ update_hbh_header(void)
       return 0; /* Drop */
     }
 
-    LOG_INFO("Updating RPL option\n");
+    LOG_DBG("Updating RPL option\n");
     /* Update sender rank and instance, will update flags next */
     rpl_opt->senderrank = UIP_HTONS(instance->current_dag->rank);
     rpl_opt->instance = instance->instance_id;
