@@ -226,6 +226,7 @@ update_metric_container(rpl_instance_t *instance)
   instance->mc.type = RPL_DAG_MC_NONE;
 #else
   rpl_dag_t *dag;
+  bool depth_changed = false;
 
   dag = instance->current_dag;
   if(dag == NULL || !dag->joined) {
@@ -247,7 +248,12 @@ update_metric_container(rpl_instance_t *instance)
     case RPL_DAG_MC_HOPCOUNT:
       // Set the dag depth to our parent depth + 1
       if(dag->preferred_parent != NULL) {
-        dag->depth = dag->preferred_parent->mc.obj.hop_count + 1;
+        uint16_t new_depth = dag->preferred_parent->mc.obj.hop_count + 1;
+        if(dag->depth != new_depth) {
+          dag->depth = new_depth;
+          depth_changed = true;
+        }
+
         // Put in our current hop-count...
         instance->mc.obj.hop_count = dag->depth;
       }
@@ -263,7 +269,9 @@ update_metric_container(rpl_instance_t *instance)
       break;
   }
 
-  LOG_WARN("dag-depth is %u\n", dag->depth);
+  if(depth_changed) {
+    LOG_WARN("dag-depth is %u\n", dag->depth);
+  }
 #endif
 }
 /*---------------------------------------------------------------------------*/
