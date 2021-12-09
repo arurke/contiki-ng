@@ -535,7 +535,7 @@ tsch_tx_process_pending(void)
     queuebuf_to_packetbuf(p->qb);
     LOG_INFO("packet sent to ");
     LOG_INFO_LLADDR(packetbuf_addr(PACKETBUF_ADDR_RECEIVER));
-    LOG_INFO_(", seqno %u, status %d, tx %d\n",
+    LOG_INFO_(", %u B, seqno %u, status %d, tx %d\n", packetbuf_datalen(),
       packetbuf_attr(PACKETBUF_ATTR_MAC_SEQNO), p->ret, p->transmissions);
 
     // Check if this was application packet and then print?
@@ -571,14 +571,14 @@ tsch_tx_process_pending(void)
 
     }
     else {
-      LOG_WARN("link! sf: %u, ts: %d, offset: %d ch: %d\n",
-               slotframe->handle, timeslot, channel,
-               packetbuf_attr(PACKETBUF_ATTR_CHANNEL));
-      LOG_INFO("sent %u bytes to ", packetbuf_datalen());
-      LOG_INFO_LLADDR(packetbuf_addr(PACKETBUF_ADDR_RECEIVER));
-      LOG_INFO_("\n");
+//      LOG_WARN("link! sf: %u, ts: %d, offset: %d ch: %d\n",
+//               slotframe->handle, timeslot, channel,
+//               packetbuf_attr(PACKETBUF_ATTR_CHANNEL));
+//      LOG_INFO("sent %u bytes to ", packetbuf_datalen());
+//      LOG_INFO_LLADDR(packetbuf_addr(PACKETBUF_ADDR_RECEIVER));
+//      LOG_INFO_("\n");
 
-      char result[20] = {0};
+      char result[10] = {0};
       switch (p->ret) {
         case MAC_TX_OK:
           strcpy(result, "ok");
