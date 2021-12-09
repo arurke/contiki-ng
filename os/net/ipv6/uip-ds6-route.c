@@ -377,9 +377,9 @@ uip_ds6_route_add(const uip_ipaddr_t *ipaddr, uint8_t length,
 #endif
       return r;
     }
-    LOG_INFO("Add: old route for ");
-    LOG_INFO_6ADDR(ipaddr);
-    LOG_INFO_(" found, deleting it\n");
+    LOG_WARN("Add: old route for ");
+    LOG_WARN_6ADDR(ipaddr);
+    LOG_WARN_(" found, deleting it\n");
 
     update = true;
     uip_ds6_route_rm(r);
@@ -401,9 +401,9 @@ uip_ds6_route_add(const uip_ipaddr_t *ipaddr, uint8_t length,
       if(oldest == NULL) {
         return NULL;
       }
-      LOG_INFO("Add: dropping route to ");
-      LOG_INFO_6ADDR(&oldest->ipaddr);
-      LOG_INFO_("\n");
+      LOG_WARN("Add: dropping route to ");
+      LOG_WARN_6ADDR(&oldest->ipaddr);
+      LOG_WARN_("\n");
       uip_ds6_route_rm(oldest);
     }
 
@@ -482,11 +482,11 @@ uip_ds6_route_add(const uip_ipaddr_t *ipaddr, uint8_t length,
   memset(&r->state, 0, sizeof(UIP_DS6_ROUTE_STATE_TYPE));
 #endif
 
-  LOG_INFO("Add: adding route: ");
-  LOG_INFO_6ADDR(ipaddr);
-  LOG_INFO_(" via ");
-  LOG_INFO_6ADDR(nexthop);
-  LOG_INFO_("\n");
+  LOG_WARN("Add: adding route: ");
+  LOG_WARN_6ADDR(ipaddr);
+  LOG_WARN_(" via ");
+  LOG_WARN_6ADDR(nexthop);
+  LOG_WARN_("\n");
   LOG_ANNOTATE("#L %u 1;blue\n", nexthop->u8[sizeof(uip_ipaddr_t) - 1]);
 
 #if UIP_DS6_NOTIFICATIONS
@@ -516,9 +516,9 @@ uip_ds6_route_rm(uip_ds6_route_t *route)
 
   if(route != NULL && route->neighbor_routes != NULL) {
 
-    LOG_INFO("Rm: removing route: ");
-    LOG_INFO_6ADDR(&route->ipaddr);
-    LOG_INFO_("\n");
+    LOG_WARN("Rm: removing route: ");
+    LOG_WARN_6ADDR(&route->ipaddr);
+    LOG_WARN_("\n");
 
     /* Remove the route from the route list */
     list_remove(routelist, route);
@@ -543,7 +543,7 @@ uip_ds6_route_rm(uip_ds6_route_t *route)
         LOG_ANNOTATE("#L %u 0\n", nexthop->u8[sizeof(uip_ipaddr_t) - 1]);
       }
 #endif /* LOG_WITH_ANNOTATE */
-      LOG_INFO("Rm: removing neighbor too\n");
+      LOG_WARN("Rm: removing neighbor too\n");
       nbr_table_remove(nbr_routes, route->neighbor_routes->route_list);
 #ifdef NETSTACK_CONF_ROUTING_NEIGHBOR_REMOVED_CALLBACK
       NETSTACK_CONF_ROUTING_NEIGHBOR_REMOVED_CALLBACK(
@@ -645,16 +645,16 @@ uip_ds6_defrt_add(const uip_ipaddr_t *ipaddr, unsigned long interval)
       LOG_ERR_(", out of memory\n");
       return NULL;
     } else {
-      LOG_INFO("Add default: adding default route to ");
-      LOG_INFO_6ADDR(ipaddr);
-      LOG_INFO_("\n");
+      LOG_WARN("Add default: adding default route to ");
+      LOG_WARN_6ADDR(ipaddr);
+      LOG_WARN_("\n");
     }
 
     list_push(defaultrouterlist, d);
   }
   else {
     refresh = true;
-    LOG_INFO("Refreshing default\n");
+    LOG_WARN("Refreshing default\n");
   }
 
   uip_ipaddr_copy(&d->ipaddr, ipaddr);
@@ -692,7 +692,7 @@ uip_ds6_defrt_rm(uip_ds6_defrt_t *defrt)
       d != NULL;
       d = list_item_next(d)) {
     if(d == defrt) {
-      LOG_INFO("Removing default\n");
+      LOG_WARN("Removing default\n");
       list_remove(defaultrouterlist, defrt);
       memb_free(&defaultroutermemb, defrt);
       LOG_ANNOTATE("#L %u 0\n", defrt->ipaddr.u8[sizeof(uip_ipaddr_t) - 1]);
