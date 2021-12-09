@@ -1201,12 +1201,12 @@ rpl_join_instance(uip_ipaddr_t *from, rpl_dio_t *dio)
   }
 
   // Changed wording to closer match RPL-lite and parse-log.py
-  LOG_INFO("initialized DAG with instance ID %u, rank %hu, DAG ID ",
+  LOG_WARN("initialized DAG with instance ID %u, rank %hu, DAG ID ",
          dio->instance_id, dag->rank);
 //  LOG_INFO("Joined DAG with instance ID %u, rank %hu, DAG ID ",
 //         dio->instance_id, dag->rank);
-  LOG_INFO_6ADDR(&dag->dag_id);
-  LOG_INFO_("\n");
+  LOG_WARN_6ADDR(&dag->dag_id);
+  LOG_WARN_("\n");
 
   LOG_ANNOTATE("#A join=%u\n", dag->dag_id.u8[sizeof(dag->dag_id) - 1]);
 
