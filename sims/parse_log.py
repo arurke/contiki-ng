@@ -580,8 +580,11 @@ def parse_logfile(file, app_warmup, quiet=False):
     app_tx_etx = app_tx["transmissions"].sum() / len(app_tx["transmissions"][app_tx["result"] == "ok"])
 
     # dl-miss with error
-    mac_err_df = dfs["mac_err"]
-    dl_miss_err = len(mac_err_df[mac_err_df["type"] == "dl_miss_err"])
+    if "mac_err" in dfs:
+        mac_err_df = dfs["mac_err"]
+        dl_miss_err = len(mac_err_df[mac_err_df["type"] == "dl_miss_err"])
+    else:
+        dl_miss_err = 0
 
     print("Num tx: " + str(app_tx["transmissions"].sum()))
     print("Num ok tx: " + str(len(app_tx["transmissions"][app_tx["result"] == "ok"])))
