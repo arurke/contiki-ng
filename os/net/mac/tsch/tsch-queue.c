@@ -361,23 +361,19 @@ tsch_queue_packet_sent(struct tsch_neighbor *n, struct tsch_packet *p,
   int is_shared_link = link->link_options & LINK_OPTION_SHARED;
   int is_unicast = !n->is_broadcast;
 
+#if BUILD_WITH_LAYERED
+  // If this was a RPL or KA packet it originated from the broadcast queue
+  // and not the unicast-destination queue.
+  int packet_attr_type = queuebuf_attr(p->qb, PACKETBUF_ATTR_TEST);
+  if(packet_attr_type == LAYERED_PACKET_TYPE_RPL ||
+      packet_attr_type == LAYERED_PACKET_TYPE_KEEPALIVE) {
+    n = n_broadcast;
+  }
+#endif
+
   if(mac_tx_status == MAC_TX_OK) {
     /* Successful transmission */
-
-#if BUILD_WITH_LAYERED
-    // If this was a RPL or KA packet it originated from the
-    // broadcast queue, and thus there is where we should remove the packet from
-    int packet_attr_type = queuebuf_attr(p->qb, PACKETBUF_ATTR_TEST);
-    if(packet_attr_type == LAYERED_PACKET_TYPE_RPL ||
-        packet_attr_type == LAYERED_PACKET_TYPE_KEEPALIVE) {
-      tsch_queue_remove_packet_from_queue(n_broadcast);
-    }
-    else {
-#endif
       tsch_queue_remove_packet_from_queue(n);
-#if BUILD_WITH_LAYERED
-    }
-#endif
 
     in_queue = 0;
 
@@ -393,20 +389,7 @@ tsch_queue_packet_sent(struct tsch_neighbor *n, struct tsch_packet *p,
     /* Failed transmission */
     if(p->transmissions >= p->max_transmissions) {
       /* Drop packet */
-#if BUILD_WITH_LAYERED
-      // If this was a RPL or KA packet it could have been originated from the
-      // broadcast queue, and thus there is where we should remove the packet from
-      int packet_attr_type = queuebuf_attr(p->qb, PACKETBUF_ATTR_TEST);
-      if(packet_attr_type == LAYERED_PACKET_TYPE_RPL ||
-          packet_attr_type == LAYERED_PACKET_TYPE_KEEPALIVE) {
-        tsch_queue_remove_packet_from_queue(n_broadcast);
-      }
-      else {
-#endif
-        tsch_queue_remove_packet_from_queue(n);
-#if BUILD_WITH_LAYERED
-      }
-#endif
+      tsch_queue_remove_packet_from_queue(n);
       in_queue = 0;
     }
     /* Update CSMA state in the unicast case */
@@ -560,6 +543,7 @@ static struct tsch_packet* hack2(
                             packet_timeslot, packet_channel_offset));
       //tsch_queue_remove_packet_from_queue(n);
       // only removing needed is to not add it in later
+      tsch_queue_free_packet(n->tx_array[index_of_packet]);
       continue;
     }
 

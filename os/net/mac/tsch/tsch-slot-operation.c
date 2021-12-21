@@ -316,11 +316,38 @@ tsch_schedule_slot_operation(struct rtimer *tm, rtimer_clock_t ref_time, rtimer_
   int missed = check_timer_miss(ref_time, offset - RTIMER_GUARD, now);
 
   if(missed) {
-    TSCH_LOG_ADD(tsch_log_message,
-                snprintf(log->message, sizeof(log->message),
-                    "!dl-miss %s %d %d",
-                        str, (int)(now-ref_time), (int)offset);
-    );
+#if TSCH_LOG_PER_SLOT
+      rtimer_clock_t curr_distance_from_ref = RTIMER_CLOCK_DIFF(now, ref_time);
+      TSCH_LOG_ADD(tsch_log_message,
+                      snprintf(log->message, sizeof(log->message),
+                          "!dl-miss %s %d %d %d %d err:%d",
+                              str, curr_distance_from_ref, (int)offset, now, ref_time,
+                              curr_distance_from_ref > offset ? 1 : 0);
+      );
+#endif
+//
+//      if(curr_distance_from_ref > offset) {
+//        TSCH_LOG_ADD(tsch_log_message,
+//                        snprintf(log->message, sizeof(log->message),
+//                            "!dl-miss %s %d %d %d %d",
+//                                str, RTIMER_CLOCK_DIFF(now-ref_time), (int)offset, now, ref_time);
+//        );
+//      }
+//      else {
+//
+//      }
+//    }
+//    rtimer_clock_t distance_from_ref = RTIMER_CLOCK_DIFF(now, ref_time);
+//    int distance_from_ref = (int)(now - ref);
+//    int offset_left = (int16_t)(now-ref_time);
+//    if(offset_left >= offset) {
+//
+//    }
+//    TSCH_LOG_ADD(tsch_log_message,
+//                snprintf(log->message, sizeof(log->message),
+//                    "!dl-miss %s %d %d %d %d",
+//                        str, RTIMER_CLOCK_DIFF(now-ref_time), (int)offset, now, ref_time);
+//    );
   } else {
     r = rtimer_set(tm, ref_time + offset, 1, (void (*)(struct rtimer *, void *))tsch_slot_operation, NULL);
     if(r == RTIMER_OK) {
