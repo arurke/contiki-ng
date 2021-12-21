@@ -506,7 +506,9 @@ select_packet(uint16_t *slotframe, uint16_t *timeslot, uint16_t *channel_offset)
   struct tsch_link* link =
       tsch_schedule_get_link_by_timeslot(sf_layered, *timeslot, *channel_offset);
   if(link == NULL) {
-    LOG_ERR("Link not existing or TSCH locked\n");
+    LOG_ERR("Link %u/%u for %s not existing or TSCH locked\n",
+            *timeslot, *channel_offset, type_str);
+    return -1;
   }
 
   return 1;
@@ -649,7 +651,7 @@ static void remove_other_cells_in_timeslot(uint16_t timeslot, uint16_t channel) 
       if(existing_link != NULL) {
         tsch_schedule_remove_link(sf_layered, existing_link);
         stats_deactivate_link(timeslot, channels[i]);
-        LOG_DBG("Removed existing cell %u/%u\n", timeslot, channels[i]);
+        LOG_INFO("Removed existing cell %u/%u\n", timeslot, channels[i]);
       }
     }
   }
