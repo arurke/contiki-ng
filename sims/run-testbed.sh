@@ -6,30 +6,22 @@
 set -e
 
 #---------------------- TEST ARGUMENTS ----------------------#
-if [ "$#" -ne 6 ]; then
-	echo "Usage: $0 <exp name> <code path> <logs path> <exp duration (m)> <list of nodes> <flags to make>"
-	exit
+if [ "$#" -ne 5 ]; then
+  echo "Usage: $0 <exp name> <firmware path> <logs dir> <exp duration (m)> <list of nodes>"
+  exit
 fi
 #---------------------- TEST ARGUMENTS ----------------------#
 
 #--------------------- DEFINE VARIABLES ---------------------#
-LOGIN="urke"
+LOGIN="urke" # TODO test SSH at beginning
 EXPNAME=$1
+FIRMWARE=$2
+LOGDIR=$3
 DURATION=$4
 NODES=$5
 SITE="grenoble"
 IOTLAB="$LOGIN@$SITE.iot-lab.info"
 NGDIR="${HOME}/vizaworkspace/contiki-ng-arurke"
-APPLICATION=node
-
-CODEDIR=$2
-EXPDIR="${NGDIR}/sims/test-orchestra/testbed"
-LOGDIR=$3
-
-TARGET=iotlab
-FIRMWARE=${CODEDIR}/${APPLICATION}.${TARGET}
-CFLAGSEXTRA_FROM_CLI=$6
-CFLAGSEXTRA="${CFLAGSEXTRA_FROM_CLI}"
 
 #----------------------- CATCH SIGINT -----------------------#
 # For a clean exit from the experiment
@@ -44,13 +36,6 @@ function ctrl_c() {
 #sed -i "s/#define\ SEND_INTERVAL_SECONDS\ .*/#define\ SEND_INTERVAL_SECONDS\ $2/g" $CODEDIR/broadcast-example.c
 #sed -i "s/#define\ SEND_BUFFER_SIZE\ .*/#define\ SEND_BUFFER_SIZE\ $3/g" $CODEDIR/broadcast-example.c
 #sed -i "s/#define\ NB_PACKETS\ .*/#define\ NB_PACKETS\ $5/g" $CODEDIR/broadcast-example.c
-
-#--------------------- COMPILE FIRMWARE ---------------------#
-echo "Compiling firmware in $CODEDIR with extra flags: $CFLAGSEXTRA"
-
-# "chronic" eats stdout unless there is an error
-chronic make -C $CODEDIR clean || { echo "Clean failed"; exit 1; }
-chronic make -C $CODEDIR CFLAGSEXTRA="$CFLAGSEXTRA" ARCH_PATH=${NGDIR}/iot-lab-contiki-ng/arch/ TESTBED=1 CONTIKI=${NGDIR} TARGET=${TARGET} BOARD=m3 -j8 || { echo "Compilation failed"; exit 1; }
 
 #-------------------- LAUNCH EXPERIMENTS --------------------#
 echo "Submitting experiment $EXPNAME"
@@ -81,4 +66,3 @@ mv serial_output $EXPNAME.scriptlog
 echo "Downloaded log: $EXPNAME.scriptlog"
 
 exit 0
-

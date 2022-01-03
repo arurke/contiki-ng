@@ -25,6 +25,11 @@ ORG_FOLDER_NAME = "org"
 BUILD_COOJA_NAME = "node.cooja"
 EXECUTIONS_FOLDER_NAME = "executions"
 MAKEFILE = "Makefile"
+IOTLAB_TARGET="iotlab"
+IOTLAB_ARCH_PATH="../../../../../../iot-lab-contiki-ng/arch" # TODO improve?
+IOTLAB_BINARY_NAME="node.iotlab"
+IOTLAB_BUILD_ARGUMENTS="TESTBED=1 BOARD=m3 -j8"
+
 #NODES = "358+343+328+313+298+290+203+188"
 NODES = "358+356+354+351+348+346+344+342+340+338+336+334+332+330+328+326"
 
@@ -63,27 +68,42 @@ def create_run_sim_commands(sim_name, scenarios, num_runs):
 
 def create_run_testbed_commands(exp_name, scenarios, num_runs, duration, nodes):
     for scenario in scenarios:
+        src_path = scenario['path'] + CODE_FOLDER_NAME
 
-        # For testbed we add an array of run-cmds, one for each run
+        # Adding "chronic" which eats stdout unless there is an error
+        make_baseline = "chronic make -C " + src_path + \
+                        " TARGET=" + IOTLAB_TARGET + \
+                        " ARCH_PATH=" + IOTLAB_ARCH_PATH
+
+        # Clean command. One per scenario.
+        clean_command = make_baseline + " clean"
+        # We need to separate words in cmd into array for subprocess
+        clean_command = clean_command.split(' ')
+        scenario['clean_cmd'] = clean_command
+
+        # Build command. One per scenario.
+        build_command = make_baseline + " " + IOTLAB_BUILD_ARGUMENTS
+        build_command = build_command.split(' ')
+        # Add cflagsextra now because they may contain spaces
+        build_command.append("CFLAGSEXTRA=" + scenario['cflagsextra'])
+        scenario['build_cmd'] = build_command
+
+        # Add firmware path
+        scenario['firmware'] = src_path + "/" + IOTLAB_BINARY_NAME
+
+        # For testbed we add an array of run-cmds (to run testbed), one for each run
         # (with simulator, multiple runs are handled in the simulator-running-script)
         scenario_run_cmds = []
         for run in range(num_runs):
             run_name = exp_name + "_scenario_" + scenario['name']
-            # Ad-hoc run0 while we do not have run-concept with testbed
             logs_path = scenario['path'] + "run" + str(run) + "/"
-            src_path = scenario['path'] + CODE_FOLDER_NAME
-            scenario_run_cmd = "./run-testbed.sh " + run_name + " " + src_path + \
+            run_cmd = "./run-testbed.sh " + run_name + " " + scenario['firmware']  + \
                 " " + logs_path + " " + str(duration) + " grenoble,m3," + nodes
 
-            # We need to separate words in cmd into array for subprocess
-            run_cmd_array = scenario_run_cmd.split(' ')
-            # Add cflagsextra now because they may contain spaces
-            run_cmd_array.append(scenario['cflagsextra'])
-
             # Add finished command to the scenario run-cmd array
-            scenario_run_cmds.append(run_cmd_array)
+            scenario_run_cmds.append(run_cmd.split(' '))
 
-        scenario['run_cmd'] = scenario_run_cmds
+        scenario['run_cmds'] = scenario_run_cmds
 
 def process_results(scenarios, execution_dir):
     # Get raw DFs for all runs of all scenarios.
@@ -357,22 +377,41 @@ def run_simulation(run_cmds):
     return True
 
 def run_testbed(scenarios, num_runs):
-    for scenario in scenarios:
-        print("\nRunning scenario:")
-        print("\tName:          " + scenario['name'])
-        print("\t# runs pr sc.: " + str(num_runs))
-        print("\tCflagsextra:   " + scenario['cflagsextra'])
-
-        for run in range(num_runs):
-            print("\nStarting run:")
-            print("\tRun:       " + str(run))
-            print("\tTime now:  " + str(datetime.now()))
-            #print("\tFull cmd:  " + str(scenario['run_cmd'][run]))
+    # We want to alternate between scenarios to avoid any time-dependent
+    # effects which could happen if e.g. one scenario was done at night
+    # and one during the day
+    for run in range(num_runs):
+        for scenario in scenarios:
+            print("\nExecuting run:")
+            print("\tScenario:    " + scenario['name'])
+            print("\tCflagsextra: " + scenario['cflagsextra'])
+            print("\tRun:         " + str(run) + " (" + str(run + 1) +
+                  " out of " + str(num_runs) + ")")
+            print("\tTime now:    " + str(datetime.now()))
             print("")
-            process = subprocess.run(scenario['run_cmd'][run])
+            process = subprocess.run(scenario['run_cmds'][run])
 
             if process.returncode != 0:
                 return False
+
+    return True
+
+def add_firmware(scenarios):
+    for scenario in scenarios:
+        print("Building scenario " + scenario['name'] + \
+              " with flags: " + scenario['cflagsextra'])
+
+        # Clean
+        process = subprocess.run(scenario['clean_cmd'])
+        if process.returncode != 0:
+            return False
+
+        # Build
+        process = subprocess.run(scenario['build_cmd'])
+        if process.returncode != 0:
+            return False
+
+        print("Built firmware: " +  scenario['firmware'])
 
     return True
 
@@ -414,6 +453,10 @@ def main():
                 config.exp_name, config.scenarios,
                 config.num_runs, config.duration,
                 config.nodes)
+
+            print("Adding firmwares")
+            if not add_firmware(config.scenarios):
+                exit()
 
             print("\nStarting testbed!")
             if not run_testbed(config.scenarios, config.num_runs):
