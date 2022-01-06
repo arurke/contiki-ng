@@ -61,7 +61,7 @@ static uint8_t channels[NUM_CHANNELS] = CHANNELS;
 #define FIRST_COMMON_SLOT         (COMMON_SLOT_SPACING - 1)
 
 #if LAYERED_STATS
-#define STATS_NUM_LINKS   40
+#define STATS_NUM_LINKS   50
 typedef struct {
   uint16_t timeslot;
   uint16_t channel;
