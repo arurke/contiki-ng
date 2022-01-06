@@ -465,7 +465,7 @@ select_packet(uint16_t *slotframe, uint16_t *timeslot, uint16_t *channel_offset)
                    slotframe, timeslot, channel_offset,
                    &packet_type)) {
     LOG_ERR("TEST FAILED %u\n", packetbuf_datalen());
-    return 1;
+    return -1;
   }
 
   // Update packet type attribute

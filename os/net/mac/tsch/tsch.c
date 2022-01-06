@@ -541,6 +541,7 @@ tsch_tx_process_pending(void)
     // Check if this was application packet and then print?
     // Because we are interested in collisions on dedicated cells...?
     // Proper implementation is probably to add stats to cell
+    // TODO Is the packetbuf attributes actually updated here?
     int timeslot = packetbuf_attr(PACKETBUF_ATTR_TSCH_TIMESLOT);
     int channel = packetbuf_attr(PACKETBUF_ATTR_TSCH_CHANNEL_OFFSET);
 
@@ -563,12 +564,46 @@ tsch_tx_process_pending(void)
         tsch_schedule_get_link_by_timeslot(
             slotframe, timeslot, channel);
 
+    char result[10] = {0};
+    switch (p->ret) {
+      case MAC_TX_OK:
+        strcpy(result, "ok");
+        break;
+      case MAC_TX_COLLISION:
+        strcpy(result, "collision");
+        break;
+      case MAC_TX_NOACK:
+        strcpy(result, "noack");
+        break;
+      case MAC_TX_DEFERRED:
+        strcpy(result, "defer");
+        break;
+      case MAC_TX_ERR:
+        strcpy(result, "err");
+        break;
+      case MAC_TX_ERR_FATAL:
+        strcpy(result, "fatal");
+        break;
+      case MAC_TX_QUEUE_FULL:
+        strcpy(result, "full");
+        break;
+      default:
+        strcpy(result, "panic");
+        break;
+    }
+
+    // TODO With TSCH-queue re-calculating TS/CH, those fields may not be accurate since it is based
+    // on the packetbuf content. However, this should only be true when RPL topology changes.
+    // Simplified version of fuller prinout further down
+    LOG_WARN("cell %d/%d, tx: %u, app: %d, res: %s\n",
+             timeslot, channel,p->transmissions,
+             packetbuf_attr(PACKETBUF_ATTR_TEST) == LAYERED_PACKET_TYPE_APP, result);
+
     if(link == NULL) {
       LOG_WARN("link NULL! sf: %u, ts: %d, offset: %d ch: %d\n",
                slotframe->handle, timeslot, channel,
                packetbuf_attr(PACKETBUF_ATTR_CHANNEL));
       tsch_schedule_print();
-
     }
     else {
 //      LOG_WARN("link! sf: %u, ts: %d, offset: %d ch: %d\n",
@@ -578,44 +613,16 @@ tsch_tx_process_pending(void)
 //      LOG_INFO_LLADDR(packetbuf_addr(PACKETBUF_ADDR_RECEIVER));
 //      LOG_INFO_("\n");
 
-      char result[10] = {0};
-      switch (p->ret) {
-        case MAC_TX_OK:
-          strcpy(result, "ok");
-          break;
-        case MAC_TX_COLLISION:
-          strcpy(result, "collision");
-          break;
-        case MAC_TX_NOACK:
-          strcpy(result, "noack");
-          break;
-        case MAC_TX_DEFERRED:
-          strcpy(result, "defer");
-          break;
-        case MAC_TX_ERR:
-          strcpy(result, "err");
-          break;
-        case MAC_TX_ERR_FATAL:
-          strcpy(result, "fatal");
-          break;
-        case MAC_TX_QUEUE_FULL:
-          strcpy(result, "full");
-          break;
-        default:
-          strcpy(result, "panic");
-          break;
-      }
-
       // ASN cannot be trusted
       // TODO With TSCH-queue re-calculating TS/CH, those fields may not be accurate since it is based
       // on the packetbuf content. However, this should only be true when RPL topology changes.
-      LOG_WARN("sf %u, cell %d/%d, normal: %u, shared: %u, tx: %u, asn: %lu, app: %d, res: %s\n",
-               slotframe->handle, timeslot, channel,
-               link->link_type == LINK_TYPE_NORMAL ? true : false,
-               link->link_options & LINK_OPTION_SHARED ? true : false,
-               p->transmissions, tsch_current_asn.ls4b,
-               packetbuf_attr(PACKETBUF_ATTR_TEST) == 1,
-               result);
+//      LOG_WARN("sf %u, cell %d/%d, normal: %u, shared: %u, tx: %u, asn: %lu, app: %d, res: %s\n",
+//               slotframe->handle, timeslot, channel,
+//               link->link_type == LINK_TYPE_NORMAL ? true : false,
+//               link->link_options & LINK_OPTION_SHARED ? true : false,
+//               p->transmissions, tsch_current_asn.ls4b,
+//               packetbuf_attr(PACKETBUF_ATTR_TEST) == LAYERED_PACKET_TYPE_APP,
+//               result);
     }
 
     /* Call packet_sent callback */
@@ -1243,16 +1250,16 @@ send_packet(mac_callback_t sent, void *ptr)
           tsch_packet_seqno, tsch_queue_nbr_packet_count(n),
           TSCH_QUEUE_NUM_PER_NEIGHBOR - 1, tsch_queue_global_packet_count(),
           QUEUEBUF_NUM,
-          packetbuf_attr(PACKETBUF_ATTR_TEST) == 1);
+          packetbuf_attr(PACKETBUF_ATTR_TEST) == LAYERED_PACKET_TYPE_APP);
       ret = MAC_TX_QUEUE_FULL;
     } else {
       p->header_len = hdr_len;
       LOG_WARN("TX to ");
       LOG_WARN_LLADDR(addr);
-      LOG_WARN_(" seqno %u, queue %u/%u %u/%u, len %u %u\n",
+      LOG_WARN_(" seqno %u, queue %u/%u %u/%u, len %u\n",
              tsch_packet_seqno, tsch_queue_nbr_packet_count(n),
              TSCH_QUEUE_NUM_PER_NEIGHBOR - 1, tsch_queue_global_packet_count(),
-             QUEUEBUF_NUM, p->header_len, queuebuf_datalen(p->qb));
+             QUEUEBUF_NUM, queuebuf_datalen(p->qb));
     }
   }
   if(ret != MAC_TX_DEFERRED) {

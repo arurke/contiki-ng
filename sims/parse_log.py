@@ -226,6 +226,24 @@ def parseTSCH(log):
                 'app':app,
                 'result':result}
 
+    # Simplified version of above
+    res = re.compile('cell (\d+)\/(\d+), tx: (\d+), app: (\d+), res: (.*)').match(log)
+    if res:
+        timeslot = int(res.group(1))
+        channel = int(res.group(2))
+        transmissions = int(res.group(3))
+        retransmissions = transmissions - 1
+        app = int(res.group(4))
+        result = res.group(5)
+        return {'event': 'mac',
+                'type': 'mac_tx',
+                'timeslot': timeslot,
+                'channel': channel,
+                'transmissions':transmissions,
+                'retransmissions':retransmissions,
+                'app':app,
+                'result':result}
+
     return None
 
 def parseLine(line, testbed):

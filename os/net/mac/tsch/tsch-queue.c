@@ -541,8 +541,6 @@ static struct tsch_packet* hack2(
                    snprintf(log->message, sizeof(log->message),
                             "asd delete packet!, %u/%u",
                             packet_timeslot, packet_channel_offset));
-      //tsch_queue_remove_packet_from_queue(n);
-      // only removing needed is to not add it in later
       tsch_queue_free_packet(n->tx_array[index_of_packet]);
       continue;
     }
