@@ -417,7 +417,7 @@ dio_input(void)
 
         if(((dio.destination_prefix.length + 7) / 8) + 8 <= len &&
            dio.destination_prefix.length <= 128) {
-          LOG_INFO("Copying destination prefix\n");
+          LOG_DBG("Copying destination prefix\n");
           memcpy(&dio.destination_prefix.prefix, &buffer[i + 8],
                  (dio.destination_prefix.length + 7) / 8);
         } else {
@@ -444,7 +444,7 @@ dio_input(void)
         /* buffer + 12 is reserved */
         dio.default_lifetime = buffer[i + 13];
         dio.lifetime_unit = get16(buffer, i + 14);
-        LOG_INFO("DAG conf:dbl=%d, min=%d red=%d maxinc=%d mininc=%d ocp=%d d_l=%u l_u=%u\n",
+        LOG_DBG("DAG conf:dbl=%d, min=%d red=%d maxinc=%d mininc=%d ocp=%d d_l=%u l_u=%u\n",
                dio.dag_intdoubl, dio.dag_intmin, dio.dag_redund,
                dio.dag_max_rankinc, dio.dag_min_hoprankinc, dio.ocp,
                dio.default_lifetime, dio.lifetime_unit);
@@ -461,7 +461,7 @@ dio_input(void)
         /* preferred lifetime stored in lifetime */
         dio.prefix_info.lifetime = get32(buffer, i + 8);
         /* 32-bit reserved at i + 12 */
-        LOG_INFO("Copying prefix information\n");
+        LOG_DBG("Copying prefix information\n");
         memcpy(&dio.prefix_info.prefix, &buffer[i + 16], 16);
         break;
       default:
