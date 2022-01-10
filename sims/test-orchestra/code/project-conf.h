@@ -1,14 +1,17 @@
 #ifndef PROJECT_CONF_H_
 #define PROJECT_CONF_H_
 
-#define LOG_CONF_LEVEL_MAC            LOG_LEVEL_DBG
+#define LOG_CONF_LEVEL_MAC            LOG_LEVEL_WARN
 //#define LOG_CONF_LEVEL_TCPIP          LOG_LEVEL_DBG
 #define LOG_CONF_LEVEL_IPV6           LOG_LEVEL_WARN
-#define LOG_CONF_LEVEL_RPL            LOG_LEVEL_WARN
+#define LOG_CONF_LEVEL_RPL            LOG_LEVEL_INFO
 //#define LOG_CONF_LEVEL_6LOWPAN        LOG_LEVEL_WARN
 //#define LOG_CONF_LEVEL_FRAMER         LOG_LEVEL_INFO
-#define LOG_CONF_LEVEL_LAYERED        LOG_LEVEL_DBG
+#define LOG_CONF_LEVEL_LAYERED        LOG_LEVEL_INFO
 #define LOG_CONF_WITH_COMPACT_ADDR    1
+// Logging for every TSCH slot
+#define TSCH_LOG_CONF_PER_SLOT        1
+
 
 // Abort application run if topology change during operation
 #define APP_CONF_ABORT_ON_TOPOLOGY_CHANGE   0
@@ -52,11 +55,11 @@
 // TX power in iotlab
 #define RF2XX_TX_POWER                    PHY_POWER_m17dBm
 //#define RF2XX_RX_RSSI_THRESHOLD           RF2XX_PHY_RX_THRESHOLD__m84dBm
-//#define RF2XX_RX_RSSI_THRESHOLD           RF2XX_PHY_RX_THRESHOLD__m78dBm
+#define RF2XX_RX_RSSI_THRESHOLD           RF2XX_PHY_RX_THRESHOLD__m78dBm
 
 // Buffer size (note that actual size is -1 due to ringbuf, see issue #1532)
 // 64 for grid
-#define PACKET_BUFFER_SIZE                64
+#define PACKET_BUFFER_SIZE                128
 // 16 for 9-hop linear
 //#define PACKET_BUFFER_SIZE                16
 // 8 for 2-hop topology
@@ -65,8 +68,8 @@
 // Total queue buffer size
 #define QUEUEBUF_CONF_NUM                 PACKET_BUFFER_SIZE
 
-// Max queue size per neighbor
-#define TSCH_QUEUE_CONF_NUM_PER_NEIGHBOR  (PACKET_BUFFER_SIZE - 32)
+// Max queue size per neighbor. Must be power of two.
+#define TSCH_QUEUE_CONF_NUM_PER_NEIGHBOR  32
 
 // Increase incoming packets buffer (def. 4)
 #define TSCH_CONF_MAX_INCOMING_PACKETS    8
@@ -123,7 +126,7 @@
 // Num nodes supported for layers (including sink)
 #define LAYERED_CONF_MAX_NUM_NODES            49
 #define LAYERED_CONF_NUM_LAYERS               2
-#define LAYERED_CONF_COMMON_SLOT_SPACING      19
+#define LAYERED_CONF_COMMON_SLOT_SPACING      11
 //#define LAYERED_CONF_CHANNELS                 (uint8_t[]){1,2}
 
 // Convenience variable for no spatial reuse.
@@ -137,6 +140,9 @@
 #if BUILD_WITH_LAYERED
 #define TSCH_SCHEDULE_CONF_MAX_SLOTFRAMES     1
 #endif
+
+// TODO just for testing after queues got filled up. Number from Atis
+//#define TSCH_CONF_MAC_MAX_BE 3
 
 // Enable cell duty-cycle statistics
 // TODO this assumes cooja mote
