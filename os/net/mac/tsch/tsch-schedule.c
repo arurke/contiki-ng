@@ -568,6 +568,10 @@ tsch_schedule_print(void)
     LOG_PRINT("Timing err: %lu, hack mism: %lu, hack err: %lu, hack del: %lu\n",
              tsch_slot_timing_missed, tsch_hack_mismatch,
              tsch_hack_errors, tsch_hack_deleted_packets);
+    tsch_slot_timing_missed = 0;
+    tsch_hack_mismatch = 0;
+    tsch_hack_errors = 0;
+    tsch_hack_deleted_packets = 0;
 #endif
   }
 }
