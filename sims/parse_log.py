@@ -34,8 +34,10 @@ first_unixtime = None
 application_start = None
 application_done_count = 0
 
-metrics = ["packets", "energest", "ranks", "hop_count", "nbr_count", "app_parent_switch",
-               "trickle", "switches", "dag_inits", "topology", "queue", "mac_tx", "mac_err"]
+metrics = ["packets", "energest", "ranks", "hop_count", "nbr_count",
+           "app_parent_switch", "trickle", "switches", "dag_inits",
+           "topology", "queue", "mac_tx", "mac_err", "mac_stats",
+           "mac_cell"]
 
 def calculateHops(node):
     hops = 0
@@ -174,6 +176,46 @@ def parseApp(log):
     return None
 
 def parseTSCH(log):
+    # Parse TSCH-LOG: Only unicast TX
+    # A lot of variable amount of whitespaces, hence the usage of \s+
+    res = re.compile('{asn \d+.([0-9a-fA-F]+) link\s+\d\s+\d+\s+\d+\s+(\d+)\s+(\d+) ch\s+(\d+)} uc-\d-(\d) tx LL-([0-9a-fA-F]+)->LL-([0-9a-fA-F]+), len\s+\d+, seq\s+\d+, st (\d)\s+(\d+)').match(log)
+    if res:
+        asn = res.group(1)
+        timeslot = int(res.group(2))
+        channel_offset = int(res.group(3))
+        channel = int(res.group(4))
+        security_enabled = int(res.group(5))
+        app_packet = security_enabled # When Layered, hijacked for packet type
+        node_src = res.group(6)
+        node_dest = res.group(7)
+        result = int(res.group(8))
+        transmissions = int(res.group(9))
+        return {'event': 'mac',
+                'type': 'cell',
+                'asn': asn,
+                'timeslot': timeslot,
+                'channel_offset': channel_offset,
+                'channel': channel,
+                'app': app_packet,
+                'node_src': node_src,
+                'node_dest': node_dest,
+                'result': result,
+                'transmissions': transmissions
+                }
+
+    res = re.compile('Timing err: (\d+), hack mism: (\d+), hack err: (\d+), hack del: (\d+)').match(log)
+    if res:
+        timing_errors = int(res.group(1))
+        hack_mismatch = int(res.group(2))
+        hack_errors = int(res.group(3))
+        hack_deletions = int(res.group(4))
+        return {'event': 'mac',
+                'type': 'stats',
+                'timing_err': timing_errors,
+                'hack_mismatch': hack_mismatch,
+                'hack_err': hack_errors,
+                'hack_deletions': hack_deletions}
+
     res = re.compile('.+? !dl-miss .+? err:1').match(log)
     if res:
         return {'event': 'mac',
@@ -413,7 +455,7 @@ def doParse(file, app_warmup, testbed):
                         nodeEntry["children"] = calculateChildren(n)
                         arrays["topology"].append(nodeEntry)
 
-            if module == "TSCH" or module == "TSCH Queue" or module == "TSCH-LOG":
+            if module == "TSCH" or module == "TSCH Queue" or module == "TSCH-LOG" or module == "TSCH Sched":
                 ret = parseTSCH(log)
                 if(ret == None):
                     continue
@@ -425,6 +467,10 @@ def doParse(file, app_warmup, testbed):
                     arrays['mac_tx'].append(entry)
                 elif ret['type'] == 'dl_miss_err':
                     arrays['mac_err'].append(entry)
+                elif ret['type'] == 'stats':
+                    arrays['mac_stats'].append(entry)
+                elif ret['type'] == 'cell':
+                    arrays['mac_cell'].append(entry)
                 else:
                     arrays["queue"].append(entry)
 
@@ -598,6 +644,38 @@ def parse_logfile(file, app_warmup, quiet=False):
     app_tx = app_tx[app_tx["app_started"] == 1]
     app_tx_etx = app_tx["transmissions"].sum() / len(app_tx["transmissions"][app_tx["result"] == "ok"])
 
+    # Find ETX for spatial reused cells. Only supported when running Layered! (due to app field)
+    mac_cell_df = dfs["mac_cell"]
+    # Note that there might be slightly more TX here than with the "mac_tx"
+    # approach above. This is because the mac_tx is printed only at either
+    # success or timeout (reached max rtx). Thus those transmissions which
+    # has not reached that state at the end of experiment will not be included
+    app_cell_df = mac_cell_df[mac_cell_df["app"] == 1]
+    app_cell_df = app_cell_df[app_cell_df["app_started"] == 1]
+
+    # Find spatial reuse via groupby and filter
+    spatial_reuse_df = app_cell_df.groupby(["asn", "channel"]).filter(lambda x: len(x) >= 2)
+
+    # Find non-spatial reuse via drop_duplicates
+    # (could have done merge of spatial-reuse)
+    no_spatial_reuse_df = app_cell_df.drop_duplicates(subset=["asn", "channel"], keep=False)
+
+    spatial_reuse_total = len(spatial_reuse_df)
+    if spatial_reuse_total != 0:
+        # 0 indicates success
+        spatial_reuse_success = len(spatial_reuse_df[spatial_reuse_df["result"] == 0])
+        spatial_reuse_etx = spatial_reuse_total / spatial_reuse_success
+        print("Spatial reuse ratio: %.4f %% (%d/%d)",
+              (len(spatial_reuse_df) / len(app_cell_df)) * 100,
+              len(spatial_reuse_df),
+              len(app_cell_df))
+        print("ETX for spatial reuse cells: %.4f", spatial_reuse_etx)
+        print("ETX for no-spatial reuse cells: %.4f",
+              len(no_spatial_reuse_df) /
+              len(no_spatial_reuse_df[no_spatial_reuse_df["result"] == 0]))
+    else:
+        print("No spatial reuse")
+
     # dl-miss with error
     if "mac_err" in dfs:
         mac_err_df = dfs["mac_err"]
@@ -627,6 +705,11 @@ def parse_logfile(file, app_warmup, quiet=False):
     print("  dl-miss w/err: " + str(dl_miss_err))
 
     print("stats (includes before App):")
+
+    outputStats(dfs, "mac_stats", "timing_err", "max", "Missed TSCH timings")
+    outputStats(dfs, "mac_stats", "hack_mismatch", "max", "Hack mismatch")
+    outputStats(dfs, "mac_stats", "hack_err", "max", "Hack errors")
+    outputStats(dfs, "mac_stats", "hack_deletions", "max", "Hack deleted packets")
 
     # Output relevant metrics
     outputStats(dfs, "packets", "pdr", "mean", "Round-trip PDR (%)")
