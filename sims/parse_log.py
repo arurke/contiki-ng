@@ -346,6 +346,7 @@ def doParse(file, app_warmup, testbed):
                             ret['src'] = mac_to_node_id_map[ret['src']]
                         else:
                             print("Missing mapping for " + str(ret['src']))
+                            return -1
 
                     # Update sent request series with latency and PDR
                     # First find the row
@@ -446,7 +447,7 @@ def doParse(file, app_warmup, testbed):
     #if testbed:
         #print("Mac-to-node-id map: " + str(mac_to_node_id_map))
 
-    print("Unknown line count: " + str(unknown_line_count))
+    #print("Unknown line count: " + str(unknown_line_count))
 
     if unknown_line_count > 100:
         print("ERR! Too many unknown lines")
@@ -640,7 +641,7 @@ def parse_logfile(file, app_warmup, quiet=False):
     outputStats(dfs, "hop_count", "hop_count", "min", "Hop count min")
     outputStats(dfs, "hop_count", "hop_count", "mean", "Hop count mean")
     outputStats(dfs, "switches", "pswitch", "count", "RPL parent switches (#)")
-    outputStats(dfs, "dag_inits", "event", "count", "RPL joining DAG (#)")
+    #outputStats(dfs, "dag_inits", "event", "count", "RPL joining DAG (#)")
     #outputStats(dfs, "trickle", "trickle", "mean", "RPL Trickle period (min)")
 
     outputStats(dfs, "DIS", "message", "count", "RPL DIS sent (#)", "rpl-dis")
