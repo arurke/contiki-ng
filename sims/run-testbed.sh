@@ -40,7 +40,6 @@ function ctrl_c() {
 #-------------------- LAUNCH EXPERIMENTS --------------------#
 echo "Submitting experiment $EXPNAME"
 
-#cd $EXPDIR/scripts
 # Launch the experiment and obtain its ID
 EXPID=$(iotlab-experiment submit -n $EXPNAME -d $DURATION -l $NODES --site-association $SITE,script=serial_script.sh | grep id | cut -d' ' -f6)
 
