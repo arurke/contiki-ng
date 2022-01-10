@@ -665,10 +665,18 @@ def parse_logfile(file, app_warmup, quiet=False):
         # 0 indicates success
         spatial_reuse_success = len(spatial_reuse_df[spatial_reuse_df["result"] == 0])
         spatial_reuse_etx = spatial_reuse_total / spatial_reuse_success
+        spatial_reuse_ratio = len(spatial_reuse_df) / len(app_cell_df) * 100
         print("Spatial reuse ratio: %.4f %% (%d/%d)",
-              (len(spatial_reuse_df) / len(app_cell_df)) * 100,
+              spatial_reuse_ratio,
               len(spatial_reuse_df),
               len(app_cell_df))
+
+        # Skip if this was a spatial reuse scenario (more than 3 %), but
+        # there is still not more than 40 % spatial reuse
+        if spatial_reuse_ratio > 3 and spatial_reuse_ratio < 40:
+            print("Too little spatial reuse for scenario!")
+            return None
+
         print("ETX for spatial reuse cells: %.4f", spatial_reuse_etx)
         print("ETX for no-spatial reuse cells: %.4f",
               len(no_spatial_reuse_df) /
