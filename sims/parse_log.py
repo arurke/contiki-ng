@@ -694,16 +694,15 @@ def parse_logfile(file, app_warmup, quiet=False):
     # Check MAC stats
     if "mac_stats" in dfs:
         mac_stats_df = dfs["mac_stats"]
-        timing_err_total = mac_stats_df["timing_err"].sum()
-        hack_mismatch_total = mac_stats_df["hack_mismatch"].sum()
-        hack_err_total = mac_stats_df["hack_err"].sum()
-        hack_deletions_total = mac_stats_df["hack_deletions"].sum()
+        timing_err_total = mac_stats_df.groupby('node')["timing_err"].max().sum()
+        hack_mismatch_total = mac_stats_df.groupby('node')["hack_mismatch"].max().sum()
+        hack_err_total = mac_stats_df.groupby('node')["hack_err"].max().sum()
+        hack_deletions_total = mac_stats_df.groupby('node')["hack_deletions"].max().sum()
 
-        print("mac error stats:")
-        print("  timing-error: %d" % timing_err_total)
-        print("  hack-mismatch: %d" % hack_mismatch_total)
-        print("  hack-error: %d" % hack_err_total)
-        print("  hack-deletions: %d" % hack_deletions_total)
+        print("MAC errors: timing-error: %d, hack-mismatch: %d, " \
+              "hack-error %d, hack-deletions: %d" % \
+              (timing_err_total, hack_mismatch_total,
+              hack_err_total, hack_deletions_total))
         if timing_err_total > 10:
             print("Too many timing errors!")
             outputStats(dfs, "mac_stats", "timing_err", "max", "Missed TSCH timings")
