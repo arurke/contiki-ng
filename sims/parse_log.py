@@ -683,6 +683,36 @@ def parse_logfile(file, app_warmup, quiet=False):
     else:
         dl_miss_err = 0
 
+    # Check MAC stats
+    if "mac_stats" in dfs:
+        mac_stats_df = dfs["mac_stats"]
+        timing_err_total = mac_stats_df["timing_err"].sum()
+        hack_mismatch_total = mac_stats_df["hack_mismatch"].sum()
+        hack_err_total = mac_stats_df["hack_err"].sum()
+        hack_deletions_total = mac_stats_df["hack_deletions"].sum()
+
+        print("mac error stats:")
+        print("  timing-error: %d" % timing_err_total)
+        print("  hack-mismatch: %d" % hack_mismatch_total)
+        print("  hack-error: %d" % hack_err_total)
+        print("  hack-deletions: %d" % hack_deletions_total)
+        if timing_err_total > 10:
+            print("Too many timing errors!")
+            outputStats(dfs, "mac_stats", "timing_err", "max", "Missed TSCH timings")
+            return None
+        if hack_mismatch_total > 10:
+            print("Too many hack mismatches!")
+            outputStats(dfs, "mac_stats", "hack_mismatch", "max", "Hack mismatch")
+            return None
+        if hack_err_total > 10:
+            print("Too many hack errors!")
+            outputStats(dfs, "mac_stats", "hack_err", "max", "Hack errors")
+            return None
+        if hack_deletions_total > 10:
+            print("Too manyhack deletions!")
+            outputStats(dfs, "mac_stats", "hack_deletions", "max", "Hack deleted packets")
+            return None
+
     print("Num tx: " + str(app_tx["transmissions"].sum()))
     print("Num ok tx: " + str(len(app_tx["transmissions"][app_tx["result"] == "ok"])))
 
@@ -706,10 +736,10 @@ def parse_logfile(file, app_warmup, quiet=False):
 
     print("stats (includes before App):")
 
-    outputStats(dfs, "mac_stats", "timing_err", "max", "Missed TSCH timings")
-    outputStats(dfs, "mac_stats", "hack_mismatch", "max", "Hack mismatch")
-    outputStats(dfs, "mac_stats", "hack_err", "max", "Hack errors")
-    outputStats(dfs, "mac_stats", "hack_deletions", "max", "Hack deleted packets")
+    #outputStats(dfs, "mac_stats", "timing_err", "max", "Missed TSCH timings")
+    #outputStats(dfs, "mac_stats", "hack_mismatch", "max", "Hack mismatch")
+    #outputStats(dfs, "mac_stats", "hack_err", "max", "Hack errors")
+    #outputStats(dfs, "mac_stats", "hack_deletions", "max", "Hack deleted packets")
 
     # Output relevant metrics
     outputStats(dfs, "packets", "pdr", "mean", "Round-trip PDR (%)")
