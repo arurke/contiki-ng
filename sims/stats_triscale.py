@@ -9,26 +9,64 @@ NUM_ROWS_SKIP_SS_START = 1
 NUM_ROWS_SKIP_SS_END = 1
 TIME_TO_SKIP_STEADY_STATE = "1 Sec"
 
-def calculate_metric(input_df, metric, measure, check_convergence=False):
-    
+def calculate_absolute_metrics(input_df, metric, measure):
     if measure == "absolute_etx":
         app_tx_etx = input_df["transmissions"].sum() / \
             len(input_df[input_df["result"] == "ok"])
-        print("ETX: " + str(app_tx_etx))
+        print("ETX for all TXs: %0.4f" % app_tx_etx)
         return app_tx_etx
-    
+
+    if measure == "absolute_etx_spatial" or measure == "absolute_etx_no_spatial":
+        # Find ETX for spatial reused cells. Only supported when running Layered! (due to app field)
+        app_cells_df = input_df
+
+        # Find spatial reuse via groupby and filter
+        spatial_reuse_df = app_cells_df.groupby(["asn", "channel"]).filter(lambda x: len(x) >= 2)
+
+        # Find non-spatial reuse via drop_duplicates
+        # (could have done merge of spatial-reuse)
+        no_spatial_reuse_df = app_cells_df.drop_duplicates(subset=["asn", "channel"], keep=False)
+
+        spatial_reuse_total = len(spatial_reuse_df)
+        no_spatial_reuse_total = len(no_spatial_reuse_df)
+
+        if measure == "absolute_etx_spatial":
+            if spatial_reuse_total != 0:
+                spatial_reuse_success = len(spatial_reuse_df[spatial_reuse_df["result"] == 0])
+                spatial_reuse_etx = spatial_reuse_total / spatial_reuse_success
+                print("ETX for spatial reuse cells: %.4f" % spatial_reuse_etx)
+                return spatial_reuse_etx
+            else:
+                print("No spatial reuse")
+                return 0
+        elif measure == "absolute_etx_no_spatial":
+            no_spatial_reuse_success = len(no_spatial_reuse_df[no_spatial_reuse_df["result"] == 0])
+            no_spatial_reuse_etx = no_spatial_reuse_total / no_spatial_reuse_success
+            print("ETX for no-spatial reuse cells: %.4f" %
+                  (len(no_spatial_reuse_df) /
+                  len(no_spatial_reuse_df[no_spatial_reuse_df["result"] == 0])))
+            return no_spatial_reuse_etx
+
+    return None
+
+def calculate_metric(input_df, metric, measure, check_convergence=False):
+
+    # Calculate metrics which does not require TriScale
+    if type(measure) == str and "absolute" in measure:
+        return calculate_absolute_metrics(input_df, metric, measure)
+
     # TriScale expects an index + two columns x and y
-    
+
     # First make a copy so we can edit freely
     df = input_df.copy()
-    
+
     # Select only the relevant column (timestamp is the index)
     df = df[metric]
-    
+
     # Revert back to default index (i.e. incremental int).
     # Timestamp becomes just a regular column
     df = df.reset_index()
-    
+
     # Rename to match Triscale requirements
     df = df.rename(columns={"timestamp":"x", metric:"y"})
 
@@ -40,15 +78,17 @@ def calculate_metric(input_df, metric, measure, check_convergence=False):
             plot=False, showplot=False, verbose=False)
     return measure
 
-def analyze_run(packets_df, energest_df, queue_df, mac_tx_df):
+def analyze_run(packets_df, energest_df, queue_df, mac_tx_df, cell_df):
     # Make DF with app-mac-packets only
     app_mac_tx_df = mac_tx_df[mac_tx_df["app"] == 1].copy()
+    app_cell_df = cell_df[cell_df["app"] == 1].copy()
     
     # Create DFs with steady state (i.e. drop at start and end)
     ss_packets_df = packets_df.copy()
     ss_energest_df = energest_df.copy()
     ss_queue_df = queue_df.copy()
     ss_app_mac_tx_df = app_mac_tx_df.copy()
+    ss_app_cell_df = app_cell_df.copy()
     
     packet_start = packets_df.index.values[0]
     packet_start_ss = packet_start + pd.Timedelta(TIME_TO_SKIP_STEADY_STATE)
@@ -66,6 +106,8 @@ def analyze_run(packets_df, energest_df, queue_df, mac_tx_df):
         ss_queue_df[NUM_ROWS_SKIP_SS_START:-NUM_ROWS_SKIP_SS_END]
     ss_app_mac_tx_df = \
         ss_app_mac_tx_df[NUM_ROWS_SKIP_SS_START:-NUM_ROWS_SKIP_SS_END]
+    ss_app_cell_df = \
+        ss_app_cell_df[NUM_ROWS_SKIP_SS_START:-NUM_ROWS_SKIP_SS_END]
 
     # Make queue DF per node
     ss_queue_df_2 = ss_queue_df.copy()
@@ -79,6 +121,8 @@ def analyze_run(packets_df, energest_df, queue_df, mac_tx_df):
     metric_packets = [{"metric": "latency", "measures":default_measures},
                       {"metric": "pdr", "measures":["mean"]}]
     metric_mac_app_tx = [{"metric": "mac_app_tx_etx", "measures":["absolute_etx"]}]
+    metric_app_cell = [{"metric": "app_cell_etx",
+                        "measures":["absolute_etx_spatial", "absolute_etx_no_spatial"]}]
     metric_energest = [{"metric": "duty_cycle", "measures":default_measures},
                        {"metric": "duty_cycle_tx", "measures":default_measures},
                        {"metric": "duty_cycle_rx", "measures":default_measures}]
@@ -87,7 +131,9 @@ def analyze_run(packets_df, energest_df, queue_df, mac_tx_df):
            {"df":energest_df, "metric":metric_energest, "prefix":""},
            {"df":queue_df, "metric":metric_queue, "prefix":""},
            {"df":app_mac_tx_df, "metric":metric_mac_app_tx, "prefix":""},
+           {"df":app_cell_df, "metric":metric_app_cell, "prefix":""},
            {"df":ss_app_mac_tx_df, "metric":metric_mac_app_tx, "prefix":"ss_"},
+           {"df":ss_app_cell_df, "metric":metric_app_cell, "prefix":"ss_"},
            {"df":ss_packets_df, "metric":metric_packets, "prefix":"ss_"},
            {"df":ss_energest_df, "metric":metric_energest, "prefix":"ss_"},
            {"df":ss_queue_df, "metric":metric_queue, "prefix":"ss_"},
@@ -107,11 +153,11 @@ def analyze_run(packets_df, energest_df, queue_df, mac_tx_df):
     return pd.DataFrame([run_entry])
 
 def analyze_runs(raw_dfs):
-    #TODO get only app_started
     raw_packets_dfs = raw_dfs["raw_packets_dfs"]
     raw_energest_dfs = raw_dfs["raw_energest_dfs"]
     raw_queue_dfs = raw_dfs["raw_queue_dfs"]
     raw_mac_tx_dfs = raw_dfs["raw_mac_tx_dfs"]
+    raw_cell_dfs = raw_dfs["raw_mac_cell_dfs"]
 
     runs_df_dict = []
     for key in raw_packets_dfs.keys():
@@ -119,7 +165,8 @@ def analyze_runs(raw_dfs):
             analyze_run(raw_packets_dfs[key][raw_packets_dfs[key]["app_started"] == 1],
                         raw_energest_dfs[key][raw_energest_dfs[key]["app_started"] == 1],
                         raw_queue_dfs[key][raw_queue_dfs[key]["app_started"] == 1],
-                        raw_mac_tx_dfs[key][raw_mac_tx_dfs[key]["app_started"] == 1]))
+                        raw_mac_tx_dfs[key][raw_mac_tx_dfs[key]["app_started"] == 1],
+                        raw_cell_dfs[key][raw_cell_dfs[key]["app_started"] == 1]))
 
     return pd.concat(runs_df_dict, ignore_index=True)
 
@@ -227,7 +274,22 @@ def analyze_scenario(runs_df, scenario_name):
                 "settings":{"percentile": adhoc_percentile,
                        "confidence": adhoc_confidence,
                        "bounds":[0,100],
-                       "bound":"lower"}}]
+                       "bound":"lower"}},
+               {"metric":"app_cell_etx",
+                #"name":"_p" + str(adhoc_percentile) + "_%" + str(adhoc_confidence) + "_L",
+                "name":"_U",
+                "settings":{"percentile": adhoc_percentile,
+                       "confidence": adhoc_confidence,
+                       "bounds":[0,100],
+                       "bound":"upper"}},
+               {"metric":"app_cell_etx",
+                #"name":"_p" + str(adhoc_percentile) + "_%" + str(adhoc_confidence) + "_L",
+                "name":"_L",
+                "settings":{"percentile": adhoc_percentile,
+                       "confidence": adhoc_confidence,
+                       "bounds":[0,100],
+                       "bound":"lower"}}
+               ]
     
     # TODO this needs some fixing as the naming of the columns in the resulting
     # DF will say _mean, _median, etc. while it is actually the default_percentile

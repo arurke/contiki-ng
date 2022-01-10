@@ -36,27 +36,32 @@ def plot_etx_comparison(scenarios_df, execution_dir, title=False):
     no_spatial_etx_min = no_spatial_reuse_row['mac_app_tx_etx_absolute_etx_L']
     no_spatial_etx_max = no_spatial_reuse_row['mac_app_tx_etx_absolute_etx_U']
     no_spatial_etx = (no_spatial_etx_max + no_spatial_etx_min) / 2
-    
-    spatial_etx_min = spatial_reuse_row['mac_app_tx_etx_absolute_etx_L']
-    spatial_etx_max = spatial_reuse_row['mac_app_tx_etx_absolute_etx_U']
+
+    # Use etx from all packets in the run
+    #spatial_etx_min = spatial_reuse_row['mac_app_tx_etx_absolute_etx_L']
+    #spatial_etx_max = spatial_reuse_row['mac_app_tx_etx_absolute_etx_U']
+
+    # Use etx from the spatial reuse cells only
+    spatial_etx_min = spatial_reuse_row['app_cell_etx_absolute_etx_spatial_L']
+    spatial_etx_max = spatial_reuse_row['app_cell_etx_absolute_etx_spatial_U']
     spatial_etx = (spatial_etx_max + spatial_etx_min) / 2
-    
-    no_spatial_pdr_min = no_spatial_reuse_row['pdr_mean_L']
-    no_spatial_pdr_max = no_spatial_reuse_row['pdr_mean_U']
+
+    no_spatial_pdr_min = no_spatial_reuse_row['pdr_50_L']
+    no_spatial_pdr_max = no_spatial_reuse_row['pdr_50_U']
     no_spatial_pdr = (no_spatial_pdr_max + no_spatial_pdr_min) / 2
-    
-    spatial_pdr_min = spatial_reuse_row['pdr_mean_L']
-    spatial_pdr_max = spatial_reuse_row['pdr_mean_U']
+
+    spatial_pdr_min = spatial_reuse_row['pdr_50_L']
+    spatial_pdr_max = spatial_reuse_row['pdr_50_U']
     spatial_pdr = (spatial_pdr_max + spatial_pdr_min) / 2
-    
-    no_spatial_latency_min = no_spatial_reuse_row['latency_mean_L']
-    no_spatial_latency_max = no_spatial_reuse_row['latency_mean_U']
+
+    no_spatial_latency_min = no_spatial_reuse_row['latency_50_L']
+    no_spatial_latency_max = no_spatial_reuse_row['latency_50_U']
     no_spatial_latency = (no_spatial_latency_max + no_spatial_latency_min) / 2
-    
-    spatial_latency_min = spatial_reuse_row['latency_mean_L']
-    spatial_latency_max = spatial_reuse_row['latency_mean_U']
+
+    spatial_latency_min = spatial_reuse_row['latency_50_L']
+    spatial_latency_max = spatial_reuse_row['latency_50_U']
     spatial_latency = (spatial_latency_max + spatial_latency_min) / 2
-    
+
     no_spatial_reuse_data = DataSet(
         (DataPoint(
             no_spatial_etx_min,
@@ -74,7 +79,7 @@ def plot_etx_comparison(scenarios_df, execution_dir, title=False):
             no_spatial_pdr)
         ),
     )
-    
+
     spatial_reuse_data = DataSet(
         (DataPoint(
             spatial_etx_min,
@@ -92,7 +97,7 @@ def plot_etx_comparison(scenarios_df, execution_dir, title=False):
             spatial_pdr)
         )
     )
-    
+
     # Sooo tired, TODO verify this math
     spatial_reuse_data_normalized = DataSet(
         (DataPoint(
@@ -111,7 +116,7 @@ def plot_etx_comparison(scenarios_df, execution_dir, title=False):
             spatial_reuse_data.pdr.mean / no_spatial_reuse_data.pdr.mean * 100)
         )
     )
-    
+
     no_spatial_reuse_data_normalized = DataSet(
         (DataPoint(
             no_spatial_reuse_data.etx.min / no_spatial_reuse_data.etx.mean * 100,
@@ -129,13 +134,13 @@ def plot_etx_comparison(scenarios_df, execution_dir, title=False):
             100)
         )
     )
-    
+
     print(no_spatial_reuse_data_normalized)
     print(spatial_reuse_data_normalized)
-    
+
     # setup the dataframe
     metrics = ['ETX', 'E2E Latency', 'PDR']
-    
+
     no_spatial_reuse_means = [
         no_spatial_reuse_data_normalized.etx.mean,
         no_spatial_reuse_data_normalized.latency.mean,
@@ -144,7 +149,7 @@ def plot_etx_comparison(scenarios_df, execution_dir, title=False):
         spatial_reuse_data_normalized.etx.mean,
         spatial_reuse_data_normalized.latency.mean,
         spatial_reuse_data_normalized.pdr.mean]
-    
+
     no_spatial_reuse_min = [
         100 - no_spatial_reuse_data_normalized.etx.min,
         100 - no_spatial_reuse_data_normalized.latency.min,
@@ -153,7 +158,7 @@ def plot_etx_comparison(scenarios_df, execution_dir, title=False):
         no_spatial_reuse_data_normalized.etx.max - 100,
         no_spatial_reuse_data_normalized.latency.max - 100,
         no_spatial_reuse_data_normalized.pdr.max - 100]
-    
+
     spatial_reuse_min = [
         spatial_reuse_data_normalized.etx.mean - spatial_reuse_data_normalized.etx.min,
         spatial_reuse_data_normalized.latency.mean - spatial_reuse_data_normalized.latency.min,
@@ -162,7 +167,16 @@ def plot_etx_comparison(scenarios_df, execution_dir, title=False):
         spatial_reuse_data_normalized.etx.max - spatial_reuse_data_normalized.etx.mean,
         spatial_reuse_data_normalized.latency.max - spatial_reuse_data_normalized.latency.mean,
         spatial_reuse_data_normalized.pdr.max - spatial_reuse_data_normalized.pdr.mean]
-    
+
+    print("No spatial reuse:")
+    print("Min (etx, latency, pdr): " + str(no_spatial_reuse_min))
+    print("Mean (etx, latency, pdr): " + str(no_spatial_reuse_means))
+    print("Max (etx, latency, pdr): " + str(no_spatial_reuse_max))
+
+    print("Spatial reuse:")
+    print("Min (etx, latency, pdr): " + str(spatial_reuse_min))
+    print("Mean (etx, latency, pdr): " + str(spatial_reuse_means))
+    print("Max (etx, latency, pdr): " + str(spatial_reuse_max))
     
     # the label locations
     x = np.arange(len(metrics))
