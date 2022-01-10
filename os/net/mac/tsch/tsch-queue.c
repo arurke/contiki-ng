@@ -453,6 +453,9 @@ tsch_queue_is_empty(const struct tsch_neighbor *n)
 /*---------------------------------------------------------------------------*/
 
 #if BUILD_WITH_LAYERED
+volatile uint32_t tsch_hack_errors = 0;
+volatile uint32_t tsch_hack_deleted_packets = 0;
+
 static bool scheduler_calculate_packet_cell(
     uint16_t* packet_slotframe, uint16_t* packet_timeslot,
     uint16_t* packet_channel_offset, struct queuebuf* packet_qbuf) {
@@ -493,7 +496,8 @@ static struct tsch_packet* hack2(
   if(tsch_is_locked()) {
     TSCH_LOG_ADD(tsch_log_message,
                  snprintf(log->message, sizeof(log->message),
-                   "!asdERR10!"));
+                   "!asdERR locked!"));
+    tsch_hack_errors++;
     return NULL;
   }
 
@@ -505,7 +509,8 @@ static struct tsch_packet* hack2(
     if(index_of_packet == -1) {
       TSCH_LOG_ADD(tsch_log_message,
                    snprintf(log->message, sizeof(log->message),
-                     "!asdERR1!"));
+                     "!asdERR ringbuf get failed!"));
+      tsch_hack_errors++;
       return NULL;
     }
 
@@ -519,7 +524,8 @@ static struct tsch_packet* hack2(
         n->tx_array[index_of_packet]->qb)) {
       TSCH_LOG_ADD(tsch_log_message,
                    snprintf(log->message, sizeof(log->message),
-                            "asdERR calc2-err!"));
+                            "!asdERR calc-err!"));
+      tsch_hack_errors++;
       return NULL;
     }
 
@@ -539,8 +545,9 @@ static struct tsch_packet* hack2(
     if(link == NULL) {
       TSCH_LOG_ADD(tsch_log_message,
                    snprintf(log->message, sizeof(log->message),
-                            "asd delete packet!, %u/%u",
+                            "!asd delete packet!, %u/%u",
                             packet_timeslot, packet_channel_offset));
+      tsch_hack_deleted_packets++;
       tsch_queue_free_packet(n->tx_array[index_of_packet]);
       continue;
     }
@@ -560,7 +567,8 @@ static struct tsch_packet* hack2(
     else {
       TSCH_LOG_ADD(tsch_log_message,
                    snprintf(log->message, sizeof(log->message),
-                     "asdERR2"));
+                     "!asdERR ringbuf put failed"));
+      tsch_hack_errors++;
       return NULL;
     }
   }
@@ -580,7 +588,8 @@ static struct tsch_packet* hack2(
     else {
       TSCH_LOG_ADD(tsch_log_message,
                    snprintf(log->message, sizeof(log->message),
-                     "asdERR3"));
+                     "!asdERR ringbuf put rest failed"));
+      tsch_hack_errors++;
       return NULL;
     }
   }
@@ -690,14 +699,15 @@ tsch_queue_get_packet_for_nbr(struct tsch_neighbor *n, struct tsch_link *link)
         if(packet_attr_type != 1) {
           TSCH_LOG_ADD(tsch_log_message,
                        snprintf(log->message, sizeof(log->message),
-                                "asd no-app!"));
+                                "!asdERR no-app!"));
+          tsch_hack_errors++;
         }
 
         // Sanity check that we are dealing only dedicated links
         if(is_shared_link) {
           TSCH_LOG_ADD(tsch_log_message,
                        snprintf(log->message, sizeof(log->message),
-                                "asd no-dedicated!"));
+                                "!asdERR no-dedicated!"));
         }
 
         // Skip if this packet is for a different slotframe
@@ -709,7 +719,8 @@ tsch_queue_get_packet_for_nbr(struct tsch_neighbor *n, struct tsch_link *link)
             packet_attr_slotframe != link->slotframe_handle) {
           TSCH_LOG_ADD(tsch_log_message,
                        snprintf(log->message, sizeof(log->message),
-                                "asd wrong-sf!"));
+                                "!asdERR wrong-sf!"));
+          tsch_hack_errors++;
           return NULL;
         }
 
@@ -722,7 +733,8 @@ tsch_queue_get_packet_for_nbr(struct tsch_neighbor *n, struct tsch_link *link)
             &packet_slotframe, &packet_timeslot, &packet_channel_offset, packet_qbuf)) {
           TSCH_LOG_ADD(tsch_log_message,
                        snprintf(log->message, sizeof(log->message),
-                                "asd calc-err!"));
+                                "asdERR calc-err2!"));
+          tsch_hack_errors++;
           return NULL;
         }
 

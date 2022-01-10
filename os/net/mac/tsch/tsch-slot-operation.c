@@ -187,6 +187,11 @@ static struct pt slot_operation_pt;
 static PT_THREAD(tsch_tx_slot(struct pt *pt, struct rtimer *t));
 static PT_THREAD(tsch_rx_slot(struct pt *pt, struct rtimer *t));
 
+#if BUILD_WITH_LAYERED
+volatile uint32_t tsch_slot_timing_missed = 0;
+volatile uint32_t tsch_hack_mismatch = 0;
+#endif
+
 /*---------------------------------------------------------------------------*/
 /* TSCH locking system. TSCH is locked during slot operations */
 
@@ -316,14 +321,19 @@ tsch_schedule_slot_operation(struct rtimer *tm, rtimer_clock_t ref_time, rtimer_
   int missed = check_timer_miss(ref_time, offset - RTIMER_GUARD, now);
 
   if(missed) {
+#if BUILD_WITH_LAYERED
+    rtimer_clock_t curr_distance_from_ref = RTIMER_CLOCK_DIFF(now, ref_time);
+    if(curr_distance_from_ref > offset) {
+      tsch_slot_timing_missed++;
+    }
 #if TSCH_LOG_PER_SLOT
-      rtimer_clock_t curr_distance_from_ref = RTIMER_CLOCK_DIFF(now, ref_time);
       TSCH_LOG_ADD(tsch_log_message,
                       snprintf(log->message, sizeof(log->message),
                           "!dl-miss %s %d %d %d %d err:%d",
                               str, curr_distance_from_ref, (int)offset, now, ref_time,
                               curr_distance_from_ref > offset ? 1 : 0);
       );
+#endif
 #endif
 //
 //      if(curr_distance_from_ref > offset) {
@@ -626,9 +636,10 @@ PT_THREAD(tsch_tx_slot(struct pt *pt, struct rtimer *t))
           !linkaddr_cmp(packet_dest, tsch_queue_get_nbr_address(current_neighbor))) {
         TSCH_LOG_ADD(tsch_log_message,
             snprintf(log->message, sizeof(log->message),
-            "asd ERR addr mm %02x/%02x",
+            "!asdERR addr mm %02x/%02x",
             packet_dest->u8[7],
             tsch_queue_get_nbr_address(current_neighbor)->u8[7]));
+        tsch_hack_mismatch++;
       }
 #endif
 
