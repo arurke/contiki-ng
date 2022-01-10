@@ -31,7 +31,7 @@
 #ifdef APP_CONF_DELAY_TX
 #define APP_DELAY_TX      APP_CONF_DELAY_TX
 #else
-#define APP_DELAY_TX      300
+#define APP_DELAY_TX      360
 #endif
 
 // Number of packets. Typically we just send forever and let stats pick
