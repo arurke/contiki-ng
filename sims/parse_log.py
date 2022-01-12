@@ -608,7 +608,7 @@ def parse_logfile(file, app_warmup, quiet=False):
     if parent_switch_count > 0:
         print("Parent switch during application!")
         #outputStats(dfs, "switches", "pswitch", "count", "RPL parent switches (#)")
-        #return None
+        return None
 
     # There are some rpoblems with the queue-stuff:
     # 1. All packets are counted, thus the queue overflow is larger than
@@ -642,7 +642,8 @@ def parse_logfile(file, app_warmup, quiet=False):
     mac_tx_df = dfs["mac_tx"]
     app_tx = mac_tx_df[mac_tx_df["app"] == 1]
     app_tx = app_tx[app_tx["app_started"] == 1]
-    app_tx_etx = app_tx["transmissions"].sum() / len(app_tx["transmissions"][app_tx["result"] == "ok"])
+    app_tx_etx = app_tx["transmissions"].sum() / \
+        len(app_tx["transmissions"][app_tx["result"] == "ok"])
 
     # Find ETX for spatial reused cells. Only supported when running Layered! (due to app field)
     mac_cell_df = dfs["mac_cell"]
@@ -684,39 +685,51 @@ def parse_logfile(file, app_warmup, quiet=False):
     else:
         print("No spatial reuse")
 
-    # dl-miss with error
-    if "mac_err" in dfs:
-        mac_err_df = dfs["mac_err"]
-        dl_miss_err = len(mac_err_df[mac_err_df["type"] == "dl_miss_err"])
-    else:
-        dl_miss_err = 0
+    # dl-miss with error # redundant with the new MAC stats
+    #if "mac_err" in dfs:
+    #    mac_err_df = dfs["mac_err"]
+    #    dl_miss_err = len(mac_err_df[mac_err_df["type"] == "dl_miss_err"])
+    #else:
+    #    dl_miss_err = 0
+    #print("  dl-miss w/err: " + str(dl_miss_err))
 
     # Check MAC stats
     if "mac_stats" in dfs:
         mac_stats_df = dfs["mac_stats"]
-        timing_err_total = mac_stats_df.groupby('node')["timing_err"].max().sum()
-        hack_mismatch_total = mac_stats_df.groupby('node')["hack_mismatch"].max().sum()
-        hack_err_total = mac_stats_df.groupby('node')["hack_err"].max().sum()
-        hack_deletions_total = mac_stats_df.groupby('node')["hack_deletions"].max().sum()
+        mac_stats_before_app_df = mac_stats_df[mac_stats_df["app_started"] == 0]
+        mac_stats_app_df = mac_stats_df[mac_stats_df["app_started"] == 1]
+
+        timing_err_total_app = \
+             mac_stats_app_df.groupby('node')["timing_err"].max().sum() - \
+             mac_stats_before_app_df.groupby('node')["timing_err"].max().sum()
+        hack_mismatch_total_app = \
+            mac_stats_app_df.groupby('node')["hack_mismatch"].max().sum() - \
+            mac_stats_before_app_df.groupby('node')["hack_mismatch"].max().sum()
+        hack_err_total_app = \
+            mac_stats_app_df.groupby('node')["hack_err"].max().sum() - \
+            mac_stats_before_app_df.groupby('node')["hack_err"].max().sum()
+        hack_deletions_total_app = \
+            mac_stats_app_df.groupby('node')["hack_deletions"].max().sum() - \
+            mac_stats_before_app_df.groupby('node')["hack_deletions"].max().sum()
 
         print("MAC errors: timing-error: %d, hack-mismatch: %d, " \
               "hack-error %d, hack-deletions: %d" % \
-              (timing_err_total, hack_mismatch_total,
-              hack_err_total, hack_deletions_total))
-        if timing_err_total > 10:
+              (timing_err_total_app, hack_mismatch_total_app,
+              hack_err_total_app, hack_deletions_total_app))
+        if timing_err_total_app > 10:
             print("Too many timing errors!")
             outputStats(dfs, "mac_stats", "timing_err", "max", "Missed TSCH timings")
             return None
-        if hack_mismatch_total > 10:
+        if hack_mismatch_total_app > 10:
             print("Too many hack mismatches!")
             outputStats(dfs, "mac_stats", "hack_mismatch", "max", "Hack mismatch")
             return None
-        if hack_err_total > 10:
+        if hack_err_total_app > 10:
             print("Too many hack errors!")
             outputStats(dfs, "mac_stats", "hack_err", "max", "Hack errors")
             return None
-        if hack_deletions_total > 10:
-            print("Too manyhack deletions!")
+        if hack_deletions_total_app > 10:
+            print("Too many hack deletions!")
             outputStats(dfs, "mac_stats", "hack_deletions", "max", "Hack deleted packets")
             return None
 
@@ -739,7 +752,6 @@ def parse_logfile(file, app_warmup, quiet=False):
     print("  network-formation-time: %.3f" % (network_formation_time_ms / 1000))
     print("  application-cells ETX: " + str(app_tx_etx))
     print("  Max. hop count during app: " + str(app_max_hop_count))
-    print("  dl-miss w/err: " + str(dl_miss_err))
 
     print("stats (includes before App):")
 
