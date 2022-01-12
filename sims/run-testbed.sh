@@ -3,7 +3,7 @@
 
 # Inspiration: https://gitlab.irisa.fr/0000H82G/traces/-/tree/master/scripts
 
-set -e
+#set -e
 
 #---------------------- TEST ARGUMENTS ----------------------#
 if [ "$#" -ne 5 ]; then
@@ -41,17 +41,29 @@ function ctrl_c() {
 echo "Submitting experiment $EXPNAME"
 
 # Launch the experiment and obtain its ID
-EXPID=$(iotlab-experiment submit -n $EXPNAME -d $DURATION -l $NODES --site-association $SITE,script=serial_script.sh | grep id | cut -d' ' -f6)
+EXPID=$(iotlab-experiment submit -n $EXPNAME -d $DURATION -l $NODES --site-association $SITE,script=serial_script.sh | grep id | cut -d' ' -f6 || exit 1)
 
-# Wait for the experiment to began
-iotlab-experiment wait -i $EXPID
+# Wait for the experiment to begin. If command fails, try again 10 times
+tries=0
+until [ "$tries" -ge 10 ]
+do
+   iotlab-experiment wait -i $EXPID && break
+   tries=$((tries+1))
+   sleep 15
+done
 
 # Flash nodes
 echo "Flashing nodes with $FIRMWARE"
-chronic iotlab-node --flash $FIRMWARE -i $EXPID
+chronic iotlab-node --flash $FIRMWARE -i $EXPID || exit 1
 
-# Wait for experiment termination
-iotlab-experiment wait -i $EXPID --state Terminated
+# Wait for experiment termination. If command fails, try again 10 times
+tries=0
+until [ "$tries" -ge 10 ]
+do
+   iotlab-experiment wait -i $EXPID --state Terminated && break
+   tries=$((tries+1))
+   sleep 15
+done
 
 #----------------------- RETRIEVE LOG -----------------------#
 mkdir $LOGDIR
