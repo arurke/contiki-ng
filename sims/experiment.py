@@ -3,20 +3,23 @@ import os
 import shutil
 import subprocess
 import argparse
-import pandas as pd
 from dataclasses import dataclass
 from datetime import datetime
-from simconfig import simconfig_parse
 from experiment_config import experiment_config_parse
-from parse_log import parse_logs_scenarios
-from plot import plot_time_series
-from plot import plot_pdr_latency
-from plot import plot_duty_cycle
-from plot import plot_queue_util_selected_nodes
-from plot import plot_etx_comparison
-#from stats import stats_for_scenarios
-from stats_triscale import stats_for_scenarios
-from simxml import simxml_make_xml_for_all_scenarios
+try:
+    import pandas as pd
+    from parse_log import parse_logs_scenarios
+    from plot import plot_time_series
+    from plot import plot_pdr_latency
+    from plot import plot_duty_cycle
+    from plot import plot_queue_util_selected_nodes
+    from plot import plot_etx_comparison
+    #from stats import stats_for_scenarios
+    from stats_triscale import stats_for_scenarios
+    from simxml import simxml_make_xml_for_all_scenarios
+except:
+    #print("Allow imports to fail since some invocations do not need (remote)")
+    pass
 
 # Constants
 CODE_FOLDER_NAME = "code"
@@ -29,6 +32,9 @@ IOTLAB_TARGET="iotlab"
 IOTLAB_ARCH_PATH="../../../../../../iot-lab-contiki-ng/arch" # TODO improve?
 IOTLAB_BINARY_NAME="node.iotlab"
 IOTLAB_BUILD_ARGUMENTS="TESTBED=1 BOARD=m3 -j8"
+REMOTE_EXPERIMENT_PATH = "~/experiments/"
+REMOTE_CONNECT = "arurke@phd.netwurke.com"
+REMOTE_LOG_FILE = "remote_execution.log"
 
 #NODES = "358+343+328+313+298+290+203+188"
 NODES = "358+356+354+351+348+346+344+342+340+338+336+334+332+330+328+326"
@@ -50,8 +56,13 @@ class Config:
     duration: int
     app_warmup: int
     nodes: str
+    remote_execution: bool
+    prepare_only: bool
+    run_only: bool
+    fetch_from_remote: bool
+    remote_log_file: str
 
-def create_run_sim_commands(sim_name, scenarios, num_runs):
+def add_commands_run_sim(sim_name, scenarios, num_runs):
     scenario_run_cmds = []
     for scenario in scenarios:
         scenario_run_cmd = "contiker_notty bash -c \"" + \
@@ -66,7 +77,7 @@ def create_run_sim_commands(sim_name, scenarios, num_runs):
 
     return scenario_run_cmds
 
-def create_run_testbed_commands(exp_name, scenarios, num_runs, duration, nodes):
+def add_commands_build_firmware(scenarios):
     for scenario in scenarios:
         src_path = scenario['path'] + CODE_FOLDER_NAME
 
@@ -91,6 +102,9 @@ def create_run_testbed_commands(exp_name, scenarios, num_runs, duration, nodes):
         # Add firmware path
         scenario['firmware'] = src_path + "/" + IOTLAB_BINARY_NAME
 
+# Must be called after adding build-firmare-commands since firmware-path is needed
+def add_commands_run_testbed(exp_name, scenarios, num_runs, duration, nodes):
+    for scenario in scenarios:
         # For testbed we add an array of run-cmds (to run testbed), one for each run
         # (with simulator, multiple runs are handled in the simulator-running-script)
         scenario_run_cmds = []
@@ -117,7 +131,7 @@ def process_results(scenarios, execution_dir):
  #       plot_time_series(scenario, 353, 'run0', 0)
 
     # Get stats from the DFs
-    scenarios_df = stats_for_scenarios(scenarios, True)
+    scenarios_df = stats_for_scenarios(scenarios, execution_dir, True)
 
     plot_etx_comparison(scenarios_df, execution_dir)
 
@@ -154,7 +168,8 @@ def prepare_datastructures(scenarios, execution_dir):
         scenario['path'] = execution_dir + scenario['name'] + "/"
 
 # Make executions/[execution-id]/[scenario-name] directories
-def prepare_filesystem(exp_name, sim_dir, scenarios, executions_dir, execution_dir):
+def prepare_filesystem(exp_name, sim_dir, scenarios,
+                       executions_dir, execution_dir, remote=False):
     print("\nPreparing filesystem")
 
     if not os.path.exists(executions_dir):
@@ -170,12 +185,12 @@ def prepare_filesystem(exp_name, sim_dir, scenarios, executions_dir, execution_d
             print("Generating scenario dir", scenario['path'])
             os.mkdir(scenario['path'])
 
-    copy_node_code(sim_dir, scenarios)
-    copy_sim_config_file(sim_dir, exp_name, execution_dir)
+    copy_node_code(sim_dir, scenarios, remote)
+    copy_experiment_config_file(sim_dir, exp_name, execution_dir)
 
     print("Filesystem prepared")
 
-def copy_sim_config_file(sim_dir, exp_name, execution_dir):
+def copy_experiment_config_file(sim_dir, exp_name, execution_dir):
     config_file_name = exp_name + ".ini"
     config_file_src = sim_dir + config_file_name
     config_file_dst = execution_dir + config_file_name
@@ -184,7 +199,7 @@ def copy_sim_config_file(sim_dir, exp_name, execution_dir):
 
 # Copy sims/[sim-name]/code into executions/[execution-id]/[scenario-name]/code
 # Copy sims/[sim-name]/Makefile into executions/[execution-id]/[scenario-name]/Makefile
-def copy_node_code(sim_dir, scenarios):
+def copy_node_code(sim_dir, scenarios, folders_only=False):
     code_src_dir = sim_dir + CODE_FOLDER_NAME
     build_src_dir = code_src_dir + "/" + BUILD_FOLDER_NAME
     build_cooja_file = code_src_dir + "/" + BUILD_COOJA_NAME
@@ -193,6 +208,11 @@ def copy_node_code(sim_dir, scenarios):
     for scenario in scenarios:
         # Source code
         code_dst_dir = scenario['path'] + CODE_FOLDER_NAME
+
+        if folders_only:
+            os.mkdir(code_dst_dir)
+            continue
+
         if not os.path.exists(code_dst_dir):
 
             # Make sure there is no existing build artificats in the folder
@@ -241,48 +261,86 @@ def parse_arguments():
                            metavar = 'config',
                            type = str,
                            help = 'name of config file')
-    argparser.add_argument('-r',
-                           '--runs',
-                           type = int,
-                           help = 'number of runs')
     argparser.add_argument('-s',
                            '--skipp',
                            action='store_true',
                            help = 'skip post-processing')
     argparser.add_argument('-n',
                            '--norun',
+                           action = 'store_true',
+                           help = 'Dont run experiment (require -i)')
+    argparser.add_argument('-r',
+                           '--remote',
+                           action = 'store_true',
+                           help = 'Execute experiment run via remote host')
+    argparser.add_argument('-i',
+                           '--id-execution',
                            type = str,
-                           help = 'Dont run experiment. Execution id to analyze')
+                           help = 'Execution ID (e.g. spatial_test_20220116_20)')
+    argparser.add_argument('-p',
+                           '--prepare',
+                           action = 'store_true',
+                           help = 'Only do preparations. Used in remote (automatically sets -r.). Requires -i')
+    argparser.add_argument('-e',
+                           '--run-only',
+                           action = 'store_true',
+                           help = 'Only execute runs. Used in remote (automatically sets -r.) Requires -i')
+    argparser.add_argument('-f',
+                           '--remote-fetch',
+                           action = 'store_true',
+                           help = 'Fetches data from remote and analyses. Used after -r. Requires -i')
     args = argparser.parse_args()
 
     type = args.Type
     sim_dir = args.Path
     sim_cfg_filename = args.Config
-    num_runs = args.runs
     skip_post = args.skipp
-    analyse_execution_id = args.norun
-    
-    return type, sim_dir, sim_cfg_filename,\
-        num_runs, skip_post, analyse_execution_id
+    no_run = args.norun
+    remote_execution = args.remote
+    prepare_only = args.prepare
+    run_only = args.run_only
+    execution_id = args.id_execution
+    fetch_from_remote = args.remote_fetch
+
+    if prepare_only and execution_id is None:
+        print("Execution id (-i) must be set when only preparing")
+        exit()
+    if run_only and execution_id is None:
+        print("Execution id (-i) must be set when only doing runs ")
+        exit()
+    if no_run and execution_id is None:
+        print("Execution id (-i) must be set when not running experiment")
+        exit()
+    if fetch_from_remote and execution_id is None:
+        print("Execution id (-i) must be set fetching data from remote")
+        exit()
+
+    # If preparation or exection only we force remote
+    if prepare_only or run_only:
+        remote_execution = True
+
+    return type, sim_dir, sim_cfg_filename, skip_post, no_run, \
+        remote_execution, prepare_only, run_only, execution_id, fetch_from_remote
 
 def parse_config():
     # Get config from command line
-    type, sim_dir, sim_cfg_filename, \
-        cmd_num_runs, skip_post, analyse_execution_id = parse_arguments()
+    type, sim_dir, sim_cfg_filename, skip_post, no_run, \
+        remote_execution, prepare_only, run_only, execution_id, \
+        fetch_from_remote = parse_arguments()
 
     # Add '/'
     os.path.join(sim_dir)
-    
+
     # Folder to hold all executions
     executions_dir = sim_dir + EXECUTIONS_FOLDER_NAME + "/"
 
-    if analyse_execution_id is None:
+    if not no_run:
         do_run = True
         sim_cfg_path = sim_dir + sim_cfg_filename
     else:
         do_run = False
         sim_cfg_path = executions_dir + \
-            analyse_execution_id + "/" +  sim_cfg_filename
+            execution_id + "/" +  sim_cfg_filename
 
     # Parse config-file
     parsedconfig, experiment_config, scenarios = \
@@ -295,26 +353,25 @@ def parse_config():
     else:
         csc_baseline_path = None
 
-    # Let num-runs from command-line override
-    if cmd_num_runs is None:
-        num_runs = experiment_config["num_runs"]
-    else:
-        num_runs = cmd_num_runs
-
-    if analyse_execution_id is not None:
-        execution_id = analyse_execution_id
-    else:
+    if execution_id is None:
         execution_id = create_execution_id(exp_name, executions_dir)
 
     # Folder for this execution
     execution_dir = executions_dir + execution_id + "/"
-    
+
+    # Remote log-file
+    remote_execution_dir = REMOTE_EXPERIMENT_PATH + execution_dir
+    remote_log_file = remote_execution_dir + REMOTE_LOG_FILE
+
     config = Config(type, exp_name, sim_dir, executions_dir, execution_dir,
-                    csc_baseline_path, sim_cfg_path, num_runs, skip_post,
+                    csc_baseline_path, sim_cfg_path,
+                    experiment_config["num_runs"], skip_post,
                     do_run, execution_id, scenarios,
                     experiment_config["duration"],
                     experiment_config["app_warmup"],
-                    experiment_config["nodes"])
+                    experiment_config["nodes"],
+                    remote_execution, prepare_only, run_only,
+                    fetch_from_remote, remote_log_file)
 
     print_config(config)
 
@@ -324,22 +381,27 @@ def print_config(config):
     if config.do_run is False:
         print("\nNo execution! Analyzing: ", config.execution_id)
     print("\nExperiment config:")
-    print("\tType:         ", config.type)
-    print("\tName:         ", config.exp_name)
-    print("\tDirectory:    ", config.sim_dir)
-    print("\tConfig:       ", config.sim_cfg_path)
-    print("\tCSC Baseline: ", config.csc_baseline_path)
-    print("\tApp. warmup:  ", config.app_warmup)
-    print("\t# scenarios:  ", len(config.scenarios))
-    print("\t# runs pr sc.:", config.num_runs)
+    print("\tType:          ", config.type)
+    print("\tName:          ", config.exp_name)
+    print("\tDirectory:     ", config.sim_dir)
+    print("\tConfig:        ", config.sim_cfg_path)
+    print("\tRemote execut.:", config.remote_execution)
+    print("\tPrepare only:  ", config.prepare_only)
+    print("\tFetch remote:  ", config.fetch_from_remote)
+    print("\tCSC Baseline:  ", config.csc_baseline_path)
+    print("\tApp. warmup:   ", config.app_warmup)
+    print("\t# scenarios:   ", len(config.scenarios))
+    print("\t# runs pr sc.: ", config.num_runs)
     if config.duration is not None:
-        print("\tDuration:     ", config.duration)
+        print("\tDuration:      ", config.duration)
     if config.nodes is not None:
-        print("\tNodes:        ", config.nodes)
-    print("\tSkip post:    ", str(config.skip_post))
-    print("\tDo execution: ", str(config.do_run))
-    print("\tExecution id: ", config.execution_id)
-    print("\tExecution dir:", config.execution_dir)
+        print("\tNodes:         ", config.nodes)
+    print("\tSkip post:     ", str(config.skip_post))
+    print("\tDo execution:  ", str(config.do_run))
+    print("\tExecution id:  ", config.execution_id)
+    print("\tExecution dir: ", config.execution_dir)
+    if config.remote_execution:
+        print("\tRemote log:    ", config.remote_log_file)
 
 def run_simulation(run_cmds):
     #CNG_PATH = "/home/andreas/vizaworkspace/contiki-ng"
@@ -396,6 +458,110 @@ def run_testbed(scenarios, num_runs):
 
     return True
 
+def transfer_from_remote(remote_file, local_file, is_directory=False):
+    scp_dir = ""
+    if is_directory:
+        scp_dir = "-r "
+    transfer = "scp " + scp_dir + REMOTE_CONNECT + ":" + REMOTE_EXPERIMENT_PATH + \
+        remote_file + " " + local_file
+    
+    print("Executing: " + transfer)
+    process = subprocess.run(transfer.split())
+    if process.returncode != 0:
+        print("Failed executing: " + transfer)
+        return False
+    
+    return True
+
+def transfer_to_remote(local_file, remote_path=None):
+    transfer = "scp " + local_file + " " + \
+        REMOTE_CONNECT + ":" + REMOTE_EXPERIMENT_PATH
+    if remote_path is not None:
+        transfer += remote_path + "/"
+    
+    #print("Executing: " + transfer)
+    process = subprocess.run(transfer.split())
+    if process.returncode != 0:
+        print("Failed executing: " + transfer)
+        return False
+    
+    return True
+
+def run_testbed_remote(exp_name, sim_dir, execution_id, execution_dir, scenarios, log_file):
+    # Create experiment folder
+    remote_experiment_folder = REMOTE_EXPERIMENT_PATH + sim_dir
+    setup_remote = "ssh " + REMOTE_CONNECT + \
+        " mkdir -p " + remote_experiment_folder
+    #print("Executing: " + setup_remote)
+    #print("Executing: " + str(setup_remote.split()))
+    process = subprocess.run(setup_remote.split())
+    if process.returncode != 0:
+        return False
+
+    # Transfer scripts
+    if not transfer_to_remote("experiment.py"):
+        return False
+    if not transfer_to_remote("run-testbed.sh"):
+        return False
+    if not transfer_to_remote("serial_script.sh"):
+        return False
+    if not transfer_to_remote("experiment_config.py"):
+        return False
+
+    # Transfer experiment config
+    config_file_name = exp_name + ".ini"
+    config_file_src = sim_dir + config_file_name
+    if not transfer_to_remote(config_file_src, sim_dir):
+        return False
+
+    # Call experiment.py -p which makes folders etc.
+    prepare_remote = "ssh " + REMOTE_CONNECT + \
+        " cd " + REMOTE_EXPERIMENT_PATH + ";" + \
+        " python3 " + REMOTE_EXPERIMENT_PATH + "experiment.py" + \
+        " testbed " + \
+        sim_dir + " " + \
+        config_file_name + \
+        " -p" + \
+        " -i " + execution_id
+    #print(prepare_remote)
+    #print(prepare_remote.split())
+    process = subprocess.run(prepare_remote.split())
+    if process.returncode != 0:
+        return False
+
+    # Transfer firmware
+    for scenario in scenarios:
+        firmware = REMOTE_EXPERIMENT_PATH + scenario['firmware']
+        if not transfer_to_remote(scenario['firmware'], scenario['path'] + CODE_FOLDER_NAME):
+            return False
+
+    # Call experiment.py --remote_start_execution with correct parameters (including execution-id!)
+    # Had problems with the auth. It would not work even though SSH key was added properly.
+    # Logged in directly and did "iotlab auth -u urke" and now I cannot log out. So most likely
+    # that has solved it...until next time. Suspicion is that the iotlab-cli tools cannot find
+    # the ssh-instance(?) - try install them with --user? pip install --user iotlabcli?
+    # That might also remove the need for the PATH manipulation on the server.
+    # Also: redirection into tee (or straight to file for that matter) messes up the
+    # order of output (python output comes after bash) TODO
+    run_remote = "ssh " + REMOTE_CONNECT + \
+        " cd " + REMOTE_EXPERIMENT_PATH + ";" + \
+        " eval $(ssh-agent -s); ssh-add ~/.ssh/fitiotlab_do;" + \
+        " tmux new-session -d -s " + execution_id + " '" + \
+        " python3 " + REMOTE_EXPERIMENT_PATH + "experiment.py" + \
+        " testbed " + \
+        sim_dir + " " + \
+        config_file_name + \
+        " -e" + \
+        " -i " + execution_id + \
+        " 2>&1 | tee " + log_file + "'"
+    #print(run_remote)
+    #print(run_remote.split())
+    process = subprocess.run(run_remote.split())
+    if process.returncode != 0:
+        return False
+
+    return True
+
 def add_firmware(scenarios):
     for scenario in scenarios:
         print("Building scenario " + scenario['name'] + \
@@ -415,6 +581,73 @@ def add_firmware(scenarios):
 
     return True
 
+def is_remote_execution_done(execution_dir, execution_id, log_file):
+    # Check if tmux session is still running
+    check_remote = "ssh " + REMOTE_CONNECT + \
+        " tmux has-session -t " + execution_id
+    process = subprocess.run(check_remote.split())
+    if process.returncode == 0:
+        print("Remote still running. Tail of log:")
+        print("--------")
+        tail_log = "ssh " + REMOTE_CONNECT + \
+            " tail " + log_file
+        process = subprocess.run(tail_log.split())
+        print("--------")
+        return False
+
+    return True
+
+def fetch_data_from_remote(execution_dir, scenarios, num_runs):
+    # Fetching log file
+    log_file = execution_dir + REMOTE_LOG_FILE
+    if not transfer_from_remote(log_file, execution_dir):
+        return False
+
+    tail_log = "tail " + log_file
+    print("Tail of log-file: " + log_file)
+    print("--------")
+    process = subprocess.run(tail_log.split())
+    print("--------")
+
+    # Fetching run logs
+    for scenario in scenarios:
+        for run in range(num_runs):
+            run_log_dir = scenario['path'] + "run" + str(run)
+            if not transfer_from_remote(run_log_dir, scenario['path'], True):
+                return False
+    return True
+
+def print_finished_message(config, start_time):
+    print("Finished experiment")
+    print_config(config)
+
+    end_time = datetime.now()
+    print("End time:", end_time)
+    print("Duration:", end_time - start_time)
+
+# Typical usage:
+# With local execution of testbed:
+# `python3 experiment.py testbed test-orchestra/ spatial_test.ini`
+#
+# With remote execution of testbed is done in two steps.
+# First step:
+#
+# `python3 experiment.py testbed test-orchestra/ spatial_test.ini -r`
+#
+# which:
+# 1) Prepare local filesystem and builds firmwares
+# 2) Upload scripts and configuration to remote
+# 3) Make remote filesystem ready (experiment.py at remote with -p)
+# 4) Transfer firmwares from local to remote
+# 5) Start execution of testbed via remote (experiment.py at remote with -e)
+#
+# Second step:
+#
+# `python3 experiment.py testbed test-orchestra/ spatial_test.ini -f -i spatial_test_20220116_1`
+#
+# which:
+# 1) Check if remote execution is done
+# 2) Download logs and run analysis
 def main():
     parsedconfig, config = parse_config()
 
@@ -423,6 +656,81 @@ def main():
 
     prepare_datastructures(config.scenarios, config.execution_dir)
 
+    # Only do preparations. Used at remote to ready for receiving firmware++
+    if config.prepare_only:
+        prepare_filesystem(config.exp_name,
+             config.sim_dir,
+             config.scenarios,
+             config.executions_dir,
+             config.execution_dir,
+             config.remote_execution)
+        exit()
+
+    # Run testbed only. Used at remote after firmware++ has been received.
+    if config.run_only:
+        add_commands_build_firmware(config.scenarios)
+        add_commands_run_testbed(
+            config.exp_name, config.scenarios,
+            config.num_runs, config.duration,
+            config.nodes)
+        if not run_testbed(config.scenarios, config.num_runs):
+            print("\nError in executions. Exiting.")
+            exit()
+
+        print_finished_message(config, start_time)
+        exit()
+
+    # Start execution on remote. Used at local as first step (fetch is 2nd).
+    if config.remote_execution:
+        if config.type != "testbed":
+            print("Only remote testbed supported!")
+            exit()
+
+        prepare_filesystem(config.exp_name,
+                     config.sim_dir,
+                     config.scenarios,
+                     config.executions_dir,
+                     config.execution_dir)
+
+        print("Making testbed-run commands")
+        add_commands_build_firmware(config.scenarios)
+        add_commands_run_testbed(
+            config.exp_name, config.scenarios,
+            config.num_runs, config.duration,
+            config.nodes)
+
+        print("Adding firmwares")
+        if not add_firmware(config.scenarios):
+            exit()
+
+        print("\nStarting testbed remotely!")
+        if not run_testbed_remote(config.exp_name,
+                           config.sim_dir,
+                           config.execution_id,
+                           config.execution_dir,
+                           config.scenarios,
+                           config.remote_log_file):
+            print("Remote execution failed!")
+
+        cleanup(config.scenarios)
+        exit()
+
+    # Fetch data from remote and analyse
+    if config.fetch_from_remote:
+        if not is_remote_execution_done(
+            config.execution_dir, config.execution_id, config.remote_log_file):
+            exit()
+
+        if not fetch_data_from_remote(config.execution_dir, config.scenarios, config.num_runs):
+            print("Fetching data from remote failed")
+            exit()
+
+        # Process results
+        if not config.skip_post:
+            process_results(config.scenarios, config.execution_dir)
+        exit()
+
+    # No special cases. Continue running (if not disabled) and analyze.
     if config.do_run: 
         prepare_filesystem(config.exp_name,
                              config.sim_dir,
@@ -438,7 +746,7 @@ def main():
                                       parsedconfig)
 
             print("Making simulation-run commands")
-            run_cmds = create_run_sim_commands(
+            run_cmds = add_commands_run_sim(
                 config.exp_name, config.scenarios, config.num_runs)
 
             print("\nStarting simulation!")
@@ -446,10 +754,10 @@ def main():
                 print("\nError in executions. Exiting.")
                 exit()
 
-
         if config.type == "testbed":
             print("Making testbed-run commands")
-            create_run_testbed_commands(
+            add_commands_build_firmware(config.scenarios)
+            add_commands_run_testbed(
                 config.exp_name, config.scenarios,
                 config.num_runs, config.duration,
                 config.nodes)
@@ -469,12 +777,7 @@ def main():
     if not config.skip_post:
         process_results(config.scenarios, config.execution_dir)
 
-    print("Finished experiment")
-    print_config(config)
-
-    end_time = datetime.now()
-    print("End time:", end_time)
-    print("Duration:", end_time - start_time)
+    print_finished_message(config, start_time)
 
 main()
 
