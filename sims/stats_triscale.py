@@ -37,7 +37,7 @@ def calculate_absolute_metrics(input_df, metric, measure):
                 print("ETX for spatial reuse cells: %.4f" % spatial_reuse_etx)
                 return spatial_reuse_etx
             else:
-                print("No spatial reuse")
+                #print("No spatial reuse")
                 return 0
         elif measure == "absolute_etx_no_spatial":
             no_spatial_reuse_success = len(no_spatial_reuse_df[no_spatial_reuse_df["result"] == 0])
@@ -110,10 +110,10 @@ def analyze_run(packets_df, energest_df, queue_df, mac_tx_df, cell_df):
         ss_app_cell_df[NUM_ROWS_SKIP_SS_START:-NUM_ROWS_SKIP_SS_END]
 
     # Make queue DF per node
-    ss_queue_df_2 = ss_queue_df.copy()
-    ss_queue_df_2 = ss_queue_df_2[ss_queue_df_2.node == 2]
-    ss_queue_df_3 = ss_queue_df.copy()
-    ss_queue_df_3 = ss_queue_df_3[ss_queue_df_3.node == 3]
+    #ss_queue_df_2 = ss_queue_df.copy()
+    #ss_queue_df_2 = ss_queue_df_2[ss_queue_df_2.node == 2]
+    #ss_queue_df_3 = ss_queue_df.copy()
+    #ss_queue_df_3 = ss_queue_df_3[ss_queue_df_3.node == 3]
 
     # Make the following metrics for the given measures for the given DFs
     # The-per-node is a bit hackish - gave them special prefix
@@ -136,9 +136,10 @@ def analyze_run(packets_df, energest_df, queue_df, mac_tx_df, cell_df):
            {"df":ss_app_cell_df, "metric":metric_app_cell, "prefix":"ss_"},
            {"df":ss_packets_df, "metric":metric_packets, "prefix":"ss_"},
            {"df":ss_energest_df, "metric":metric_energest, "prefix":"ss_"},
-           {"df":ss_queue_df, "metric":metric_queue, "prefix":"ss_"},
-           {"df":ss_queue_df_2, "metric":metric_queue, "prefix":"ss2_"},
-           {"df":ss_queue_df_3, "metric":metric_queue, "prefix":"ss3_"}]
+           {"df":ss_queue_df, "metric":metric_queue, "prefix":"ss_"}
+           #{"df":ss_queue_df_2, "metric":metric_queue, "prefix":"ss2_"},
+           #{"df":ss_queue_df_3, "metric":metric_queue, "prefix":"ss3_"}
+           ]
     
     # Actually make metrics and fill into DF entry
     run_entry = {}
