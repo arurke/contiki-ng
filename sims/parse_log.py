@@ -820,16 +820,16 @@ def parse_logs_dir(directory, app_warmup):
             if status == "error":
                 print("Unexpected situation in " + name_of_run + "!")
                 skipped_runs_error += 1
-                exit()
-                #continue
+                #exit()
+                continue
             elif status == "spatial":
                 print("Skipped " + name_of_run + ": Lacking spatial reuse!")
                 skipped_runs_spatial += 1
                 continue
             elif status == "switch":
                 print("Skipped " + name_of_run + ": Parent switch during app!")
-                #skipped_runs_switch += 1
-                #continue
+                skipped_runs_switch += 1
+                continue
 
             for df_name in run_dfs:
                 # Add this DF to the dictionary of DFs
