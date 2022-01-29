@@ -561,17 +561,20 @@ def parse_logfile(file, app_warmup, quiet=False):
         testbed = False
 
     data_arrays = doParse(file, app_warmup, testbed)
-
     dfs = convert_data_arrays_to_dfs(data_arrays)
+
+    meta = {"result": "ok"}
 
     if len(dfs) == 0:
         print("Empty DFs!")
-        return "error", None
+        meta["result"] = "error"
+        return None, meta
 
     # Verify application has finished on all nodes
     if "packets" not in dfs:
         print("No packets sent!")
-        return "error", None
+        meta["result"] = "error"
+        return None, meta
 
     # Remove n last packets as we do not know if there was time to RX at sink
     # TODO is 1 min good? What about other DFs?
@@ -595,7 +598,8 @@ def parse_logfile(file, app_warmup, quiet=False):
     if num_joined_nodes != num_non_root_nodes:
         print("Not all nodes joined DAO! " +
               str(num_joined_nodes) + "/" + str(num_non_root_nodes))
-        return "error", None
+        meta["result"] = "error"
+        return None, meta
 
     # Topology changes after app started
     #if "app_parent_switch" in dfs:
@@ -606,11 +610,12 @@ def parse_logfile(file, app_warmup, quiet=False):
     # Topology changes after app started
     parent_switch_df = dfs["switches"]
     parent_switch_count = len(parent_switch_df[parent_switch_df["app_started"] == 1])
+    meta["parent_swith_during_app"] = parent_switch_count
     if parent_switch_count > 0:
         print("Parent switch during application!")
-        return "switch", None
+        #meta["result"] = "switch"
+        #return None, meta
         #outputStats(dfs, "switches", "pswitch", "count", "RPL parent switches (#)")
-        #return None
 
     # There are some problems with the queue-stuff:
     # 1. All packets are counted, thus the queue overflow is larger than
@@ -629,6 +634,7 @@ def parse_logfile(file, app_warmup, quiet=False):
             app_overflows = len(overflows_df[overflows_df["app"] == 1])
         else:
             app_overflows = 0
+
 
     packets_df = dfs["packets"]
     app_packets_df = packets_df[packets_df["app_started"] == 1]
@@ -678,7 +684,8 @@ def parse_logfile(file, app_warmup, quiet=False):
         # there is still not more than 40 % spatial reuse
         if spatial_reuse_ratio > 3 and spatial_reuse_ratio < 40:
             print("Too little spatial reuse for scenario!")
-            return "spatial", None
+            meta["result"] = "spatial"
+            return None, meta
 
         print("ETX for spatial reuse cells: %.4f", spatial_reuse_etx)
         print("ETX for no-spatial reuse cells: %.4f",
@@ -696,6 +703,11 @@ def parse_logfile(file, app_warmup, quiet=False):
     #print("  dl-miss w/err: " + str(dl_miss_err))
 
     # Check MAC stats
+    # TODO propably could use some Python NaN-ish value
+    timing_err_total_app = 999
+    hack_mismatch_total_app = 999
+    hack_err_total_app = 999
+    hack_deletions_total_app = 999
     if "mac_stats" in dfs:
         mac_stats_df = dfs["mac_stats"]
         mac_stats_before_app_df = mac_stats_df[mac_stats_df["app_started"] == 0]
@@ -714,6 +726,11 @@ def parse_logfile(file, app_warmup, quiet=False):
             mac_stats_app_df.groupby('node')["hack_deletions"].max().sum() - \
             mac_stats_before_app_df.groupby('node')["hack_deletions"].max().sum()
 
+        meta["timing_errors_during_app"] = timing_err_total_app
+        meta["hack_mismatch_during_app"] = hack_mismatch_total_app
+        meta["hack_errors_during_app"] = hack_err_total_app
+        meta["hack_deletions_during_app"] = hack_deletions_total_app
+
         print("MAC errors: timing-error: %d, hack-mismatch: %d, " \
               "hack-error %d, hack-deletions: %d" % \
               (timing_err_total_app, hack_mismatch_total_app,
@@ -721,19 +738,23 @@ def parse_logfile(file, app_warmup, quiet=False):
         if timing_err_total_app > 10:
             print("Too many timing errors!")
             outputStats(dfs, "mac_stats", "timing_err", "max", "Missed TSCH timings")
-            return "error", None
+            meta["result"] = "error"
+            return None, meta
         if hack_mismatch_total_app > 10:
             print("Too many hack mismatches!")
             outputStats(dfs, "mac_stats", "hack_mismatch", "max", "Hack mismatch")
-            return "error", None
+            meta["result"] = "error"
+            return None, meta
         if hack_err_total_app > 10:
             print("Too many hack errors!")
             outputStats(dfs, "mac_stats", "hack_err", "max", "Hack errors")
-            return "error", None
+            meta["result"] = "error"
+            return None, meta
         if hack_deletions_total_app > 10:
             print("Too many hack deletions!")
             outputStats(dfs, "mac_stats", "hack_deletions", "max", "Hack deleted packets")
-            return "error", None
+            meta["result"] = "error"
+            return None, meta
 
     print("Num tx: " + str(app_tx["transmissions"].sum()))
     print("Num ok tx: " + str(len(app_tx["transmissions"][app_tx["result"] == "ok"])))
@@ -773,7 +794,7 @@ def parse_logfile(file, app_warmup, quiet=False):
     #outputStats(dfs, "ranks", "rank", "mean", "RPL rank (ETX-128)")
     outputStats(dfs, "hop_count", "hop_count", "max", "Hop count max")
     outputStats(dfs, "hop_count", "hop_count", "min", "Hop count min")
-    outputStats(dfs, "hop_count", "hop_count", "mean", "Hop count mean")
+    #outputStats(dfs, "hop_count", "hop_count", "mean", "Hop count mean")
     outputStats(dfs, "switches", "pswitch", "count", "RPL parent switches (#)")
     #outputStats(dfs, "dag_inits", "event", "count", "RPL joining DAG (#)")
     #outputStats(dfs, "trickle", "trickle", "mean", "RPL Trickle period (min)")
@@ -791,44 +812,44 @@ def parse_logfile(file, app_warmup, quiet=False):
     outputStats(dfs, "ranks", "nbr_count", "max", "Max. neighbor count")
 
     # All dfs for this run
-    return "ok", dfs
+    return dfs, meta
 
 # Inspired by http://www.randalolson.com/2012/06/26/using-pandas-dataframes/
 # Parses all logs in directory into a dict of DFs
 def parse_logs_dir(directory, app_warmup):
     directory = directory.rstrip('/') + "/*"
 
-    # A ditionary of metrics containing dictionaries of DF from each run
+    # A dictionary of metrics containing dictionaries of DF from each run
     all_runs_dfs = defaultdict(dict)
 
+    # Metadata about the scenario
+    scenario_metadata = []
+
     # Iterate all folders containing different runs in the directory
-    skipped_runs_spatial = 0
-    skipped_runs_switch = 0
-    skipped_runs_error = 0
-    num_runs = 0
     for folder in glob.glob(directory):
         # Iterate and parse all log files in the folder
         # We have only one file pr run at the moment, but this might change
         for logfile in glob.glob(folder + "/" + SCRIPT_LOG_PATTERN):
-            num_runs += 1
             name_of_run = os.path.basename(folder)
+
             print("Parsing " + logfile)
 
-            status, run_dfs = \
+            run_dfs, meta = \
                 parse_logfile(logfile, app_warmup, logging.getLogger() == logging.INFO)
 
-            if status == "error":
+            # Metadata
+            run_metadata = {"name": name_of_run}
+            run_metadata.update(meta)
+            scenario_metadata.append(run_metadata)
+
+            if meta["result"] == "error":
                 print("Unexpected situation in " + name_of_run + "!")
-                skipped_runs_error += 1
-                #exit()
                 continue
-            elif status == "spatial":
+            elif meta["result"] == "spatial":
                 print("Skipped " + name_of_run + ": Lacking spatial reuse!")
-                skipped_runs_spatial += 1
                 continue
-            elif status == "switch":
+            elif meta["result"] == "switch":
                 print("Skipped " + name_of_run + ": Parent switch during app!")
-                skipped_runs_switch += 1
                 continue
 
             for df_name in run_dfs:
@@ -838,21 +859,34 @@ def parse_logs_dir(directory, app_warmup):
                 csv_name = str(Path(logfile).parent) + "/" + df_name + ".csv"
                 run_dfs[df_name].to_csv(csv_name)
 
+    # Make DF from the metadata
+    scenario_meta_df = pd.DataFrame(scenario_metadata)
+    scenario_meta_df = scenario_meta_df.set_index("name")
+
+    total_runs = len(scenario_meta_df)
+    parsed_runs = len(scenario_meta_df[scenario_meta_df["result"] == "ok"])
+    skipped_runs_spatial = \
+        len(scenario_meta_df[scenario_meta_df["result"] == "spatial"])
+    skipped_runs_switch = \
+        len(scenario_meta_df[scenario_meta_df["result"] == "switch"])
+    skipped_runs_error = \
+        len(scenario_meta_df[scenario_meta_df["result"] == "error"])
+
     if (skipped_runs_spatial + skipped_runs_switch + skipped_runs_error) != 0:
-        print("Parsed " + str(len(all_runs_dfs["energest"].keys())) +
-              " out of " + str(num_runs))
+        print("Parsed " + str(parsed_runs) + " out of " + str(total_runs))
         print("Skips due to spatial: " + str(skipped_runs_spatial) +
               ", parent switch: " + str(skipped_runs_switch) +
               ", errors: " + str(skipped_runs_error))
     else:
-        print("Parsed all runs (no skips): " + str(all_runs_dfs["energest"].keys()))
-    return all_runs_dfs
+        print("Parsed all runs (no skips): " + str(total_runs))
+    return scenario_meta_df, all_runs_dfs
 
 def parse_logs_scenario(scenario_dir, scenario_name, app_warmup):
-    print("\nNow parsing scenario " + scenario_name)
-    dfs = parse_logs_dir(scenario_dir, app_warmup)
-    #print("Parsed runs: " + str(dfs["energest"].keys()))
-    return dfs
+    print("\n\nNow parsing scenario " + scenario_name)
+    scenario_meta_df, dfs = parse_logs_dir(scenario_dir, app_warmup)
+    print(scenario_meta_df)
+    print("Done parsing scenario " + scenario_name + "\n\n")
+    return scenario_meta_df, dfs
 
 def parse_logs_scenarios(scenarios, quiet=False):
     # Stop output. This solution is a mess and I dont understand it. TODO
@@ -864,10 +898,11 @@ def parse_logs_scenarios(scenarios, quiet=False):
                     format="%(message)s")
 
     for scenario in scenarios:
-        raw_dfs = parse_logs_scenario(scenario['path'],
+        scenario_meta_df, raw_dfs = parse_logs_scenario(scenario['path'],
                                       scenario['name'],
                                       int(scenario['app_warmup']))
 
+        scenario["meta_df"] = scenario_meta_df
         # Add the raw DFs to the scenario dict in the scenarios list
         scenario["raw_dfs"] = {}
         for df_name in raw_dfs:

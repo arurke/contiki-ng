@@ -125,6 +125,11 @@ def process_results(scenarios, execution_dir):
     # Add True as second argument to squelch output
     parse_logs_scenarios(scenarios)
 
+    # Save scenario meta DFs to CSV
+    for scenario in scenarios:
+        df_csv = scenario["path"] + scenario["name"] + "_meta_df.csv"
+        scenario["meta_df"].to_csv(df_csv)
+
     # Make time-series from the raw DFs
  #   for scenario in scenarios:
  #       plot_time_series(scenario, 350, 'run0', 0)
