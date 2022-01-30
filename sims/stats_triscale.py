@@ -2,6 +2,7 @@
 import pandas as pd
 import numpy as np
 import sys
+import matplotlib.pyplot as plt
 sys.path.append('triscale')
 import triscale as triscale
 
@@ -324,9 +325,170 @@ def stats_for_scenario(scenario, write_runs_csv = False):
 
     return scenario_df
 
-def stats_for_scenarios(scenarios, write_runs_csv = False):
-    scenarios_df_list = []
+def ad_hoc_etx_per_node_all(scenarios):
+    node_max_etx = []
+    for scenario in scenarios:
+        mac_tx_all_runs_df = scenario['raw_dfs']["raw_mac_tx_dfs"]
+        for run in mac_tx_all_runs_df.keys():
+            mac_tx_run_df = mac_tx_all_runs_df[run]
+            app_mac_tx_all_runs_df = \
+                mac_tx_run_df[mac_tx_run_df["app_started"] == 1]
 
+            groups = app_mac_tx_all_runs_df.groupby("node")["transmissions"]
+            for name, group in groups:
+                num_tx = group.sum()
+                node_df = app_mac_tx_all_runs_df[app_mac_tx_all_runs_df["node"] == name]
+                num_success = len(node_df[node_df["result"] == "ok"])
+                node_etx = num_tx / num_success
+                #print("Node %s: %d / %d : %.4f" % (name, num_tx, num_success, node_etx))
+            break
+
+def meta_parent_switches(scenarios, execution_dir):
+    # 1. Distribution of last parent switch
+    last_switches = []
+    last_switches_per_scenario = []
+    for scenario in scenarios:
+        switch_all_runs_df = scenario['raw_dfs']["raw_switches_dfs"]
+        #last_switches_in_scenario = np.empty(0)
+        last_switches_in_scenario = []
+        for run in switch_all_runs_df.keys():
+            switch_df = switch_all_runs_df[run]
+            if len(switch_df) == 0:
+                continue
+            last_switch = switch_df.iloc[-1:].index.tolist()
+            #print("Last parent switch: " + str(last_switch))
+            last_switches.append(last_switch)
+
+            # We try to fetch the index of the last row in the df
+            # Problem is that this is datatype TimeDelta which does not play
+            # well when we try to plot histograms with multiple variables,
+            # which expects an array of arrays of numbers.
+
+            # Convert from timedelta
+            # I don't understand this one, but we get a Float64Index
+            # (which is basically a list, and then we get a Float64 by fetching first value.
+            # From https://stackoverflow.com/questions/23543909/plotting-pandas-timedelta/54729327
+            last_switch_timestamp = switch_df.iloc[-1:].index / pd.Timedelta(minutes=1)
+            last_switches_in_scenario.append(last_switch_timestamp.values[0])
+
+        last_switches_per_scenario_array = np.array(last_switches_in_scenario)
+        last_switches_per_scenario.append(last_switches_per_scenario_array)
+
+    # Last switch for all runs
+    df = pd.DataFrame(last_switches, columns= ['last_switch'])
+    df['last_switch'].astype('timedelta64[m]').plot.hist(bins=20)
+    plt.xlabel("Duration of experiment (minutes)")
+    plt.ylabel("Number of runs with last parent switches")
+    plt.savefig(execution_dir + "meta_last_parent_switch.pdf")
+    plt.close()
+
+    # Last switch per scenario
+    plt.hist(last_switches_per_scenario, bins=20, stacked=False)
+    scenario_names = []
+    for scenario in scenarios:
+        scenario_names.append(scenario["name"])
+    plt.legend(scenario_names)
+    plt.xlabel("Duration of experiment (minutes)")
+    plt.ylabel("Number of runs with last parent switches")
+    plt.locator_params(axis='y', integer=True)
+    plt.savefig(execution_dir + "meta_last_parent_switch_per_scenario.pdf")
+    plt.close()
+
+
+    # 2. Distribution of all parent switches
+    switches_per_scenario = []
+    for scenario in scenarios:
+        switches = []
+        switches_in_scenario = np.empty(0)
+        switch_all_runs_df = scenario['raw_dfs']["raw_switches_dfs"]
+        for run in switch_all_runs_df.keys():
+            switch_df = switch_all_runs_df[run]
+            if len(switch_df) == 0:
+                continue
+            # Same technique as above
+            switch_timestamps = switch_df.index / pd.Timedelta(minutes=1)
+            switches_in_scenario = \
+                np.concatenate((switches_in_scenario, switch_timestamps.values))
+            switches.append(switch_timestamps)
+
+        switches_per_scenario.append(switches_in_scenario)
+
+        # All runs individually per scenario
+        plt.hist(switches, bins=60, stacked=True)
+        plt.xlabel("Duration of experiment (minutes)")
+        plt.ylabel("Number of parent switches")
+        plt.locator_params(axis='y', integer=True)
+        plt.savefig(execution_dir +
+                    "meta_" +
+                    scenario["name"] +
+                    "_parent_switch.pdf")
+        plt.close()
+
+    # All runs in each scenario combined
+    plt.hist(switches_per_scenario, bins=30, stacked=False)
+    scenario_names = []
+    for scenario in scenarios:
+        scenario_names.append(scenario["name"])
+    plt.xlabel("Duration of experiment (minutes)")
+    plt.ylabel("Number of parent switches")
+    plt.locator_params(axis='y', integer=True)
+    plt.legend(scenario_names)
+    plt.savefig(execution_dir + "meta_parent_switch.pdf")
+    plt.close()
+
+def meta_etx_timelines(scenarios, execution_dir):
+    for scenario in scenarios:
+        mac_tx_all_runs_df = scenario['raw_dfs']["raw_mac_tx_dfs"]
+        for run in mac_tx_all_runs_df.keys():
+            mac_tx_df = mac_tx_all_runs_df[run]
+            app_tx_df = mac_tx_df[mac_tx_df["app"] == 1]
+
+            # Look only at runs which had parent-switches
+            switches_df = scenario['raw_dfs']["raw_switches_dfs"][run]
+            switches_app_df = switches_df[switches_df["app_started"] == 1]
+            if len(switches_app_df) == 0:
+                continue
+
+            # Resample so that we get one row per 10 second
+            # TODO using transmissions only does not handle failed TXs
+            # TODO we also do all cells and not just the spatial reused
+            app_tx_df = app_tx_df["transmissions"].resample('10s').mean()
+
+            # Convert the index to minutes instead of nanoseconds
+            # (also changes the datatype from TimeDelta to Float64)
+            app_tx_df.index = app_tx_df.index / pd.Timedelta(minutes=1)
+
+            # Get timestamps for parent switches
+            switches = switches_app_df.index / pd.Timedelta(minutes=1)
+
+            #fig, ax = plt.subplots(figsize=(14, 6), dpi=80)
+            fig, ax = plt.subplots()
+            ax.plot(app_tx_df)
+            for switch in switches:
+                plt.axvline(x=switch, color="red", linestyle="--", label="Parent switch")
+            plt.legend()
+            plt.xlabel("Duration of experiment (minutes)")
+            plt.ylabel("Mean ETX")
+            plt.savefig(execution_dir + "meta_" + scenario['name'] + \
+                         "_" + run + "_etx_timeline.pdf")
+            plt.close()
+
+def meta_stats(scenarios, execution_dir):
+
+    meta_parent_switches(scenarios, execution_dir)
+
+    meta_etx_timelines(scenarios, execution_dir)
+
+    ad_hoc_etx_per_node_all(scenarios)
+
+    for scenario in scenarios:
+        print("Meta for scenario " + scenario['name'] + ":")
+        print(scenario["meta_df"])
+
+def stats_for_scenarios(scenarios, execution_dir, write_runs_csv = False):
+    meta_stats(scenarios, execution_dir)
+
+    scenarios_df_list = []
     for scenario in scenarios:
         scenarios_df_list.append(stats_for_scenario(scenario, write_runs_csv))
 
