@@ -31,8 +31,8 @@ def plot_pdr_latency_multi_sims(df_orch, df_lay, name, save, title=False):
     color = 'tab:red'
     ax1.set_xlabel('traffic intensity, as % of node schedule capacity')
     ax1.set_ylabel('latency (s)', color=color)
-    test1 = ax1.plot(df_orch.index, df_orch["ss_latency_99.9"], color=color, marker=orch_marker)
-    ax1.plot(df_lay.index, df_lay["ss_latency_99.9"], color=color, marker=lay_marker)
+    test1 = ax1.plot(df_orch.index, df_orch["latency_99.9"], color=color, marker=orch_marker)
+    ax1.plot(df_lay.index, df_lay["latency_99.9"], color=color, marker=lay_marker)
     ax1.set_ylim(bottom=0)
     ax1.tick_params(axis='y', labelcolor=color)
     
@@ -48,8 +48,8 @@ def plot_pdr_latency_multi_sims(df_orch, df_lay, name, save, title=False):
     ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
     color = 'tab:blue'
     ax2.set_ylabel('packet delivery ratio (%)', color=color)  # we already handled the x-label with ax1
-    ax2.plot(df_orch.index, df_orch.ss_pdr_mean, color=color, marker=orch_marker)
-    ax2.plot(df_lay.index, df_lay.ss_pdr_mean, color=color, marker=lay_marker)
+    ax2.plot(df_orch.index, df_orch.pdr_mean, color=color, marker=orch_marker)
+    ax2.plot(df_lay.index, df_lay.pdr_mean, color=color, marker=lay_marker)
     ax2.set_ylim(bottom=0, top=105)
     ax2.tick_params(axis='y', labelcolor=color)
     
@@ -92,14 +92,14 @@ def plot_duty_cycle_multi_sims(df_orch, df_lay, name, save, title=False):
     lay_marker = '^'
     
     # Duty cycle
-    plt.plot(df_orch.index, df_orch["ss_duty_cycle_mean"], 
+    plt.plot(df_orch.index, df_orch["duty_cycle_mean"],
              marker=orch_marker, label="Orchestra")
-    plt.plot(df_lay.index, df_lay["ss_duty_cycle_mean"], 
+    plt.plot(df_lay.index, df_lay["duty_cycle_mean"],
              marker=lay_marker, label="Layered")
 
     # Channel utilization
     #color = 'tab:blue'
-    #plt.plot(scenarios_df.index, scenarios_df["ss_channel_utilization_50"], color=color,
+    #plt.plot(scenarios_df.index, scenarios_df["channel_utilization_50"], color=color,
     #         marker='o', label="Channel utilization")
 
     fig.tight_layout()  # otherwise the right y-label is slightly clipped
@@ -131,9 +131,9 @@ def plot_duty_cycle_per_pdr_multi_sims(df_orch, df_lay, name, save, title=False)
     lay_marker = '^'
     
     # Duty cycle
-    plt.plot(df_orch.index, df_orch["ss_duty_cycle_mean"] / df_orch["ss_pdr_mean"], 
+    plt.plot(df_orch.index, df_orch["duty_cycle_mean"] / df_orch["pdr_mean"],
              marker=orch_marker, label="Orchestra DC per PDR")
-    plt.plot(df_lay.index, df_lay["ss_duty_cycle_mean"]  / df_lay["ss_pdr_mean"], 
+    plt.plot(df_lay.index, df_lay["duty_cycle_mean"]  / df_lay["pdr_mean"],
              marker=lay_marker, label="Layered DC per PDR")
 
     #plt.figure(figsize=(30,10))

@@ -6,10 +6,6 @@ import matplotlib.pyplot as plt
 sys.path.append('triscale')
 import triscale as triscale
 
-NUM_ROWS_SKIP_SS_START = 1
-NUM_ROWS_SKIP_SS_END = 1
-TIME_TO_SKIP_STEADY_STATE = "1 Sec"
-
 def calculate_absolute_metrics(input_df, metric, measure):
     if measure == "absolute_etx":
         app_tx_etx = input_df["transmissions"].sum() / \
@@ -90,32 +86,6 @@ def analyze_run(run_name, packets_df, energest_df, queue_df, mac_tx_df, cell_df,
     app_mac_tx_df = mac_tx_df[mac_tx_df["app"] == 1].copy()
     app_cell_df = cell_df[cell_df["app"] == 1].copy()
 
-    # Create DFs with steady state (i.e. drop at start and end)
-    ss_packets_df = packets_df.copy()
-    ss_energest_df = energest_df.copy()
-    ss_queue_df = queue_df.copy()
-    ss_app_mac_tx_df = app_mac_tx_df.copy()
-    ss_app_cell_df = app_cell_df.copy()
-
-    packet_start = packets_df.index.values[0]
-    packet_start_ss = packet_start + pd.Timedelta(TIME_TO_SKIP_STEADY_STATE)
-    packet_end = packets_df.index.values[-1]
-    packet_end_ss = packet_end - pd.Timedelta(TIME_TO_SKIP_STEADY_STATE)
-
-    # By time
-    #steady_state_df = steady_state_df[packet_start_ss:packet_end_ss]
-    ss_energest_df = ss_energest_df[packet_start_ss:packet_end_ss]
-
-    # By packets
-    ss_packets_df = \
-        ss_packets_df[NUM_ROWS_SKIP_SS_START:-NUM_ROWS_SKIP_SS_END]
-    ss_queue_df = \
-        ss_queue_df[NUM_ROWS_SKIP_SS_START:-NUM_ROWS_SKIP_SS_END]
-    ss_app_mac_tx_df = \
-        ss_app_mac_tx_df[NUM_ROWS_SKIP_SS_START:-NUM_ROWS_SKIP_SS_END]
-    ss_app_cell_df = \
-        ss_app_cell_df[NUM_ROWS_SKIP_SS_START:-NUM_ROWS_SKIP_SS_END]
-
     # Make queue DF per node
     #ss_queue_df_2 = ss_queue_df.copy()
     #ss_queue_df_2 = ss_queue_df_2[ss_queue_df_2.node == 2]
@@ -139,11 +109,6 @@ def analyze_run(run_name, packets_df, energest_df, queue_df, mac_tx_df, cell_df,
            {"df":queue_df, "metric":metric_queue, "prefix":""},
            {"df":app_mac_tx_df, "metric":metric_mac_app_tx, "prefix":""},
            {"df":app_cell_df, "metric":metric_app_cell, "prefix":""},
-           {"df":ss_app_mac_tx_df, "metric":metric_mac_app_tx, "prefix":"ss_"},
-           {"df":ss_app_cell_df, "metric":metric_app_cell, "prefix":"ss_"},
-           {"df":ss_packets_df, "metric":metric_packets, "prefix":"ss_"},
-           {"df":ss_energest_df, "metric":metric_energest, "prefix":"ss_"},
-           {"df":ss_queue_df, "metric":metric_queue, "prefix":"ss_"}
            #{"df":ss_queue_df_2, "metric":metric_queue, "prefix":"ss2_"},
            #{"df":ss_queue_df_3, "metric":metric_queue, "prefix":"ss3_"}
            ]

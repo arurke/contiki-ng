@@ -321,17 +321,17 @@ def plot_queue_util_selected_nodes(scenarios_df, execution_dir, title=False):
 def plot_duty_cycle(scenarios_df, execution_dir, title=False):
     # Duty cycle
     color = 'tab:red'
-    plt.plot(scenarios_df.index, scenarios_df["ss_duty_cycle_mean"], color=color,
+    plt.plot(scenarios_df.index, scenarios_df["duty_cycle_mean"], color=color,
              marker='o', label="Duty cycle")
 
     # Duty cycle TX
     color = 'tab:blue'
-    plt.plot(scenarios_df.index, scenarios_df["ss_duty_cycle_tx_mean"], color=color,
+    plt.plot(scenarios_df.index, scenarios_df["duty_cycle_tx_mean"], color=color,
              marker='o', label="Duty cycle TX")
 
     # Duty cycle RX
     color = 'tab:green'
-    plt.plot(scenarios_df.index, scenarios_df["ss_duty_cycle_rx_mean"], color=color,
+    plt.plot(scenarios_df.index, scenarios_df["duty_cycle_rx_mean"], color=color,
              marker='o', label="Duty cycle RX")
 
     plt.tight_layout()  # otherwise the right y-label is slightly clipped
@@ -359,9 +359,9 @@ def plot_pdr_latency(scenarios_df, execution_dir, title=False):
     color = 'tab:red'
     ax1.set_xlabel('traffic intensity, as % of node schedule capacity')
     ax1.set_ylabel('Latency (s)', color=color)
-    ax1.plot(latency_df.index, latency_df["ss_latency_99"], color=color, marker='o')
+    ax1.plot(latency_df.index, latency_df["latency_99"], color=color, marker='o')
     ax1.set_ylim(bottom=0)
-    #ax1.plot(latency_df.index, latency_df.ss_latency_maximum, color=color, marker='o')
+    #ax1.plot(latency_df.index, latency_df.latency_maximum, color=color, marker='o')
     ax1.tick_params(axis='y', labelcolor=color)
 
     # Loss
@@ -370,7 +370,7 @@ def plot_pdr_latency(scenarios_df, execution_dir, title=False):
     ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
     color = 'tab:blue'
     ax2.set_ylabel('packet delivery ratio (%)', color=color)  # we already handled the x-label with ax1
-    ax2.plot(pdr_df.index, pdr_df.ss_pdr_mean, color=color, marker='o')
+    ax2.plot(pdr_df.index, pdr_df.pdr_mean, color=color, marker='o')
     ax2.set_ylim(bottom=0)
     ax2.tick_params(axis='y', labelcolor=color)
 

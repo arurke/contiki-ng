@@ -24,6 +24,7 @@ from pathlib import Path
 # Constants
 SCRIPT_LOG_PATTERN = '*.scriptlog'  # For simulations run by simexec.sh
 # SCRIPT_LOG_PATTERN = '*.testlog' # For simulations run directly
+TIME_TO_SKIP_AT_END = "1 Min"
 
 # Global variable to replace print for quiet mode
 print
@@ -33,6 +34,7 @@ parents = {}
 first_unixtime = None
 application_start = None
 application_done_count = 0
+final_time = 0
 
 metrics = ["packets", "energest", "ranks", "hop_count", "nbr_count",
            "app_parent_switch", "trickle", "switches", "dag_inits",
@@ -327,6 +329,7 @@ def doParse(file, app_warmup, testbed):
     global network_formation_time_ms
     global application_start
     global parents
+    global final_time
     parent = {}
     network_formation_time_ms = None
     application_start = None
@@ -357,6 +360,9 @@ def doParse(file, app_warmup, testbed):
 
         # app_warmup is given in minutes
         app_start_time_ms = app_warmup * 60 * 1000
+
+        # Final time will be used to invalidate end of log
+        final_time = timedelta(milliseconds=time)
 
         entry = {
             "timestamp": timedelta(milliseconds=time),
@@ -549,8 +555,10 @@ def parse_logfile(file, app_warmup, quiet=False):
     # Reset global resources
     global first_unixtime
     global application_done_count
+    global final_time
     first_unixtime = None
     application_done_count = 0
+    final_time = 0
 
     # Check if logfile is from FIT iot-lab
     if is_fitiotlab(file):
@@ -576,12 +584,11 @@ def parse_logfile(file, app_warmup, quiet=False):
         meta["result"] = "error"
         return None, meta
 
-    # Remove n last packets as we do not know if there was time to RX at sink
-    # TODO is 1 min good? What about other DFs?
-    TIME_TO_SKIP_STEADY_STATE = "1 Min"
-    packet_end = dfs["packets"].index.values[-1]
-    packet_end_ss = packet_end - pd.Timedelta(TIME_TO_SKIP_STEADY_STATE)
-    dfs["packets"] = dfs["packets"][dfs["packets"].index < packet_end_ss]
+    # Set app_started to 0 at end of all logs to remove e.g. packets in flight
+    last_valid_time = final_time - pd.Timedelta(TIME_TO_SKIP_AT_END)
+    for df_name in dfs:
+        df = dfs[df_name]
+        df.loc[df.index > last_valid_time, "app_started"] = 0
 
     num_tx_nodes = dfs["packets"].node.nunique()
     #if application_done_count != num_tx_nodes:
@@ -710,8 +717,12 @@ def parse_logfile(file, app_warmup, quiet=False):
     hack_deletions_total_app = 999
     if "mac_stats" in dfs:
         mac_stats_df = dfs["mac_stats"]
-        mac_stats_before_app_df = mac_stats_df[mac_stats_df["app_started"] == 0]
         mac_stats_app_df = mac_stats_df[mac_stats_df["app_started"] == 1]
+
+        # app_warmup is given in minutes
+        app_start_time_ms = app_warmup * 60 * 1000
+        mac_stats_before_app_df = \
+            mac_stats_df[mac_stats_df.index < timedelta(milliseconds=app_start_time_ms)]
 
         timing_err_total_app = \
             mac_stats_app_df.groupby('node')["timing_err"].max().sum() - \
@@ -871,14 +882,14 @@ def parse_logs_dir(directory, app_warmup):
         len(scenario_meta_df[scenario_meta_df["result"] == "switch"])
     skipped_runs_error = \
         len(scenario_meta_df[scenario_meta_df["result"] == "error"])
+    converged_runs = \
+        len(scenario_meta_df[scenario_meta_df["parent_swith_during_app"] == 0])
 
-    if (skipped_runs_spatial + skipped_runs_switch + skipped_runs_error) != 0:
-        print("Parsed " + str(parsed_runs) + " out of " + str(total_runs))
-        print("Skips due to spatial: " + str(skipped_runs_spatial) +
-              ", parent switch: " + str(skipped_runs_switch) +
-              ", errors: " + str(skipped_runs_error))
-    else:
-        print("Parsed all runs (no skips): " + str(total_runs))
+    print("Parsed " + str(parsed_runs) + " out of " + str(total_runs))
+    print("Skips due to spatial: " + str(skipped_runs_spatial) +
+          ", parent switch: " + str(skipped_runs_switch) +
+          ", errors: " + str(skipped_runs_error))
+    print("Converged: " + str(converged_runs) + " out of " + str(total_runs))
     return scenario_meta_df, all_runs_dfs
 
 def parse_logs_scenario(scenario_dir, scenario_name, app_warmup):
