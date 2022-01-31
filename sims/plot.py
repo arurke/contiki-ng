@@ -2,6 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 from dataclasses import dataclass
+import itertools
 # For plot to show up in IPython
 #%matplotlib inline
 
@@ -9,6 +10,75 @@ from dataclasses import dataclass
 #df_queue = pd.read_csv('outQ.csv')
 
 plt.rcParams.update({'font.size': 8})
+
+def plot_etx_details(scenarios_df, execution_dir, title=False):
+
+    # Data
+    spatial_reuse_row = scenarios_df.loc["spatial_reuse"]
+    no_spatial_reuse_row = scenarios_df.loc["no_spatial_reuse"]
+
+    # Setup the dataframe
+    categories = ['Spatial reuse', 'No spatial reuse']
+
+    converged_data_max = [
+        spatial_reuse_row['converged_app_cell_etx_absolute_etx_spatial_U'],
+        no_spatial_reuse_row['converged_mac_app_tx_etx_absolute_etx_U']]
+    converged_data_min = [
+        spatial_reuse_row['converged_app_cell_etx_absolute_etx_spatial_L'],
+        no_spatial_reuse_row['converged_mac_app_tx_etx_absolute_etx_L']]
+    converged_data_mean = [
+        (converged_data_max[0] + converged_data_min[0]) / 2,
+        (converged_data_max[1] + converged_data_min[1]) / 2]
+
+    all_data_max = [
+        spatial_reuse_row['app_cell_etx_absolute_etx_spatial_U'],
+        no_spatial_reuse_row['mac_app_tx_etx_absolute_etx_U']]
+    all_data_min = [
+        spatial_reuse_row['app_cell_etx_absolute_etx_spatial_L'],
+        no_spatial_reuse_row['mac_app_tx_etx_absolute_etx_L']]
+    all_data_mean = [
+        (all_data_max[0] + all_data_min[0]) / 2,
+        (all_data_max[1] + all_data_min[1]) / 2]
+
+    # the label locations
+    x = np.arange(len(categories))
+
+    # width of the bars
+    width = 0.2
+
+    fig, ax = plt.subplots()
+    rects2 = ax.bar(x-width/2, all_data_mean, width,
+                    yerr=[np.array(all_data_mean) - np.array(all_data_min),
+                          np.array(all_data_max) - np.array(all_data_mean)], capsize=10,
+                    label="All runs")
+    rects1 = ax.bar(x+width/2, converged_data_mean, width,
+                    yerr=[np.array(converged_data_mean) - np.array(converged_data_min),
+                          np.array(converged_data_max) - np.array(converged_data_mean)], capsize=10,
+                    label="Converged runs")
+
+    # ax.bar_label would not work for some reason. So we found this online.
+    for rect in itertools.chain(rects1, rects2):
+        height = rect.get_height()
+        ax.text(rect.get_x()+rect.get_width()/6, 1.0*height,
+                '%.2f' % height,
+                ha='center', va='bottom')
+
+    ax.set_ylabel('ETX')
+    ax.set_xticks(x)
+    ax.set_xticklabels(categories)
+    ax.legend()
+    #ax.legend(loc='upper right')
+    fig.tight_layout()
+
+    fig_name = "etx_details"
+    if title:
+        plt.title(fig_name)
+    fig_dir = execution_dir
+    fig_path = fig_dir + fig_name + '.pdf'
+    plt.savefig(fig_path, bbox_inches='tight')
+    plt.close()
+    print("Made figure", fig_path)
+
 
 def plot_etx_comparison(scenarios_df, execution_dir, title=False):
 

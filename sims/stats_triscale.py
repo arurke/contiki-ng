@@ -79,18 +79,24 @@ def calculate_metric(input_df, metric, measure, check_convergence=False):
             plot=False, showplot=False, verbose=False)
     return measure
 
-def analyze_run(packets_df, energest_df, queue_df, mac_tx_df, cell_df):
+def analyze_run(run_name, packets_df, energest_df, queue_df, mac_tx_df, cell_df, switches_df):
+    run_entry = {"name": run_name}
+    if len(switches_df) == 0:
+        run_entry["converged"] = True
+    else:
+        run_entry["converged"] = False
+
     # Make DF with app-mac-packets only
     app_mac_tx_df = mac_tx_df[mac_tx_df["app"] == 1].copy()
     app_cell_df = cell_df[cell_df["app"] == 1].copy()
-    
+
     # Create DFs with steady state (i.e. drop at start and end)
     ss_packets_df = packets_df.copy()
     ss_energest_df = energest_df.copy()
     ss_queue_df = queue_df.copy()
     ss_app_mac_tx_df = app_mac_tx_df.copy()
     ss_app_cell_df = app_cell_df.copy()
-    
+
     packet_start = packets_df.index.values[0]
     packet_start_ss = packet_start + pd.Timedelta(TIME_TO_SKIP_STEADY_STATE)
     packet_end = packets_df.index.values[-1]
@@ -141,18 +147,19 @@ def analyze_run(packets_df, energest_df, queue_df, mac_tx_df, cell_df):
            #{"df":ss_queue_df_2, "metric":metric_queue, "prefix":"ss2_"},
            #{"df":ss_queue_df_3, "metric":metric_queue, "prefix":"ss3_"}
            ]
-    
+
     # Actually make metrics and fill into DF entry
-    run_entry = {}
     for df in dfs:
         for metric in df["metric"]:
             for measure in metric["measures"]:
                 run_metric_name = df["prefix"] + metric["metric"] + "_" + str(measure)
                 run_entry[run_metric_name] = \
                     calculate_metric(df["df"], metric["metric"], measure)
-    
+
     # Make DF out of the entry
-    return pd.DataFrame([run_entry])
+    df = pd.DataFrame([run_entry])
+    df = df.set_index("name")
+    return df
 
 def analyze_runs(raw_dfs):
     raw_packets_dfs = raw_dfs["raw_packets_dfs"]
@@ -160,17 +167,22 @@ def analyze_runs(raw_dfs):
     raw_queue_dfs = raw_dfs["raw_queue_dfs"]
     raw_mac_tx_dfs = raw_dfs["raw_mac_tx_dfs"]
     raw_cell_dfs = raw_dfs["raw_mac_cell_dfs"]
+    raw_switches_dfs = raw_dfs["raw_switches_dfs"]
 
     runs_df_dict = []
-    for key in raw_packets_dfs.keys():
+    for run in raw_packets_dfs.keys():
         runs_df_dict.append(
-            analyze_run(raw_packets_dfs[key][raw_packets_dfs[key]["app_started"] == 1],
-                        raw_energest_dfs[key][raw_energest_dfs[key]["app_started"] == 1],
-                        raw_queue_dfs[key][raw_queue_dfs[key]["app_started"] == 1],
-                        raw_mac_tx_dfs[key][raw_mac_tx_dfs[key]["app_started"] == 1],
-                        raw_cell_dfs[key][raw_cell_dfs[key]["app_started"] == 1]))
+            analyze_run(run,
+                        raw_packets_dfs[run][raw_packets_dfs[run]["app_started"] == 1],
+                        raw_energest_dfs[run][raw_energest_dfs[run]["app_started"] == 1],
+                        raw_queue_dfs[run][raw_queue_dfs[run]["app_started"] == 1],
+                        raw_mac_tx_dfs[run][raw_mac_tx_dfs[run]["app_started"] == 1],
+                        raw_cell_dfs[run][raw_cell_dfs[run]["app_started"] == 1],
+                        raw_switches_dfs[run][raw_switches_dfs[run]["app_started"] == 1]))
 
-    return pd.concat(runs_df_dict, ignore_index=True)
+    #ad_hoc_etx_per_node(raw_mac_tx_dfs,raw_cell_dfs)
+
+    return pd.concat(runs_df_dict)
 
 def calculate_kpi(values, settings, name):
     independent, kpi = triscale.analysis_kpi(
@@ -192,7 +204,7 @@ def analyze_scenario(runs_df, scenario_name):
     default_confidence = 95
     adhoc_percentile = 50
     adhoc_confidence = 95
-    
+
     kpis = [{"metric":"latency",
                 # "name":"_p" + str(adhoc_percentile) + "_%" + str(adhoc_confidence) + "_U",
                 "name":"",
@@ -292,7 +304,7 @@ def analyze_scenario(runs_df, scenario_name):
                        "bounds":[0,100],
                        "bound":"lower"}}
                ]
-    
+
     # TODO this needs some fixing as the naming of the columns in the resulting
     # DF will say _mean, _median, etc. while it is actually the default_percentile
     # default_confidence % CI of these values.
@@ -302,6 +314,17 @@ def analyze_scenario(runs_df, scenario_name):
                 scenario_entry[metric + kpi['name']] = calculate_kpi(runs_df[metric].values,
                                                        kpi["settings"],
                                                        metric)
+
+    # Now do only converged runs
+    runs_convergence_df = runs_df.copy()
+    runs_convergence_df = runs_convergence_df[runs_convergence_df["converged"] == True]
+    for metric in runs_convergence_df.columns:
+        for kpi in kpis:
+            if kpi["metric"] in metric:
+                scenario_entry["converged_" + metric + kpi['name']] = \
+                    calculate_kpi(runs_convergence_df[metric].values,
+                                  kpi["settings"],
+                                  metric)
 
     return pd.DataFrame([scenario_entry])
 
@@ -479,11 +502,29 @@ def meta_stats(scenarios, execution_dir):
 
     meta_etx_timelines(scenarios, execution_dir)
 
-    ad_hoc_etx_per_node_all(scenarios)
+    #ad_hoc_etx_per_node_all(scenarios)
 
     for scenario in scenarios:
         print("Meta for scenario " + scenario['name'] + ":")
         print(scenario["meta_df"])
+
+def print_meta_info(scenarios):
+    for scenario in scenarios:
+        scenario_meta_df = scenario["meta_df"]
+        total_runs = len(scenario_meta_df)
+        parsed_runs = len(scenario_meta_df[scenario_meta_df["result"] == "ok"])
+        skipped_runs_spatial = \
+            len(scenario_meta_df[scenario_meta_df["result"] == "spatial"])
+        skipped_runs_switch = \
+            len(scenario_meta_df[scenario_meta_df["result"] == "switch"])
+        skipped_runs_error = \
+            len(scenario_meta_df[scenario_meta_df["result"] == "error"])
+
+        print("Scenario " + scenario["name"] + ":")
+        print("\tParsed " + str(parsed_runs) + " out of " + str(total_runs))
+        print("\tSkips due to spatial: " + str(skipped_runs_spatial) +
+              ", parent switch: " + str(skipped_runs_switch) +
+              ", errors: " + str(skipped_runs_error))
 
 def stats_for_scenarios(scenarios, execution_dir, write_runs_csv = False):
     meta_stats(scenarios, execution_dir)
@@ -495,6 +536,8 @@ def stats_for_scenarios(scenarios, execution_dir, write_runs_csv = False):
     # Make one DF from the list of scenario DFs
     scenarios_df = pd.concat(scenarios_df_list)
     scenarios_df.set_index("scenario", inplace=True)
+
+    print_meta_info(scenarios)
 
     #print("Analyzed scenarios: " + str(scenarios))
     #print(scenarios_df)

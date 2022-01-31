@@ -14,6 +14,7 @@ try:
     from plot import plot_duty_cycle
     from plot import plot_queue_util_selected_nodes
     from plot import plot_etx_comparison
+    from plot import plot_etx_details
     #from stats import stats_for_scenarios
     from stats_triscale import stats_for_scenarios
     from simxml import simxml_make_xml_for_all_scenarios
@@ -138,21 +139,21 @@ def process_results(scenarios, execution_dir):
     # Get stats from the DFs
     scenarios_df = stats_for_scenarios(scenarios, execution_dir, True)
 
-    plot_etx_comparison(scenarios_df, execution_dir)
-
     # Save DF to CSV
     df_csv = execution_dir + "scenarios_df.csv"
     print("Saving csv of all scenarios at", df_csv)
     scenarios_df.to_csv(df_csv)
 
-    # Plot
-    plot_pdr_latency(scenarios_df, execution_dir)
-    plot_duty_cycle(scenarios_df, execution_dir)
-    plot_queue_util_selected_nodes(scenarios_df, execution_dir)
-
     # Print all columns
     pd.set_option('display.max_columns', None)
     print("Scenarios stats:\n", scenarios_df)
+
+    # Plot
+    plot_etx_comparison(scenarios_df, execution_dir)
+    plot_etx_details(scenarios_df, execution_dir)
+    plot_pdr_latency(scenarios_df, execution_dir)
+    plot_duty_cycle(scenarios_df, execution_dir)
+    plot_queue_util_selected_nodes(scenarios_df, execution_dir)
 
 # Create execution-id
 def create_execution_id(exp_name, executions_dir):
