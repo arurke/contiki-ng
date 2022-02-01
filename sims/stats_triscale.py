@@ -10,7 +10,7 @@ def calculate_absolute_metrics(input_df, metric, measure):
     if measure == "absolute_etx":
         app_tx_etx = input_df["transmissions"].sum() / \
             len(input_df[input_df["result"] == "ok"])
-        print("ETX for all TXs: %0.4f" % app_tx_etx)
+        #print("ETX for all TXs: %0.4f" % app_tx_etx)
         return app_tx_etx
 
     if measure == "absolute_etx_spatial" or measure == "absolute_etx_no_spatial":
@@ -39,9 +39,9 @@ def calculate_absolute_metrics(input_df, metric, measure):
         elif measure == "absolute_etx_no_spatial":
             no_spatial_reuse_success = len(no_spatial_reuse_df[no_spatial_reuse_df["result"] == 0])
             no_spatial_reuse_etx = no_spatial_reuse_total / no_spatial_reuse_success
-            print("ETX for no-spatial reuse cells: %.4f" %
-                  (len(no_spatial_reuse_df) /
-                  len(no_spatial_reuse_df[no_spatial_reuse_df["result"] == 0])))
+            #print("ETX for no-spatial reuse cells: %.4f" %
+            #      (len(no_spatial_reuse_df) /
+            #      len(no_spatial_reuse_df[no_spatial_reuse_df["result"] == 0])))
             return no_spatial_reuse_etx
 
     return None
@@ -484,12 +484,15 @@ def print_meta_info(scenarios):
             len(scenario_meta_df[scenario_meta_df["result"] == "switch"])
         skipped_runs_error = \
             len(scenario_meta_df[scenario_meta_df["result"] == "error"])
+        converged_runs = \
+            len(scenario_meta_df[scenario_meta_df["parent_swith_during_app"] == 0])
 
         print("Scenario " + scenario["name"] + ":")
         print("\tParsed " + str(parsed_runs) + " out of " + str(total_runs))
         print("\tSkips due to spatial: " + str(skipped_runs_spatial) +
               ", parent switch: " + str(skipped_runs_switch) +
               ", errors: " + str(skipped_runs_error))
+        print("\tConverged: " + str(converged_runs) + " out of " + str(total_runs))
 
 def stats_for_scenarios(scenarios, execution_dir, write_runs_csv = False):
     meta_stats(scenarios, execution_dir)
