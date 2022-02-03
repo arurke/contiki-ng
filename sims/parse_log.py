@@ -36,10 +36,9 @@ application_start = None
 application_done_count = 0
 final_time = 0
 
-metrics = ["packets", "energest", "ranks", "hop_count", "nbr_count",
-           "app_parent_switch", "trickle", "switches", "dag_inits",
-           "topology", "queue", "mac_tx", "mac_err", "mac_stats",
-           "mac_cell"]
+metrics = ["packets", "energest", "rpl_stats", "app_parent_switch",
+           "switches", "dag_inits", "topology", "queue", "mac_tx",
+           "mac_err", "mac_stats", "mac_cell"]
 
 def calculateHops(node):
     hops = 0
@@ -440,11 +439,7 @@ def doParse(file, app_warmup, testbed):
 
                 entry.update(ret)
                 if(ret['event'] == 'rpl_stats'):
-                    arrays["ranks"].append(entry)
-                    arrays["trickle"].append(entry)
-                    arrays["nbr_count"].append(entry)
-                    arrays["hop_count"].append(entry)
-
+                    arrays["rpl_stats"].append(entry)
                 elif(ret['event'] == 'switch'):
                     arrays["switches"].append(entry)
                 elif(ret['event'] == 'DAGinit'):
@@ -650,7 +645,7 @@ def parse_logfile(file, app_warmup, quiet=False):
     packets_received = app_packets_df["pdr"].sum() / 100
 
     # Max. hop count after app started
-    hop_count_df = dfs["hop_count"]
+    hop_count_df = dfs["rpl_stats"]
     app_max_hop_count = hop_count_df[hop_count_df["app_started"] == 1]["hop_count"].max()
 
     # ETX for application cells
@@ -802,13 +797,13 @@ def parse_logfile(file, app_warmup, quiet=False):
     #outputStats(dfs, "app_parent_switch", "app_parent_switch", "count", "Parent switch during application")
 
     # outputStats(dfs, "energest", "duty_cycle", "mean", "Radio duty cycle (%)")
-    #outputStats(dfs, "ranks", "rank", "mean", "RPL rank (ETX-128)")
-    outputStats(dfs, "hop_count", "hop_count", "max", "Hop count max")
-    outputStats(dfs, "hop_count", "hop_count", "min", "Hop count min")
-    #outputStats(dfs, "hop_count", "hop_count", "mean", "Hop count mean")
+    #outputStats(dfs, "rpl_stats", "rank", "mean", "RPL rank (ETX-128)")
+    outputStats(dfs, "rpl_stats", "hop_count", "max", "Hop count max")
+    outputStats(dfs, "rpl_stats", "hop_count", "min", "Hop count min")
+    #outputStats(dfs, "rpl_stats", "hop_count", "mean", "Hop count mean")
     outputStats(dfs, "switches", "pswitch", "count", "RPL parent switches (#)")
     #outputStats(dfs, "dag_inits", "event", "count", "RPL joining DAG (#)")
-    #outputStats(dfs, "trickle", "trickle", "mean", "RPL Trickle period (min)")
+    #outputStats(dfs, "rpl_stats", "trickle", "mean", "RPL Trickle period (min)")
 
     outputStats(dfs, "DIS", "message", "count", "RPL DIS sent (#)", "rpl-dis")
     outputStats(dfs, "unicast-DIO", "message", "count", "RPL uDIO sent (#)", "rpl-udio")
@@ -820,7 +815,7 @@ def parse_logfile(file, app_warmup, quiet=False):
     #outputStats(dfs, "topology", "children", "mean", "RPL children count (#)")
 
     outputStats(dfs, "mac_tx", "retransmissions", "sum", "Total retransmission")
-    outputStats(dfs, "ranks", "nbr_count", "max", "Max. neighbor count")
+    outputStats(dfs, "rpl_stats", "nbr_count", "max", "Max. neighbor count")
 
     # All dfs for this run
     return dfs, meta
