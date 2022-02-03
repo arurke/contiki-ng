@@ -833,6 +833,11 @@ def parse_logs_dir(directory, app_warmup):
 
     # Iterate all folders containing different runs in the directory
     for folder in glob.glob(directory):
+
+        # Delete any existing parsed data (.csvs)
+        for csv_file in glob.glob(folder + "/*.csv"):
+            os.remove(csv_file)
+
         # Iterate and parse all log files in the folder
         # We have only one file pr run at the moment, but this might change
         for logfile in glob.glob(folder + "/" + SCRIPT_LOG_PATTERN):

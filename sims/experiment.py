@@ -9,6 +9,7 @@ from experiment_config import experiment_config_parse
 try:
     import pandas as pd
     from parse_log import parse_logs_scenarios
+    from parse_csv import parse_csv_scenarios
     from plot import plot_time_series
     from plot import plot_pdr_latency
     from plot import plot_duty_cycle
@@ -64,6 +65,7 @@ class Config:
     run_only: bool
     fetch_from_remote: bool
     remote_log_file: str
+    from_csv: bool
 
 def add_commands_run_sim(sim_name, scenarios, num_runs):
     scenario_run_cmds = []
@@ -122,11 +124,14 @@ def add_commands_run_testbed(exp_name, scenarios, num_runs, duration, nodes):
 
         scenario['run_cmds'] = scenario_run_cmds
 
-def process_results(scenarios, execution_dir):
+def process_results(scenarios, execution_dir, from_csv):
     # Get raw DFs for all runs of all scenarios.
     # The DFs are inserted into scenarios
     # Add True as second argument to squelch output
-    parse_logs_scenarios(scenarios)
+    if from_csv:
+        parse_csv_scenarios(scenarios)
+    else:
+        parse_logs_scenarios(scenarios)
 
     # Save scenario meta DFs to CSV
     for scenario in scenarios:
@@ -307,6 +312,10 @@ def parse_arguments():
                            '--remote-fetch',
                            action = 'store_true',
                            help = 'Fetches data from remote and analyses. Used after -r. Requires -i')
+    argparser.add_argument('-c',
+                           '--from-csv',
+                           action = 'store_true',
+                           help = 'Read data from CSVs instead of logs (requires --norun).')
     args = argparser.parse_args()
 
     type = args.Type
@@ -319,6 +328,7 @@ def parse_arguments():
     run_only = args.run_only
     execution_id = args.id_execution
     fetch_from_remote = args.remote_fetch
+    from_csv = args.from_csv
 
     if prepare_only and execution_id is None:
         print("Execution id (-i) must be set when only preparing")
@@ -332,19 +342,23 @@ def parse_arguments():
     if fetch_from_remote and execution_id is None:
         print("Execution id (-i) must be set fetching data from remote")
         exit()
+    if from_csv and not no_run:
+        print("Cannot do run (must set --norun) when reading data from CSV")
+        exit()
 
     # If preparation or exection only we force remote
     if prepare_only or run_only:
         remote_execution = True
 
     return type, sim_dir, sim_cfg_filename, skip_post, no_run, \
-        remote_execution, prepare_only, run_only, execution_id, fetch_from_remote
+        remote_execution, prepare_only, run_only, execution_id, \
+        fetch_from_remote, from_csv
 
 def parse_config():
     # Get config from command line
     type, sim_dir, sim_cfg_filename, skip_post, no_run, \
         remote_execution, prepare_only, run_only, execution_id, \
-        fetch_from_remote = parse_arguments()
+        fetch_from_remote, from_csv = parse_arguments()
 
     # Add '/'
     os.path.join(sim_dir)
@@ -389,7 +403,7 @@ def parse_config():
                     experiment_config["app_warmup"],
                     experiment_config["nodes"],
                     remote_execution, prepare_only, run_only,
-                    fetch_from_remote, remote_log_file)
+                    fetch_from_remote, remote_log_file, from_csv)
 
     print_config(config)
 
@@ -416,6 +430,7 @@ def print_config(config):
         print("\tNodes:         ", config.nodes)
     print("\tSkip post:     ", str(config.skip_post))
     print("\tDo execution:  ", str(config.do_run))
+    print("\tData from CSV: ", str(config.from_csv))
     print("\tExecution id:  ", config.execution_id)
     print("\tExecution dir: ", config.execution_dir)
     if config.remote_execution:
@@ -745,7 +760,7 @@ def main():
 
         # Process results
         if not config.skip_post:
-            process_results(config.scenarios, config.execution_dir)
+            process_results(config.scenarios, config.execution_dir, False)
         exit()
 
     # No special cases. Continue running (if not disabled) and analyze.
@@ -793,7 +808,7 @@ def main():
 
     # Process results
     if not config.skip_post:
-        process_results(config.scenarios, config.execution_dir)
+        process_results(config.scenarios, config.execution_dir, config.from_csv)
 
     print_finished_message(config, start_time)
 
