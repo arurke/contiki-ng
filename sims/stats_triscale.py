@@ -331,7 +331,7 @@ def ad_hoc_etx_per_node_all(scenarios):
                 #print("Node %s: %d / %d : %.4f" % (name, num_tx, num_success, node_etx))
             break
 
-def meta_parent_switches(scenarios, execution_dir):
+def meta_parent_switches(scenarios, plots_dir):
     # 1. Distribution of last parent switch
     last_switches = []
     last_switches_per_scenario = []
@@ -367,7 +367,7 @@ def meta_parent_switches(scenarios, execution_dir):
     df['last_switch'].astype('timedelta64[m]').plot.hist(bins=20)
     plt.xlabel("Duration of experiment (minutes)")
     plt.ylabel("Number of runs with last parent switches")
-    plt.savefig(execution_dir + "meta_last_parent_switch.pdf")
+    plt.savefig(plots_dir + "meta_last_parent_switch.pdf")
     plt.close()
 
     # Last switch per scenario
@@ -379,7 +379,7 @@ def meta_parent_switches(scenarios, execution_dir):
     plt.xlabel("Duration of experiment (minutes)")
     plt.ylabel("Number of runs with last parent switches")
     plt.locator_params(axis='y', integer=True)
-    plt.savefig(execution_dir + "meta_last_parent_switch_per_scenario.pdf")
+    plt.savefig(plots_dir + "meta_last_parent_switch_per_scenario.pdf")
     plt.close()
 
 
@@ -406,7 +406,7 @@ def meta_parent_switches(scenarios, execution_dir):
         plt.xlabel("Duration of experiment (minutes)")
         plt.ylabel("Number of parent switches")
         plt.locator_params(axis='y', integer=True)
-        plt.savefig(execution_dir +
+        plt.savefig(plots_dir +
                     "meta_" +
                     scenario["name"] +
                     "_parent_switch.pdf")
@@ -421,10 +421,10 @@ def meta_parent_switches(scenarios, execution_dir):
     plt.ylabel("Number of parent switches")
     plt.locator_params(axis='y', integer=True)
     plt.legend(scenario_names)
-    plt.savefig(execution_dir + "meta_parent_switch.pdf")
+    plt.savefig(plots_dir + "meta_parent_switch.pdf")
     plt.close()
 
-def meta_etx_timelines(scenarios, execution_dir):
+def meta_etx_timelines(scenarios, plots_dir):
     for scenario in scenarios:
         mac_tx_all_runs_df = scenario['raw_dfs']["raw_mac_tx_dfs"]
         for run in mac_tx_all_runs_df.keys():
@@ -457,15 +457,15 @@ def meta_etx_timelines(scenarios, execution_dir):
             plt.legend()
             plt.xlabel("Duration of experiment (minutes)")
             plt.ylabel("Mean ETX")
-            plt.savefig(execution_dir + "meta_" + scenario['name'] + \
+            plt.savefig(plots_dir + "meta_" + scenario['name'] + \
                          "_" + run + "_etx_timeline.pdf")
             plt.close()
 
-def meta_stats(scenarios, execution_dir):
+def meta_stats(scenarios, plots_dir, plots_time_dir):
 
-    meta_parent_switches(scenarios, execution_dir)
+    meta_parent_switches(scenarios, plots_dir)
 
-    meta_etx_timelines(scenarios, execution_dir)
+    meta_etx_timelines(scenarios, plots_time_dir)
 
     #ad_hoc_etx_per_node_all(scenarios)
 
@@ -494,8 +494,8 @@ def print_meta_info(scenarios):
               ", errors: " + str(skipped_runs_error))
         print("\tConverged: " + str(converged_runs) + " out of " + str(total_runs))
 
-def stats_for_scenarios(scenarios, execution_dir, write_runs_csv = False):
-    meta_stats(scenarios, execution_dir)
+def stats_for_scenarios(scenarios, plots_dir, plots_time_dir, write_runs_csv = False):
+    meta_stats(scenarios, plots_dir, plots_time_dir)
 
     scenarios_df_list = []
     for scenario in scenarios:

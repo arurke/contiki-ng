@@ -11,7 +11,7 @@ import itertools
 
 plt.rcParams.update({'font.size': 8})
 
-def plot_etx_details(scenarios_df, execution_dir, title=False):
+def plot_etx_details(scenarios_df, plot_dir, title=False):
 
     # Data
     spatial_reuse_row = scenarios_df.loc["spatial_reuse"]
@@ -73,14 +73,14 @@ def plot_etx_details(scenarios_df, execution_dir, title=False):
     fig_name = "etx_details"
     if title:
         plt.title(fig_name)
-    fig_dir = execution_dir
+    fig_dir = plot_dir
     fig_path = fig_dir + fig_name + '.pdf'
     plt.savefig(fig_path, bbox_inches='tight')
     plt.close()
     print("Made figure", fig_path)
 
 
-def plot_etx_comparison(scenarios_df, execution_dir, title=False):
+def plot_etx_comparison(scenarios_df, plot_dir, title=False):
 
     #print(scenarios_df.index)
     #print(str(scenarios_df))
@@ -278,13 +278,13 @@ def plot_etx_comparison(scenarios_df, execution_dir, title=False):
     fig_name = "spatial_reuse_comparison"
     if title:
         plt.title(fig_name)
-    fig_dir = execution_dir
+    fig_dir = plot_dir
     fig_path = fig_dir + fig_name + '.pdf'
     plt.savefig(fig_path, bbox_inches='tight')
     plt.close()
     print("Made figure", fig_path)
 
-def plot_queue_util_selected_nodes(scenarios_df, execution_dir, title=False):
+def plot_queue_util_selected_nodes(scenarios_df, plot_dir, title=False):
 
     if "ss2_queue_fill_mean" not in scenarios_df.columns:
         return
@@ -312,13 +312,13 @@ def plot_queue_util_selected_nodes(scenarios_df, execution_dir, title=False):
     fig_name = "queue_util_all_scenarios"
     if title:
         plt.title(fig_name)
-    fig_dir = execution_dir
+    fig_dir = plot_dir
     fig_path = fig_dir + fig_name + '.pdf'
     plt.savefig(fig_path, bbox_inches='tight')
     plt.close()
     print("Made figure", fig_path)
 
-def plot_duty_cycle(scenarios_df, execution_dir, title=False):
+def plot_duty_cycle(scenarios_df, plot_dir, title=False):
     # Duty cycle
     color = 'tab:red'
     plt.plot(scenarios_df.index, scenarios_df["duty_cycle_mean"], color=color,
@@ -341,17 +341,17 @@ def plot_duty_cycle(scenarios_df, execution_dir, title=False):
     fig_name = "duty_cycle_all_scenarios"
     if title:
         plt.title(fig_name)
-    fig_dir = execution_dir
+    fig_dir = plot_dir
     fig_path = fig_dir + fig_name + '.pdf'
     plt.savefig(fig_path, bbox_inches='tight')
     plt.close()
     print("Made figure", fig_path)
 
-def plot_pdr_latency(scenarios_df, execution_dir, title=False):
+def plot_pdr_latency(scenarios_df, plot_dir, title=False):
     pdr_df = scenarios_df
     latency_df = scenarios_df
     fig_name = "pdr_latency_all_scenarios"
-    fig_dir = execution_dir
+    fig_dir = plot_dir
 
     fig, ax1 = plt.subplots()
 
