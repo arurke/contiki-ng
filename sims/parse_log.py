@@ -705,11 +705,6 @@ def parse_logfile(file, app_warmup, quiet=False):
     #print("  dl-miss w/err: " + str(dl_miss_err))
 
     # Check MAC stats
-    # TODO propably could use some Python NaN-ish value
-    timing_err_total_app = 999
-    hack_mismatch_total_app = 999
-    hack_err_total_app = 999
-    hack_deletions_total_app = 999
     if "mac_stats" in dfs:
         mac_stats_df = dfs["mac_stats"]
         mac_stats_app_df = mac_stats_df[mac_stats_df["app_started"] == 1]
@@ -875,7 +870,8 @@ def parse_logs_dir(directory, app_warmup):
     scenario_meta_df = scenario_meta_df.set_index("name")
 
     total_runs = len(scenario_meta_df)
-    parsed_runs = len(scenario_meta_df[scenario_meta_df["result"] == "ok"])
+    parsed_runs_df = scenario_meta_df[scenario_meta_df["result"] == "ok"]
+    parsed_runs = len(parsed_runs_df)
     skipped_runs_spatial = \
         len(scenario_meta_df[scenario_meta_df["result"] == "spatial"])
     skipped_runs_switch = \
@@ -883,13 +879,13 @@ def parse_logs_dir(directory, app_warmup):
     skipped_runs_error = \
         len(scenario_meta_df[scenario_meta_df["result"] == "error"])
     converged_runs = \
-        len(scenario_meta_df[scenario_meta_df["parent_swith_during_app"] == 0])
+        len(parsed_runs_df[parsed_runs_df["parent_swith_during_app"] == 0])
 
     print("Parsed " + str(parsed_runs) + " out of " + str(total_runs))
     print("Skips due to spatial: " + str(skipped_runs_spatial) +
           ", parent switch: " + str(skipped_runs_switch) +
           ", errors: " + str(skipped_runs_error))
-    print("Converged: " + str(converged_runs) + " out of " + str(total_runs))
+    print("Converged: " + str(converged_runs) + " out of " + str(parsed_runs))
     return scenario_meta_df, all_runs_dfs
 
 def parse_logs_scenario(scenario_dir, scenario_name, app_warmup):

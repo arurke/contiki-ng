@@ -477,7 +477,8 @@ def print_meta_info(scenarios):
     for scenario in scenarios:
         scenario_meta_df = scenario["meta_df"]
         total_runs = len(scenario_meta_df)
-        parsed_runs = len(scenario_meta_df[scenario_meta_df["result"] == "ok"])
+        parsed_runs_df = scenario_meta_df[scenario_meta_df["result"] == "ok"]
+        parsed_runs = len(parsed_runs_df)
         skipped_runs_spatial = \
             len(scenario_meta_df[scenario_meta_df["result"] == "spatial"])
         skipped_runs_switch = \
@@ -485,14 +486,14 @@ def print_meta_info(scenarios):
         skipped_runs_error = \
             len(scenario_meta_df[scenario_meta_df["result"] == "error"])
         converged_runs = \
-            len(scenario_meta_df[scenario_meta_df["parent_swith_during_app"] == 0])
+            len(parsed_runs_df[parsed_runs_df["parent_swith_during_app"] == 0])
 
         print("Scenario " + scenario["name"] + ":")
         print("\tParsed " + str(parsed_runs) + " out of " + str(total_runs))
         print("\tSkips due to spatial: " + str(skipped_runs_spatial) +
               ", parent switch: " + str(skipped_runs_switch) +
               ", errors: " + str(skipped_runs_error))
-        print("\tConverged: " + str(converged_runs) + " out of " + str(total_runs))
+        print("\tConverged: " + str(converged_runs) + " out of " + str(parsed_runs))
 
 def stats_for_scenarios(scenarios, plots_dir, plots_time_dir, write_runs_csv = False):
     meta_stats(scenarios, plots_dir, plots_time_dir)
