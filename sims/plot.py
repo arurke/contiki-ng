@@ -11,6 +11,9 @@ import itertools
 
 plt.rcParams.update({'font.size': 8})
 
+def make_spatial_kpi_name(prefix, postfix):
+    return prefix + "_perc80_conf95_" + postfix
+
 def plot_etx_details(scenarios_df, plot_dir, title=False):
 
     # Data
@@ -21,21 +24,21 @@ def plot_etx_details(scenarios_df, plot_dir, title=False):
     categories = ['Spatial reuse', 'No spatial reuse']
 
     converged_data_max = [
-        spatial_reuse_row['converged_app_cell_etx_absolute_spatial_perc50_conf95_upper'],
-        no_spatial_reuse_row['converged_mac_app_tx_etx_absolute_perc50_conf95_upper']]
+        spatial_reuse_row[make_spatial_kpi_name('converged_app_cell_etx_absolute_spatial', 'upper')],
+        no_spatial_reuse_row[make_spatial_kpi_name('converged_mac_app_tx_etx_absolute', 'upper')]]
     converged_data_min = [
-        spatial_reuse_row['converged_app_cell_etx_absolute_spatial_perc50_conf95_lower'],
-        no_spatial_reuse_row['converged_mac_app_tx_etx_absolute_perc50_conf95_lower']]
+        spatial_reuse_row[make_spatial_kpi_name('converged_app_cell_etx_absolute_spatial', 'lower')],
+        no_spatial_reuse_row[make_spatial_kpi_name('converged_mac_app_tx_etx_absolute', 'lower')]]
     converged_data_mean = [
         (converged_data_max[0] + converged_data_min[0]) / 2,
         (converged_data_max[1] + converged_data_min[1]) / 2]
 
     all_data_max = [
-        spatial_reuse_row['app_cell_etx_absolute_spatial_perc50_conf95_upper'],
-        no_spatial_reuse_row['mac_app_tx_etx_absolute_perc50_conf95_upper']]
+        spatial_reuse_row[make_spatial_kpi_name('app_cell_etx_absolute_spatial', 'upper')],
+        no_spatial_reuse_row[make_spatial_kpi_name('mac_app_tx_etx_absolute', 'upper')]]
     all_data_min = [
-        spatial_reuse_row['app_cell_etx_absolute_spatial_perc50_conf95_lower'],
-        no_spatial_reuse_row['mac_app_tx_etx_absolute_perc50_conf95_lower']]
+        spatial_reuse_row[make_spatial_kpi_name('app_cell_etx_absolute_spatial','lower')],
+        no_spatial_reuse_row[make_spatial_kpi_name('mac_app_tx_etx_absolute', 'lower')]]
     all_data_mean = [
         (all_data_max[0] + all_data_min[0]) / 2,
         (all_data_max[1] + all_data_min[1]) / 2]
@@ -103,8 +106,8 @@ def plot_spatial_comparison(scenarios_df, plot_dir, title=False):
     spatial_reuse_row = scenarios_df.loc["spatial_reuse"]
     no_spatial_reuse_row = scenarios_df.loc["no_spatial_reuse"]
 
-    no_spatial_etx_min = no_spatial_reuse_row['mac_app_tx_etx_absolute_perc50_conf95_lower']
-    no_spatial_etx_max = no_spatial_reuse_row['mac_app_tx_etx_absolute_perc50_conf95_upper']
+    no_spatial_etx_min = no_spatial_reuse_row[make_spatial_kpi_name('mac_app_tx_etx_absolute','lower')]
+    no_spatial_etx_max = no_spatial_reuse_row[make_spatial_kpi_name('mac_app_tx_etx_absolute','upper')]
     no_spatial_etx = (no_spatial_etx_max + no_spatial_etx_min) / 2
 
     # Use etx from all packets in the run
@@ -112,24 +115,24 @@ def plot_spatial_comparison(scenarios_df, plot_dir, title=False):
     #spatial_etx_max = spatial_reuse_row['mac_app_tx_etx_absolute_etx_U']
 
     # Use etx from the spatial reuse cells only
-    spatial_etx_min = spatial_reuse_row['app_cell_etx_absolute_spatial_perc50_conf95_lower']
-    spatial_etx_max = spatial_reuse_row['app_cell_etx_absolute_spatial_perc50_conf95_upper']
+    spatial_etx_min = spatial_reuse_row[make_spatial_kpi_name('app_cell_etx_absolute_spatial','lower')]
+    spatial_etx_max = spatial_reuse_row[make_spatial_kpi_name('app_cell_etx_absolute_spatial','upper')]
     spatial_etx = (spatial_etx_max + spatial_etx_min) / 2
 
-    no_spatial_pdr_min = no_spatial_reuse_row['pdr_mean_perc50_conf95_lower']
-    no_spatial_pdr_max = no_spatial_reuse_row['pdr_mean_perc50_conf95_upper']
+    no_spatial_pdr_min = no_spatial_reuse_row[make_spatial_kpi_name('pdr_mean','lower')]
+    no_spatial_pdr_max = no_spatial_reuse_row[make_spatial_kpi_name('pdr_mean','upper')]
     no_spatial_pdr = (no_spatial_pdr_max + no_spatial_pdr_min) / 2
 
-    spatial_pdr_min = spatial_reuse_row['pdr_mean_perc50_conf95_upper']
-    spatial_pdr_max = spatial_reuse_row['pdr_mean_perc50_conf95_upper']
+    spatial_pdr_min = spatial_reuse_row[make_spatial_kpi_name('pdr_mean','upper')]
+    spatial_pdr_max = spatial_reuse_row[make_spatial_kpi_name('pdr_mean','upper')]
     spatial_pdr = (spatial_pdr_max + spatial_pdr_min) / 2
 
-    no_spatial_latency_min = no_spatial_reuse_row['latency_mean_perc50_conf95_lower']
-    no_spatial_latency_max = no_spatial_reuse_row['latency_mean_perc50_conf95_upper']
+    no_spatial_latency_min = no_spatial_reuse_row[make_spatial_kpi_name('latency_mean','lower')]
+    no_spatial_latency_max = no_spatial_reuse_row[make_spatial_kpi_name('latency_mean','upper')]
     no_spatial_latency = (no_spatial_latency_max + no_spatial_latency_min) / 2
 
-    spatial_latency_min = spatial_reuse_row['latency_mean_perc50_conf95_lower']
-    spatial_latency_max = spatial_reuse_row['latency_mean_perc50_conf95_upper']
+    spatial_latency_min = spatial_reuse_row[make_spatial_kpi_name('latency_mean','lower')]
+    spatial_latency_max = spatial_reuse_row[make_spatial_kpi_name('latency_mean', 'upper')]
     spatial_latency = (spatial_latency_max + spatial_latency_min) / 2
 
     no_spatial_reuse_data = DataSet(
@@ -255,26 +258,34 @@ def plot_spatial_comparison(scenarios_df, plot_dir, title=False):
     width = 0.3
     
     fig, ax = plt.subplots()
+    ax.set_ylim([50, 120])
     rects1 = ax.bar(x-width/2, no_spatial_reuse_means, width,
-                    yerr=[no_spatial_reuse_min, no_spatial_reuse_max], capsize=10,
+                    yerr=[no_spatial_reuse_min, no_spatial_reuse_max], capsize=5,
                     label="Without spatial reuse")
     rects2 = ax.bar(x+width/2, spatial_reuse_means, width,
-                    yerr=[spatial_reuse_min, spatial_reuse_max], capsize=10,
+                    yerr=[spatial_reuse_min, spatial_reuse_max], capsize=5,
                     label="With spatial reuse")
-    
+
+        # ax.bar_label would not work for some reason. So we found this online.
+    for rect in itertools.chain(rects1, rects2):
+        height = rect.get_height()
+        ax.text(rect.get_x()+rect.get_width()/6, 1.0*height,
+                '%.1f' % height,
+                ha='center', va='bottom')
+
     # Add some decoration
     ax.set_ylabel('Percentage of metric, normalized to "without spatial reuse" (%)')
     #ax.set_title('Key metrics, normalized to without spatial reuse')
     ax.set_xticks(x)
     ax.set_xticklabels(metrics)
     ax.legend()
-    
+
     #ax.bar_label(rects1, padding=3)
     #ax.bar_label(rects2, padding=3, label_type='center', fmt='%.2f')
     #ax.bar_label(rects2, fmt='%.2f')
-    
+
     fig.tight_layout()
-    
+
     fig_name = "spatial_reuse_comparison"
     if title:
         plt.title(fig_name)
