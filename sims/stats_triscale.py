@@ -233,7 +233,7 @@ def analyze_scenario(runs_df, scenario_name):
     add_kpi(kpis, "queue_fill", bound_lower=False, default=True)
 
     # More specialized ones
-    adhoc_percentile = 50
+    adhoc_percentile = 80
     adhoc_confidence = 95
 
     add_kpi(kpis, "latency",
