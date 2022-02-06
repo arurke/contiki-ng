@@ -21,21 +21,21 @@ def plot_etx_details(scenarios_df, plot_dir, title=False):
     categories = ['Spatial reuse', 'No spatial reuse']
 
     converged_data_max = [
-        spatial_reuse_row['converged_app_cell_etx_absolute_etx_spatial_U'],
-        no_spatial_reuse_row['converged_mac_app_tx_etx_absolute_etx_U']]
+        spatial_reuse_row['converged_app_cell_etx_absolute_spatial_perc50_conf95_upper'],
+        no_spatial_reuse_row['converged_mac_app_tx_etx_absolute_perc50_conf95_upper']]
     converged_data_min = [
-        spatial_reuse_row['converged_app_cell_etx_absolute_etx_spatial_L'],
-        no_spatial_reuse_row['converged_mac_app_tx_etx_absolute_etx_L']]
+        spatial_reuse_row['converged_app_cell_etx_absolute_spatial_perc50_conf95_lower'],
+        no_spatial_reuse_row['converged_mac_app_tx_etx_absolute_perc50_conf95_lower']]
     converged_data_mean = [
         (converged_data_max[0] + converged_data_min[0]) / 2,
         (converged_data_max[1] + converged_data_min[1]) / 2]
 
     all_data_max = [
-        spatial_reuse_row['app_cell_etx_absolute_etx_spatial_U'],
-        no_spatial_reuse_row['mac_app_tx_etx_absolute_etx_U']]
+        spatial_reuse_row['app_cell_etx_absolute_spatial_perc50_conf95_upper'],
+        no_spatial_reuse_row['mac_app_tx_etx_absolute_perc50_conf95_upper']]
     all_data_min = [
-        spatial_reuse_row['app_cell_etx_absolute_etx_spatial_L'],
-        no_spatial_reuse_row['mac_app_tx_etx_absolute_etx_L']]
+        spatial_reuse_row['app_cell_etx_absolute_spatial_perc50_conf95_lower'],
+        no_spatial_reuse_row['mac_app_tx_etx_absolute_perc50_conf95_lower']]
     all_data_mean = [
         (all_data_max[0] + all_data_min[0]) / 2,
         (all_data_max[1] + all_data_min[1]) / 2]
@@ -103,8 +103,8 @@ def plot_etx_comparison(scenarios_df, plot_dir, title=False):
     spatial_reuse_row = scenarios_df.loc["spatial_reuse"]
     no_spatial_reuse_row = scenarios_df.loc["no_spatial_reuse"]
 
-    no_spatial_etx_min = no_spatial_reuse_row['mac_app_tx_etx_absolute_etx_L']
-    no_spatial_etx_max = no_spatial_reuse_row['mac_app_tx_etx_absolute_etx_U']
+    no_spatial_etx_min = no_spatial_reuse_row['mac_app_tx_etx_absolute_perc50_conf95_lower']
+    no_spatial_etx_max = no_spatial_reuse_row['mac_app_tx_etx_absolute_perc50_conf95_upper']
     no_spatial_etx = (no_spatial_etx_max + no_spatial_etx_min) / 2
 
     # Use etx from all packets in the run
@@ -112,24 +112,24 @@ def plot_etx_comparison(scenarios_df, plot_dir, title=False):
     #spatial_etx_max = spatial_reuse_row['mac_app_tx_etx_absolute_etx_U']
 
     # Use etx from the spatial reuse cells only
-    spatial_etx_min = spatial_reuse_row['app_cell_etx_absolute_etx_spatial_L']
-    spatial_etx_max = spatial_reuse_row['app_cell_etx_absolute_etx_spatial_U']
+    spatial_etx_min = spatial_reuse_row['app_cell_etx_absolute_spatial_perc50_conf95_lower']
+    spatial_etx_max = spatial_reuse_row['app_cell_etx_absolute_spatial_perc50_conf95_upper']
     spatial_etx = (spatial_etx_max + spatial_etx_min) / 2
 
-    no_spatial_pdr_min = no_spatial_reuse_row['pdr_50_L']
-    no_spatial_pdr_max = no_spatial_reuse_row['pdr_50_U']
+    no_spatial_pdr_min = no_spatial_reuse_row['pdr_mean_perc50_conf95_lower']
+    no_spatial_pdr_max = no_spatial_reuse_row['pdr_mean_perc50_conf95_upper']
     no_spatial_pdr = (no_spatial_pdr_max + no_spatial_pdr_min) / 2
 
-    spatial_pdr_min = spatial_reuse_row['pdr_50_L']
-    spatial_pdr_max = spatial_reuse_row['pdr_50_U']
+    spatial_pdr_min = spatial_reuse_row['pdr_mean_perc50_conf95_upper']
+    spatial_pdr_max = spatial_reuse_row['pdr_mean_perc50_conf95_upper']
     spatial_pdr = (spatial_pdr_max + spatial_pdr_min) / 2
 
-    no_spatial_latency_min = no_spatial_reuse_row['latency_50_L']
-    no_spatial_latency_max = no_spatial_reuse_row['latency_50_U']
+    no_spatial_latency_min = no_spatial_reuse_row['latency_mean_perc50_conf95_lower']
+    no_spatial_latency_max = no_spatial_reuse_row['latency_mean_perc50_conf95_upper']
     no_spatial_latency = (no_spatial_latency_max + no_spatial_latency_min) / 2
 
-    spatial_latency_min = spatial_reuse_row['latency_50_L']
-    spatial_latency_max = spatial_reuse_row['latency_50_U']
+    spatial_latency_min = spatial_reuse_row['latency_mean_perc50_conf95_lower']
+    spatial_latency_max = spatial_reuse_row['latency_mean_perc50_conf95_upper']
     spatial_latency = (spatial_latency_max + spatial_latency_min) / 2
 
     no_spatial_reuse_data = DataSet(
@@ -205,8 +205,8 @@ def plot_etx_comparison(scenarios_df, plot_dir, title=False):
         )
     )
 
-    print(no_spatial_reuse_data_normalized)
-    print(spatial_reuse_data_normalized)
+    #print(no_spatial_reuse_data_normalized)
+    #print(spatial_reuse_data_normalized)
 
     # setup the dataframe
     metrics = ['ETX', 'E2E Latency', 'PDR']
@@ -321,17 +321,17 @@ def plot_queue_util_selected_nodes(scenarios_df, plot_dir, title=False):
 def plot_duty_cycle(scenarios_df, plot_dir, title=False):
     # Duty cycle
     color = 'tab:red'
-    plt.plot(scenarios_df.index, scenarios_df["duty_cycle_mean"], color=color,
+    plt.plot(scenarios_df.index, scenarios_df["duty_cycle_mean_default_upper"], color=color,
              marker='o', label="Duty cycle")
 
     # Duty cycle TX
     color = 'tab:blue'
-    plt.plot(scenarios_df.index, scenarios_df["duty_cycle_tx_mean"], color=color,
+    plt.plot(scenarios_df.index, scenarios_df["duty_cycle_tx_mean_default_upper"], color=color,
              marker='o', label="Duty cycle TX")
 
     # Duty cycle RX
     color = 'tab:green'
-    plt.plot(scenarios_df.index, scenarios_df["duty_cycle_rx_mean"], color=color,
+    plt.plot(scenarios_df.index, scenarios_df["duty_cycle_rx_mean_default_upper"], color=color,
              marker='o', label="Duty cycle RX")
 
     plt.tight_layout()  # otherwise the right y-label is slightly clipped
@@ -359,7 +359,7 @@ def plot_pdr_latency(scenarios_df, plot_dir, title=False):
     color = 'tab:red'
     ax1.set_xlabel('traffic intensity, as % of node schedule capacity')
     ax1.set_ylabel('Latency (s)', color=color)
-    ax1.plot(latency_df.index, latency_df["latency_99"], color=color, marker='o')
+    ax1.plot(latency_df.index, latency_df["latency_99_default_upper"], color=color, marker='o')
     ax1.set_ylim(bottom=0)
     #ax1.plot(latency_df.index, latency_df.latency_maximum, color=color, marker='o')
     ax1.tick_params(axis='y', labelcolor=color)
@@ -370,7 +370,7 @@ def plot_pdr_latency(scenarios_df, plot_dir, title=False):
     ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
     color = 'tab:blue'
     ax2.set_ylabel('packet delivery ratio (%)', color=color)  # we already handled the x-label with ax1
-    ax2.plot(pdr_df.index, pdr_df.pdr_mean, color=color, marker='o')
+    ax2.plot(pdr_df.index, pdr_df["pdr_mean_default_lower"], color=color, marker='o')
     ax2.set_ylim(bottom=0)
     ax2.tick_params(axis='y', labelcolor=color)
 

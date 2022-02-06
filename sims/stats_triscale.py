@@ -2,18 +2,20 @@
 import pandas as pd
 import numpy as np
 import sys
+import copy
 import matplotlib.pyplot as plt
 sys.path.append('triscale')
 import triscale as triscale
 
 def calculate_absolute_metrics(input_df, metric, measure):
-    if measure == "absolute_etx":
+    if metric == "mac_app_tx_etx" and measure == "absolute":
         app_tx_etx = input_df["transmissions"].sum() / \
             len(input_df[input_df["result"] == "ok"])
         #print("ETX for all TXs: %0.4f" % app_tx_etx)
         return app_tx_etx
 
-    if measure == "absolute_etx_spatial" or measure == "absolute_etx_no_spatial":
+    if metric == "app_cell_etx" and \
+        (measure == "absolute_spatial" or measure == "absolute_no_spatial"):
         # Find ETX for spatial reused cells. Only supported when running Layered! (due to app field)
         app_cells_df = input_df
 
@@ -27,16 +29,16 @@ def calculate_absolute_metrics(input_df, metric, measure):
         spatial_reuse_total = len(spatial_reuse_df)
         no_spatial_reuse_total = len(no_spatial_reuse_df)
 
-        if measure == "absolute_etx_spatial":
+        if measure == "absolute_spatial":
             if spatial_reuse_total != 0:
                 spatial_reuse_success = len(spatial_reuse_df[spatial_reuse_df["result"] == 0])
                 spatial_reuse_etx = spatial_reuse_total / spatial_reuse_success
-                print("ETX for spatial reuse cells: %.4f" % spatial_reuse_etx)
+                #print("ETX for spatial reuse cells: %.4f" % spatial_reuse_etx)
                 return spatial_reuse_etx
             else:
                 #print("No spatial reuse")
                 return 0
-        elif measure == "absolute_etx_no_spatial":
+        elif measure == "absolute_no_spatial":
             no_spatial_reuse_success = len(no_spatial_reuse_df[no_spatial_reuse_df["result"] == 0])
             no_spatial_reuse_etx = no_spatial_reuse_total / no_spatial_reuse_success
             #print("ETX for no-spatial reuse cells: %.4f" %
@@ -46,7 +48,7 @@ def calculate_absolute_metrics(input_df, metric, measure):
 
     return None
 
-def calculate_metric(input_df, metric, measure, check_convergence=False):
+def calculate_metric(input_df, metric, measure, name, check_convergence=False):
 
     # Calculate metrics which does not require TriScale
     if type(measure) == str and "absolute" in measure:
@@ -67,12 +69,23 @@ def calculate_metric(input_df, metric, measure, check_convergence=False):
     # Rename to match Triscale requirements
     df = df.rename(columns={"timestamp":"x", metric:"y"})
 
-    # Do not use the convergence test as this slightly impacts results (see TODO)
-    # The result of this is same as if we would call mean(), median() etc. ourselves
+    # Convergence test makes a set of windows/subsets of the data and
+    # calculates our metric on each window. If test passes, it gives us
+    # the median of all those calculations. If not it gives us NaN.
+    # When not using the convergence tets, this is the same as if we
+    # would call mean(), median() etc. ourselves
+    # TODO test with configured bounds?
     convergence_result, measure, figure = \
         triscale.analysis_metric(
-            df, {"measure":measure}, {"expected":False, "tolerance": 7},
-            plot=False, showplot=False, verbose=False)
+            df, {"measure":measure},
+            #convergence={"expected": True, "tolerance":10},
+            #showplot=False, verbose=False, plot_out_name="deleteme/" + name + ".pdf")
+            showplot=False, verbose=False)
+
+    if not convergence_result:
+        print("Not converged for " + name)
+    #else:
+        #print("Converged for " + name)
     return measure
 
 def analyze_run(run_name, packets_df, energest_df, queue_df, mac_tx_df, cell_df, switches_df):
@@ -94,16 +107,18 @@ def analyze_run(run_name, packets_df, energest_df, queue_df, mac_tx_df, cell_df,
 
     # Make the following metrics for the given measures for the given DFs
     # The-per-node is a bit hackish - gave them special prefix
-    default_measures = ["mean", 50, 95, 99, 99.9, "maximum"]
+    #default_measures = ["mean", 50, 95, 99, "maximum"]
+    default_measures = ["mean", 50, 99]
     metric_packets = [{"metric": "latency", "measures":default_measures},
                       {"metric": "pdr", "measures":["mean"]}]
-    metric_mac_app_tx = [{"metric": "mac_app_tx_etx", "measures":["absolute_etx"]}]
+    metric_mac_app_tx = [{"metric": "mac_app_tx_etx", "measures":["absolute"]}]
     metric_app_cell = [{"metric": "app_cell_etx",
-                        "measures":["absolute_etx_spatial", "absolute_etx_no_spatial"]}]
+                        "measures":["absolute_spatial", "absolute_no_spatial"]}]
     metric_energest = [{"metric": "duty_cycle", "measures":default_measures},
                        {"metric": "duty_cycle_tx", "measures":default_measures},
                        {"metric": "duty_cycle_rx", "measures":default_measures}]
     metric_queue = [{"metric": "queue_fill", "measures":default_measures}]
+
     dfs = [{"df":packets_df, "metric":metric_packets, "prefix":""},
            {"df":energest_df, "metric":metric_energest, "prefix":""},
            {"df":queue_df, "metric":metric_queue, "prefix":""},
@@ -113,13 +128,14 @@ def analyze_run(run_name, packets_df, energest_df, queue_df, mac_tx_df, cell_df,
            #{"df":ss_queue_df_3, "metric":metric_queue, "prefix":"ss3_"}
            ]
 
-    # Actually make metrics and fill into DF entry
+    # Actually calculate metrics and fill into DF entry
     for df in dfs:
         for metric in df["metric"]:
             for measure in metric["measures"]:
                 run_metric_name = df["prefix"] + metric["metric"] + "_" + str(measure)
                 run_entry[run_metric_name] = \
-                    calculate_metric(df["df"], metric["metric"], measure)
+                    calculate_metric(df["df"], metric["metric"], measure,
+                                     run_metric_name + "_" + run_name)
 
     # Make DF out of the entry
     df = pd.DataFrame([run_entry])
@@ -149,147 +165,119 @@ def analyze_runs(raw_dfs):
 
     return pd.concat(runs_df_dict)
 
-def calculate_kpi(values, settings, name):
+def calculate_kpi(values, settings, metric, name):
     independent, kpi = triscale.analysis_kpi(
                         values,
                         settings,
+                        #to_plot=["autocorr", "horizontal", "vertical"], plot_out_name=name,
+                        # Only "vertical" and "horizontal" prints to file.
+                        # Note that they overwrite each other!
+                        #to_plot=["horizontal"], plot_out_name=("deleteme/" + name + ".pdf"),
                         verbose=False)
-    # Independence is not critical in simulations?
-    #if not independent:
-        #print("Not independent for", name)
     if np.isnan(kpi):
-        print("KPI Nan, probably too few values(" +
+        print("KPI Nan, too few values(" +
               str(len(values)) + ") for " + name)
+        return kpi
+
+    # Independence is not critical in simulations?
+    if not independent:
+        print("Not independent for", name)
 
     return kpi
 
+def add_kpi(kpis, metric,
+              percentile=90,
+              confidence=95,
+              bounds=[0,100],
+              bound_lower=True,
+              bound_upper=True,
+              default=False):
+
+    new_kpi = {"metric" : metric,
+               "settings":{"percentile": percentile,
+                           "confidence": confidence,
+                           "bounds":bounds
+               }}
+    if default:
+        new_kpi["default"] = True
+    if bound_lower:
+        new_kpi["settings"]["bound"] = "lower"
+        kpis.append(copy.deepcopy(new_kpi))
+    if bound_upper:
+        new_kpi["settings"]["bound"] = "upper"
+        kpis.append(new_kpi)
+
 def analyze_scenario(runs_df, scenario_name):
     scenario_entry = {"scenario": scenario_name}
-    default_percentile = 95
-    default_confidence = 95
+
+    # Add KPIs
+    kpis = []
+
+    # Default ones (see add_kpi() for default values)
+    add_kpi(kpis, "pdr", bound_upper=False, default=True)
+    add_kpi(kpis, "latency", bounds=[0.01,70], bound_lower=False, default=True)
+    add_kpi(kpis, "duty_cycle", bound_lower=False, default=True)
+    add_kpi(kpis, "duty_cycle_tx", bound_lower=False, default=True)
+    add_kpi(kpis, "duty_cycle_rx", bound_lower=False, default=True)
+    add_kpi(kpis, "queue_fill", bound_lower=False, default=True)
+
+    # More specialized ones
     adhoc_percentile = 50
     adhoc_confidence = 95
 
-    kpis = [{"metric":"latency",
-                # "name":"_p" + str(adhoc_percentile) + "_%" + str(adhoc_confidence) + "_U",
-                "name":"",
-                "settings":{"percentile": adhoc_percentile,
-                       "confidence": adhoc_confidence,
-                       "bounds":[0.001,120],
-                       "bound":"upper"}},
-             {"metric":"latency",
-                # "name":"_p" + str(adhoc_percentile) + "_%" + str(adhoc_confidence) + "_U",
-                "name":"_U",
-                "settings":{"percentile": adhoc_percentile,
-                       "confidence": adhoc_confidence,
-                       "bounds":[0.001,120],
-                       "bound":"upper"}},
-             {"metric":"latency",
-                # "name":"_p" + str(adhoc_percentile) + "_%" + str(adhoc_confidence) + "_U",
-                "name":"_L",
-                "settings":{"percentile": adhoc_percentile,
-                       "confidence": adhoc_confidence,
-                       "bounds":[0.001,120],
-                       "bound":"lower"}},
-                {"metric":"pdr",
-                #"name":"_p" + str(adhoc_percentile) + "_%" + str(adhoc_confidence) + "_L",
-                "name":"",
-                "settings":{"percentile": default_percentile,
-                       "confidence": default_confidence,
-                       "bounds":[0,100],
-                       "bound":"lower"}},
-               {"metric":"pdr",
-                #"name":"_p" + str(adhoc_percentile) + "_%" + str(adhoc_confidence) + "_L",
-                "name":"_L",
-                "settings":{"percentile": adhoc_percentile,
-                       "confidence": adhoc_confidence,
-                       "bounds":[0,100],
-                       "bound":"lower"}},
-               {"metric":"pdr",
-                #"name":"_p" + str(adhoc_percentile) + "_%" + str(adhoc_confidence) + "_L",
-                "name":"_U",
-                "settings":{"percentile": adhoc_percentile,
-                       "confidence": adhoc_confidence,
-                       "bounds":[0,100],
-                       "bound":"upper"}},
-               {"metric":"duty_cycle",
-                #"name":"_p" + str(default_percentile) + "_%" + str(default_confidence) + "_U",
-                "name":"",
-                "settings":{"percentile": default_percentile,
-                       "confidence": default_confidence,
-                       "bounds":[0,100],
-                       "bound":"upper"}},
-               {"metric":"duty_cycle_tx",
-                #"name":"_p" + str(default_percentile) + "_%" + str(default_confidence) + "_U",
-                "name":"",
-                "settings":{"percentile": default_percentile,
-                       "confidence": default_confidence,
-                       "bounds":[0,100],
-                       "bound":"upper"}},
-               {"metric":"duty_cycle_rx",
-                #"name":"_p" + str(default_percentile) + "_%" + str(default_confidence) + "_U",
-                "name":"",
-                "settings":{"percentile": default_percentile,
-                       "confidence": default_confidence,
-                       "bounds":[0,100],
-                       "bound":"upper"}},
-               {"metric":"queue_fill",
-                #"name":"_p" + str(default_percentile) + "_%" + str(default_confidence) + "_U",
-                "name":"",
-                "settings":{"percentile": default_percentile,
-                       "confidence": default_confidence,
-                       "bounds":[0,100],
-                       "bound":"upper"}},
-               {"metric":"mac_app_tx_etx",
-                #"name":"_p" + str(adhoc_percentile) + "_%" + str(adhoc_confidence) + "_U",
-                "name":"_U",
-                "settings":{"percentile": adhoc_percentile,
-                       "confidence": adhoc_confidence,
-                       "bounds":[0,100],
-                       "bound":"upper"}},
-               {"metric":"mac_app_tx_etx",
-                #"name":"_p" + str(adhoc_percentile) + "_%" + str(adhoc_confidence) + "_L",
-                "name":"_L",
-                "settings":{"percentile": adhoc_percentile,
-                       "confidence": adhoc_confidence,
-                       "bounds":[0,100],
-                       "bound":"lower"}},
-               {"metric":"app_cell_etx",
-                #"name":"_p" + str(adhoc_percentile) + "_%" + str(adhoc_confidence) + "_L",
-                "name":"_U",
-                "settings":{"percentile": adhoc_percentile,
-                       "confidence": adhoc_confidence,
-                       "bounds":[0,100],
-                       "bound":"upper"}},
-               {"metric":"app_cell_etx",
-                #"name":"_p" + str(adhoc_percentile) + "_%" + str(adhoc_confidence) + "_L",
-                "name":"_L",
-                "settings":{"percentile": adhoc_percentile,
-                       "confidence": adhoc_confidence,
-                       "bounds":[0,100],
-                       "bound":"lower"}}
-               ]
+    add_kpi(kpis, "latency",
+            percentile=adhoc_percentile, confidence=adhoc_confidence,
+            bounds=[0.001,120])
+    add_kpi(kpis, "pdr",
+            percentile=adhoc_percentile, confidence=adhoc_confidence)
+    add_kpi(kpis, "mac_app_tx_etx",
+            percentile=adhoc_percentile, confidence=adhoc_confidence)
+    add_kpi(kpis, "app_cell_etx",
+            percentile=adhoc_percentile, confidence=adhoc_confidence)
 
-    # TODO this needs some fixing as the naming of the columns in the resulting
-    # DF will say _mean, _median, etc. while it is actually the default_percentile
-    # default_confidence % CI of these values.
+    # Add names according to the settings
+    for kpi in kpis:
+        if "name" in kpi:
+            continue
+        if kpi["settings"]["bound"] == "lower":
+            bound = "_lower"
+        else:
+            bound = "_upper"
+        # KPIs marked as default get special static naming for easier handling
+        if kpi.get("default") == True:
+            kpi["name"] = \
+                "_default" + \
+                bound
+        else:
+            kpi["name"] = \
+                "_perc" + \
+                str(kpi["settings"]["percentile"]) + \
+                "_conf" + \
+                str(kpi["settings"]["confidence"]) + \
+                bound
+
+    # Calculate KPIs and add to scenario-dict
     for metric in runs_df.columns:
         for kpi in kpis:
             if kpi["metric"] in metric:
-                scenario_entry[metric + kpi['name']] = calculate_kpi(runs_df[metric].values,
-                                                       kpi["settings"],
-                                                       metric)
+                entry_name = metric + kpi['name']
+                scenario_entry[entry_name] = \
+                    calculate_kpi(runs_df[metric].values,
+                                  kpi["settings"], metric, entry_name)
 
-    # Now do only converged runs
-    runs_convergence_df = runs_df.copy()
-    runs_convergence_df = runs_convergence_df[runs_convergence_df["converged"] == True]
-    for metric in runs_convergence_df.columns:
+    # Now do only converged runs for selected metrics
+    metrics_for_converged = ["mac_app_tx_etx", "app_cell_etx", "pdr", "latency"]
+    runs_converged_df = runs_df.copy()
+    runs_converged_df = runs_converged_df[runs_converged_df["converged"] == True]
+    for metric in runs_converged_df.columns:
         for kpi in kpis:
             if kpi["metric"] in metric:
-                scenario_entry["converged_" + metric + kpi['name']] = \
-                    calculate_kpi(runs_convergence_df[metric].values,
-                                  kpi["settings"],
-                                  metric)
+                if kpi["metric"] in metrics_for_converged:
+                    entry_name = "converged_" + metric + kpi['name']
+                    scenario_entry[entry_name] = \
+                        calculate_kpi(runs_converged_df[metric].values,
+                                      kpi["settings"],
+                                      metric, entry_name)
 
     return pd.DataFrame([scenario_entry])
 
