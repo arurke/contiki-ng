@@ -50,11 +50,11 @@ def plot_etx_details(scenarios_df, plot_dir, title=False):
     rects2 = ax.bar(x-width/2, all_data_mean, width,
                     yerr=[np.array(all_data_mean) - np.array(all_data_min),
                           np.array(all_data_max) - np.array(all_data_mean)], capsize=10,
-                    label="All runs")
+                    label="All runs", color='green')
     rects1 = ax.bar(x+width/2, converged_data_mean, width,
                     yerr=[np.array(converged_data_mean) - np.array(converged_data_min),
                           np.array(converged_data_max) - np.array(converged_data_mean)], capsize=10,
-                    label="Converged runs")
+                    label="Converged runs", color='red')
 
     # ax.bar_label would not work for some reason. So we found this online.
     for rect in itertools.chain(rects1, rects2):
@@ -263,7 +263,7 @@ def plot_etx_comparison(scenarios_df, plot_dir, title=False):
                     label="With spatial reuse")
     
     # Add some decoration
-    ax.set_ylabel('%')
+    ax.set_ylabel('Percentage of metric, normalized to "without spatial reuse" (%)')
     #ax.set_title('Key metrics, normalized to without spatial reuse')
     ax.set_xticks(x)
     ax.set_xticklabels(metrics)
