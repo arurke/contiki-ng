@@ -88,7 +88,8 @@ def calculate_metric(input_df, metric, measure, name, check_convergence=False):
         #print("Converged for " + name)
     return measure
 
-def analyze_run(run_name, packets_df, energest_df, queue_df, mac_tx_df, cell_df, switches_df):
+def analyze_run(run_name, packets_df, energest_df, queue_df,
+                mac_tx_df, cell_df, switches_df, rpl_stats_df):
     run_entry = {"name": run_name}
     if len(switches_df) == 0:
         run_entry["converged"] = True
@@ -105,6 +106,11 @@ def analyze_run(run_name, packets_df, energest_df, queue_df, mac_tx_df, cell_df,
     #ss_queue_df_3 = ss_queue_df.copy()
     #ss_queue_df_3 = ss_queue_df_3[ss_queue_df_3.node == 3]
 
+    # RPL stats for the transmitting nodes only
+    transmitting_nodes = [332, 330, 328, 326]
+    rpl_stats_transmitters_df = \
+        rpl_stats_df[rpl_stats_df["node"].isin(transmitting_nodes)]
+
     # Make the following metrics for the given measures for the given DFs
     # The-per-node is a bit hackish - gave them special prefix
     #default_measures = ["mean", 50, 95, 99, "maximum"]
@@ -118,12 +124,15 @@ def analyze_run(run_name, packets_df, energest_df, queue_df, mac_tx_df, cell_df,
                        {"metric": "duty_cycle_tx", "measures":default_measures},
                        {"metric": "duty_cycle_rx", "measures":default_measures}]
     metric_queue = [{"metric": "queue_fill", "measures":default_measures}]
+    metric_rpl = [{"metric": "hop_count", "measures":["mean", "minimum"]}]
 
     dfs = [{"df":packets_df, "metric":metric_packets, "prefix":""},
            {"df":energest_df, "metric":metric_energest, "prefix":""},
            {"df":queue_df, "metric":metric_queue, "prefix":""},
            {"df":app_mac_tx_df, "metric":metric_mac_app_tx, "prefix":""},
            {"df":app_cell_df, "metric":metric_app_cell, "prefix":""},
+           {"df":rpl_stats_df, "metric":metric_rpl, "prefix":""},
+           {"df":rpl_stats_transmitters_df, "metric":metric_rpl, "prefix":"transmitters_"},
            #{"df":ss_queue_df_2, "metric":metric_queue, "prefix":"ss2_"},
            #{"df":ss_queue_df_3, "metric":metric_queue, "prefix":"ss3_"}
            ]
@@ -149,6 +158,7 @@ def analyze_runs(raw_dfs):
     raw_mac_tx_dfs = raw_dfs["raw_mac_tx_dfs"]
     raw_cell_dfs = raw_dfs["raw_mac_cell_dfs"]
     raw_switches_dfs = raw_dfs["raw_switches_dfs"]
+    raw_rpl_stats_dfs = raw_dfs["raw_rpl_stats_dfs"]
 
     runs_df_dict = []
     for run in raw_packets_dfs.keys():
@@ -159,7 +169,8 @@ def analyze_runs(raw_dfs):
                         raw_queue_dfs[run][raw_queue_dfs[run]["app_started"] == 1],
                         raw_mac_tx_dfs[run][raw_mac_tx_dfs[run]["app_started"] == 1],
                         raw_cell_dfs[run][raw_cell_dfs[run]["app_started"] == 1],
-                        raw_switches_dfs[run][raw_switches_dfs[run]["app_started"] == 1]))
+                        raw_switches_dfs[run][raw_switches_dfs[run]["app_started"] == 1],
+                        raw_rpl_stats_dfs[run][raw_rpl_stats_dfs[run]["app_started"] == 1]))
 
     #ad_hoc_etx_per_node(raw_mac_tx_dfs,raw_cell_dfs)
 
@@ -234,6 +245,9 @@ def analyze_scenario(runs_df, scenario_name):
             percentile=adhoc_percentile, confidence=adhoc_confidence)
     add_kpi(kpis, "app_cell_etx",
             percentile=adhoc_percentile, confidence=adhoc_confidence)
+
+    add_kpi(kpis, "hop_count",
+            percentile=50, confidence=95)
 
     # Add names according to the settings
     for kpi in kpis:
