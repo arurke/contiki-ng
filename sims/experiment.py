@@ -14,7 +14,7 @@ try:
     from plot import plot_pdr_latency
     from plot import plot_duty_cycle
     from plot import plot_queue_util_selected_nodes
-    from plot import plot_etx_comparison
+    from plot import plot_spatial_comparison
     from plot import plot_etx_details
     #from stats import stats_for_scenarios
     from stats_triscale import stats_for_scenarios
@@ -166,7 +166,7 @@ def process_results(scenarios, execution_dir, from_csv):
     print("Scenarios stats:\n", scenarios_df)
 
     # Plot
-    plot_etx_comparison(scenarios_df, plots_dir)
+    plot_spatial_comparison(scenarios_df, plots_dir)
     plot_etx_details(scenarios_df, plots_dir)
     plot_pdr_latency(scenarios_df, plots_dir)
     plot_duty_cycle(scenarios_df, plots_dir)

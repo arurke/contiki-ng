@@ -80,7 +80,7 @@ def plot_etx_details(scenarios_df, plot_dir, title=False):
     print("Made figure", fig_path)
 
 
-def plot_etx_comparison(scenarios_df, plot_dir, title=False):
+def plot_spatial_comparison(scenarios_df, plot_dir, title=False):
 
     #print(scenarios_df.index)
     #print(str(scenarios_df))
