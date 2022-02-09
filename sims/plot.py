@@ -12,7 +12,7 @@ import itertools
 plt.rcParams.update({'font.size': 8})
 
 def make_spatial_kpi_name(prefix, postfix):
-    return prefix + "_perc80_conf95_" + postfix
+    return prefix + "_perc85_conf95_" + postfix
 
 def plot_etx_details(scenarios_df, plot_dir, title=False):
 

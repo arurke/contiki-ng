@@ -168,9 +168,9 @@ def process_results(scenarios, execution_dir, from_csv):
     # Plot
     plot_spatial_comparison(scenarios_df, plots_dir)
     plot_etx_details(scenarios_df, plots_dir)
-    plot_pdr_latency(scenarios_df, plots_dir)
-    plot_duty_cycle(scenarios_df, plots_dir)
-    plot_queue_util_selected_nodes(scenarios_df, plots_dir)
+    #plot_pdr_latency(scenarios_df, plots_dir)
+    #plot_duty_cycle(scenarios_df, plots_dir)
+    #plot_queue_util_selected_nodes(scenarios_df, plots_dir)
 
 # Create execution-id
 def create_execution_id(exp_name, executions_dir):

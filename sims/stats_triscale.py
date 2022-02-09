@@ -75,10 +75,16 @@ def calculate_metric(input_df, metric, measure, name, check_convergence=False):
     # When not using the convergence tets, this is the same as if we
     # would call mean(), median() etc. ourselves
     # TODO test with configured bounds?
+
+    # transmitters_hop data is so different from other data
+    # we ad-hoc remove it from here for now. TODO
+    if "transmitters_hop" in name:
+        return np.nan
+
     convergence_result, measure, figure = \
         triscale.analysis_metric(
             df, {"measure":measure},
-            #convergence={"expected": True, "tolerance":10},
+            convergence={"expected": True, "tolerance":5},
             #showplot=False, verbose=False, plot_out_name="deleteme/" + name + ".pdf")
             showplot=False, verbose=False)
 
@@ -114,7 +120,8 @@ def analyze_run(run_name, packets_df, energest_df, queue_df,
     # Make the following metrics for the given measures for the given DFs
     # The-per-node is a bit hackish - gave them special prefix
     #default_measures = ["mean", 50, 95, 99, "maximum"]
-    default_measures = ["mean", 50, 99]
+    # Experienced TriScale crashes with "maximum" and "minimum" in metric convergence test
+    default_measures = ["mean", 50]
     metric_packets = [{"metric": "latency", "measures":default_measures},
                       {"metric": "pdr", "measures":["mean"]}]
     metric_mac_app_tx = [{"metric": "mac_app_tx_etx", "measures":["absolute"]}]
@@ -124,11 +131,13 @@ def analyze_run(run_name, packets_df, energest_df, queue_df,
                        {"metric": "duty_cycle_tx", "measures":default_measures},
                        {"metric": "duty_cycle_rx", "measures":default_measures}]
     metric_queue = [{"metric": "queue_fill", "measures":default_measures}]
-    metric_rpl = [{"metric": "hop_count", "measures":["mean", "minimum"]}]
+    # Experienced TriScale crashes with "maximum" and "minimum" in metric convergence test
+    #metric_rpl = [{"metric": "hop_count", "measures":["mean", "minimum"]}]
+    metric_rpl = [{"metric": "hop_count", "measures":["mean"]}]
 
     dfs = [{"df":packets_df, "metric":metric_packets, "prefix":""},
-           {"df":energest_df, "metric":metric_energest, "prefix":""},
-           {"df":queue_df, "metric":metric_queue, "prefix":""},
+           #{"df":energest_df, "metric":metric_energest, "prefix":""},
+           #{"df":queue_df, "metric":metric_queue, "prefix":""},
            {"df":app_mac_tx_df, "metric":metric_mac_app_tx, "prefix":""},
            {"df":app_cell_df, "metric":metric_app_cell, "prefix":""},
            {"df":rpl_stats_df, "metric":metric_rpl, "prefix":""},
@@ -225,15 +234,15 @@ def analyze_scenario(runs_df, scenario_name):
     kpis = []
 
     # Default ones (see add_kpi() for default values)
-    add_kpi(kpis, "pdr", bound_upper=False, default=True)
-    add_kpi(kpis, "latency", bounds=[0.01,70], bound_lower=False, default=True)
-    add_kpi(kpis, "duty_cycle", bound_lower=False, default=True)
-    add_kpi(kpis, "duty_cycle_tx", bound_lower=False, default=True)
-    add_kpi(kpis, "duty_cycle_rx", bound_lower=False, default=True)
-    add_kpi(kpis, "queue_fill", bound_lower=False, default=True)
+    #add_kpi(kpis, "pdr", bound_upper=False, default=True)
+    #add_kpi(kpis, "latency", bounds=[0.01,70], bound_lower=False, default=True)
+    #add_kpi(kpis, "duty_cycle", bound_lower=False, default=True)
+    #add_kpi(kpis, "duty_cycle_tx", bound_lower=False, default=True)
+    #add_kpi(kpis, "duty_cycle_rx", bound_lower=False, default=True)
+    #add_kpi(kpis, "queue_fill", bound_lower=False, default=True)
 
     # More specialized ones
-    adhoc_percentile = 80
+    adhoc_percentile = 85
     adhoc_confidence = 95
 
     add_kpi(kpis, "latency",
