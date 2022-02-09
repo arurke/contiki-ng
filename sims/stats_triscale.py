@@ -324,6 +324,21 @@ def stats_for_scenario(scenario, write_runs_csv = False):
 
     return scenario_df
 
+# WIP unused
+def ad_hoc_etx_per_node(raw_mac_tx_dfs, cell_dfs):
+    for run in raw_mac_tx_dfs.keys():
+        run_mac_tx_df = raw_mac_tx_dfs[run][raw_mac_tx_dfs[run]["app_started"] == 1]
+        run_cell_df = cell_dfs[run][cell_dfs[run]["app_started"] == 1]
+
+        groups = run_mac_tx_df.groupby("node")["transmissions"]
+        for name, group in groups:
+            print(name)
+            num_tx = group.sum()
+            node_df = run_mac_tx_df[run_mac_tx_df["node"] == name]
+            num_success = len(node_df[node_df["result"] == "ok"])
+            node_etx = num_tx / num_success
+            #print("%d / %d : %.4f" % (num_tx, num_success, node_etx))
+
 def ad_hoc_etx_per_node_all(scenarios):
     node_max_etx = []
     for scenario in scenarios:
