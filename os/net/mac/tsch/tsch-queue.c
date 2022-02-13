@@ -80,6 +80,10 @@ struct tsch_neighbor *n_eb;
 
 static void tsch_queue_flush_nbr_queue(struct tsch_neighbor *n);
 
+#if BUILD_WITH_LAYERED_FLOW
+volatile uint32_t tsch_flow_error = 0;
+#endif
+
 /*---------------------------------------------------------------------------*/
 /* Add a TSCH neighbor */
 struct tsch_neighbor *
@@ -249,7 +253,7 @@ tsch_queue_add_packet(const linkaddr_t *addr, uint8_t max_transmissions,
   /* The scheduler provides a callback which sets the timeslot and other attributes */
   if(TSCH_CALLBACK_PACKET_READY() < 0) {
     /* No scheduled slots for the packet available; drop it early to save queue space. */
-    LOG_DBG("tsch_queue_add_packet(): rejected by the scheduler\n");
+    LOG_ERR("tsch_queue_add_packet(): rejected by the scheduler\n");
     return NULL;
   }
 #endif
@@ -258,6 +262,32 @@ tsch_queue_add_packet(const linkaddr_t *addr, uint8_t max_transmissions,
   linkaddr_copy(&addr_to_use, addr);
 
   if(!tsch_is_locked()) {
+
+#if BUILD_WITH_LAYERED_FLOW
+    // If this packet is going in a flow, put it in a flow-neighbor queue
+    // instead of the next-hop neighbor
+    linkaddr_t flow_address = {0};
+    bool packet_belongs_to_a_flow =
+        layered_get_flow_address_for_packet(
+            packetbuf_attr(PACKETBUF_ATTR_FRAME_TYPE),
+            packetbuf_dataptr(), packetbuf_datalen(),
+            &flow_address);
+
+    if(packet_belongs_to_a_flow) {
+      // Add next-hop neighbor
+      if(tsch_queue_add_nbr(&addr_to_use) ==  NULL) {
+        tsch_flow_error++;
+        LOG_ERR("!asdERR add neighbor failed!\n");
+        return NULL;
+      }
+
+      // Replace address with the flow address so that flow-addr
+      // is added as neighbor and packet is put in the flow-neighbor queue
+      tsch_schedule_convert_to_flow_address(&flow_address);
+      linkaddr_copy(&addr_to_use, &flow_address);
+    }
+#endif
+
 #if BUILD_WITH_LAYERED
     // If this is a RPL packet, change the addr to a broadcast-addr such that
     // all RPL packets (including unicast) ends up in the broadcast queue
@@ -370,6 +400,26 @@ tsch_queue_packet_sent(struct tsch_neighbor *n, struct tsch_packet *p,
     n = n_broadcast;
   }
 #endif
+#if BUILD_WITH_LAYERED_FLOW
+  // If this packet was in a flow, we should remove the packet from the
+  // flow-neighbor queue
+  struct tsch_neighbor* flow_neighbor = NULL;
+  if(tsch_schedule_link_is_flow_link(link)) {
+    flow_neighbor = tsch_queue_get_nbr(&link->addr);
+    if(flow_neighbor == NULL) {
+      // This should not happen
+      tsch_flow_error++;
+      TSCH_LOG_ADD(tsch_log_message,
+                    snprintf(log->message, sizeof(log->message),
+                             "!asdERR no flow neighbor when dequeuing"));
+    }
+    else {
+      n = flow_neighbor;
+      is_unicast = true;
+    }
+  }
+#endif
+
 
   if(mac_tx_status == MAC_TX_OK) {
     /* Successful transmission */
@@ -452,7 +502,7 @@ tsch_queue_is_empty(const struct tsch_neighbor *n)
 }
 /*---------------------------------------------------------------------------*/
 
-#if BUILD_WITH_LAYERED
+#if BUILD_WITH_LAYERED_HACK
 volatile uint32_t tsch_hack_errors = 0;
 volatile uint32_t tsch_hack_deleted_packets = 0;
 
@@ -608,7 +658,7 @@ static struct tsch_packet* hack2(
 #include "os/services/deployment/deployment.h"
 #endif
 
-#if BUILD_WITH_LAYERED
+#if BUILD_WITH_LAYERED_HACK
 /* Returns the first packet from a neighbor queue */
 // Note that if neighbor is broadcast, the packet may belong to a different
 // unicast neighbor because we put all RPL and KA packets into
@@ -802,7 +852,7 @@ tsch_queue_get_packet_for_nbr(const struct tsch_neighbor *n, struct tsch_link *l
       if(get_index != -1 &&
           !(is_shared_link && !tsch_queue_backoff_expired(n))) {    /* If this is a shared link,
                                                                     make sure the backoff has expired */
-#if TSCH_WITH_LINK_SELECTOR
+#if TSCH_WITH_LINK_SELECTOR && !BUILD_WITH_LAYERED_FLOW
         int packet_attr_slotframe = queuebuf_attr(n->tx_array[get_index]->qb, PACKETBUF_ATTR_TSCH_SLOTFRAME);
         int packet_attr_timeslot = queuebuf_attr(n->tx_array[get_index]->qb, PACKETBUF_ATTR_TSCH_TIMESLOT);
         if(packet_attr_slotframe != 0xffff && packet_attr_slotframe != link->slotframe_handle) {
@@ -829,6 +879,14 @@ tsch_queue_get_packet_for_dest_addr(const linkaddr_t *addr, struct tsch_link *li
   }
   return NULL;
 }
+
+#if BUILD_WITH_LAYERED_FLOW
+static bool
+neighbor_is_flow_neighbor(const struct tsch_neighbor *n) {
+  return tsch_schedule_addr_is_for_flow(tsch_queue_get_nbr_address(n));
+}
+#endif
+
 /*---------------------------------------------------------------------------*/
 /* Returns the head packet of any neighbor queue with zero backoff counter.
  * Writes pointer to the neighbor in *n */
@@ -838,8 +896,17 @@ tsch_queue_get_unicast_packet_for_any(struct tsch_neighbor **n, struct tsch_link
   if(!tsch_is_locked()) {
     struct tsch_neighbor *curr_nbr = (struct tsch_neighbor *)nbr_table_head(tsch_neighbors);
     struct tsch_packet *p = NULL;
+
     while(curr_nbr != NULL) {
+#if BUILD_WITH_LAYERED_FLOW
+      // Do not pick a flow-neighbor - we do not want flow-packets
+      // on any other cells than the dedicated ones
+      if(!curr_nbr->is_broadcast &&
+          curr_nbr->tx_links_count == 0 &&
+          !neighbor_is_flow_neighbor(curr_nbr)) {
+#else
       if(!curr_nbr->is_broadcast && curr_nbr->tx_links_count == 0) {
+#endif
         /* Only look up for non-broadcast neighbors we do not have a tx link to */
         p = tsch_queue_get_packet_for_nbr(curr_nbr, link);
         if(p != NULL) {

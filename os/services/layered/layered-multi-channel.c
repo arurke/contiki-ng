@@ -14,6 +14,12 @@
 #define LOG_MODULE "Layered"
 #define LOG_LEVEL   LOG_LEVEL_LAYERED
 
+#ifndef BUILD_WITH_LAYERED_FLOW
+#ifndef BUILD_WITH_LAYERED_HACK
+#error Either BUILD_WITH_LAYERED_HACK or BUILD_WITH_LAYERED_FLOW must be set
+#endif
+#endif
+
 /*
  * The body of this rule should be compiled only when "nbr_routes" is available,
  * otherwise a link error causes build failure. "nbr_routes" is compiled if
@@ -382,6 +388,39 @@ find_packet_type(uint16_t frame_type, const uint8_t* data, uint16_t data_len) {
   return LAYERED_PACKET_TYPE_APP;
 }
 
+#if BUILD_WITH_LAYERED_FLOW
+bool
+layered_get_flow_address_for_packet(uint16_t frame_type, const uint8_t* data,
+                                    uint16_t data_len,
+                                    linkaddr_t* flow_address) {
+
+  // TODO the packet type is actually in PACKETBUF_ATTR_TEST since select_packet()
+  // added it there. So this is kind of unnecessary. But keeping it for now in
+  // case we change select_packet().
+  layered_packet_type_t packet_type =
+      find_packet_type(frame_type, data, data_len);
+
+  switch(packet_type) {
+    case LAYERED_PACKET_TYPE_APP:
+      if(!find_source_address(data, data_len, flow_address)) {
+         // Unable to find the source address, this should not happen
+        LOG_ERR("Panic!\n");
+        return false;
+      }
+      // Convert the source address into its flow address
+      tsch_schedule_convert_to_flow_address(flow_address);
+//      LOG_DBG("Flow packet\n");
+      return true;
+    case LAYERED_PACKET_TYPE_BEACON:
+    case LAYERED_PACKET_TYPE_RPL:
+    case LAYERED_PACKET_TYPE_KEEPALIVE:
+    default:
+//      LOG_DBG("Not flow packet\n");
+      return false;
+  }
+}
+#endif
+
 bool
 layered_calc_packet_cell(uint16_t frame_type, const uint8_t* data, uint16_t data_len,
     uint16_t *slotframe, uint16_t *timeslot, uint16_t *channel_offset,
@@ -702,8 +741,13 @@ schedule_upwards_tx_cell(
       // Probably need an overhaul of the entire adding-cells-mechanism to handle
       // all RPL operations.
       remove_other_cells_in_timeslot(timeslot, channel);
+#if BUILD_WITH_LAYERED_FLOW
+      tsch_schedule_add_link(sf_layered, link_options, LINK_TYPE_NORMAL,
+                             linkaddr, timeslot, channel, 1, true);
+#else
       tsch_schedule_add_link(sf_layered, link_options, LINK_TYPE_NORMAL,
                              &tsch_broadcast_address, timeslot, channel, 1);
+#endif
     }
   }
 }
@@ -739,8 +783,14 @@ schedule_upwards_rx_cell(
       LOG_INFO_("\n");
 
       remove_other_cells_in_timeslot(timeslot, channel);
+#if BUILD_WITH_LAYERED_FLOW
+      // We do not care about RX cells being connected to flow
+      tsch_schedule_add_link(sf_layered, link_options, LINK_TYPE_NORMAL,
+                             &tsch_broadcast_address, timeslot, channel, 1, false);
+#else
       tsch_schedule_add_link(sf_layered, link_options, LINK_TYPE_NORMAL,
                              &tsch_broadcast_address, timeslot, channel, 1);
+#endif
     }
   }
 }
@@ -776,9 +826,15 @@ schedule_downwards_tx_cell(
       LOG_INFO("Adding downwards TX cell %u/%u\n", timeslot, channel);
 
       remove_other_cells_in_timeslot(timeslot, channel);
+#if BUILD_WITH_LAYERED_FLOW
+      tsch_schedule_add_link(sf_layered, link_options,
+                             LINK_TYPE_ADVERTISING_ONLY,
+                             &tsch_broadcast_address, timeslot, channel, 1, false);
+#else
       tsch_schedule_add_link(sf_layered, link_options,
                              LINK_TYPE_ADVERTISING_ONLY,
                              &tsch_broadcast_address, timeslot, channel, 1);
+#endif
     }
   }
 }
@@ -809,9 +865,15 @@ schedule_downwards_rx_cell(
       LOG_INFO("Adding downwards RX cell %u/%u\n", timeslot, channel);
 
       remove_other_cells_in_timeslot(timeslot, channel);
+#if BUILD_WITH_LAYERED_FLOW
+      tsch_schedule_add_link(sf_layered, link_options,
+                             LINK_TYPE_ADVERTISING_ONLY,
+                             &tsch_broadcast_address, timeslot, channel, 1, false);
+#else
       tsch_schedule_add_link(sf_layered, link_options,
                              LINK_TYPE_ADVERTISING_ONLY,
                              &tsch_broadcast_address, timeslot, channel, 1);
+#endif
     }
   }
 }
@@ -831,9 +893,13 @@ static void schedule_common_cells(void) {
 #if LAYERED_STATS
     stats_add_link(timeslot, channel, options);
 #endif
-
+#if BUILD_WITH_LAYERED_FLOW
+    tsch_schedule_add_link(sf_layered, options, LINK_TYPE_NORMAL,
+                           &tsch_broadcast_address, i, channel, 1, false);
+#else
     tsch_schedule_add_link(sf_layered, options, LINK_TYPE_NORMAL,
                            &tsch_broadcast_address, i, channel, 1);
+#endif
   }
 }
 
@@ -1050,7 +1116,8 @@ route_callback(int event,
   //    When moving cell #1 or #2 above, they always collide with the old allocation:
   //    #1 is e.g. on timeslot 10 and #2 is on timeslot 60. When moving to different layer,
   //    #1 is on 60, and #2 is on 10. New allocations always clean up old allocations in
-  //    the timeslot first - thus old stuff is removed.
+  //    the timeslot first - thus old stuff is removed. However, other flows to this parent
+  //    is kept on the old layer until a new DAO is received.
   //
   //    The problem area is #3 which is based on the parent ID and does not have an
   //    equivalent "partner" which always help clean up. Thus, when adding default route

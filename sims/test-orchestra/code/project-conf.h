@@ -152,8 +152,8 @@
 // No need for large packet support
 #define UIP_CONF_BUFFER_SIZE                  140
 
-// TODO Default is 16
-#define NBR_TABLE_CONF_MAX_NEIGHBORS          32
+// TODO Default is 16 // Need a lot because we have neighbor-entries for flows as well
+#define NBR_TABLE_CONF_MAX_NEIGHBORS          64
 
 // TODO Default is 16
 #define NETSTACK_MAX_ROUTE_ENTRIES            32

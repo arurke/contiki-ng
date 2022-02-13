@@ -189,9 +189,13 @@ static PT_THREAD(tsch_rx_slot(struct pt *pt, struct rtimer *t));
 
 #if BUILD_WITH_LAYERED
 volatile uint32_t tsch_slot_timing_missed = 0;
+#endif
+#if BUILD_WITH_LAYERED_FLOW
+volatile uint32_t tsch_flow_missing_neighbor = 0;
+#endif
+#if BUILD_WITH_LAYERED_HACK
 volatile uint32_t tsch_hack_mismatch = 0;
 #endif
-
 /*---------------------------------------------------------------------------*/
 /* TSCH locking system. TSCH is locked during slot operations */
 
@@ -400,8 +404,53 @@ get_packet_and_neighbor_for_link(struct tsch_link *link, struct tsch_neighbor **
       /* NORMAL link or no EB to send, pick a data packet */
       if(p == NULL) {
         /* Get neighbor queue associated to the link and get packet from it */
-        n = tsch_queue_get_nbr(&link->addr);
-        p = tsch_queue_get_packet_for_nbr(n, link);
+
+#if BUILD_WITH_LAYERED_FLOW
+        // We need to get the next-hop neighbor into `n`, but we need a packet
+        // from the flow-queue into `p`.
+        // TODO The best would be to get a new neighbor right now? In case
+        // we have switched parent. But no, that would be some cross-layer
+        // operation which require some more thinking, let's stick with the
+        // next-hop/receiver address specified in the packet
+
+        if(tsch_schedule_link_is_flow_link(link)) {
+          // The link is tied to a flow-neighbor.
+          // Get the neighbor, and the packet from its queue.
+          struct tsch_neighbor* flow_neighbor = tsch_queue_get_nbr(&link->addr);
+          if(flow_neighbor == NULL) {
+            TSCH_LOG_ADD(tsch_log_message,
+                          snprintf(log->message, sizeof(log->message),
+                                   "!asdERR no flow neighbor"));
+            tsch_flow_missing_neighbor++;
+            return NULL; // TODO delete packet? tricky. Do not return?
+          }
+          p = tsch_queue_get_packet_for_nbr(flow_neighbor, link);
+          if(p != NULL) {
+            // Get the next-hop neighbor for this packet and put it
+            // into `n` which is what TSCH treats as the next hop neighbor.
+            linkaddr_t* packet_dest =
+                queuebuf_addr(p->qb, PACKETBUF_ADDR_RECEIVER);
+            n = tsch_queue_get_nbr(packet_dest);
+            if(n == NULL) {
+              // We do not have a next-hop neighbor for this packet
+              TSCH_LOG_ADD(tsch_log_message,
+                            snprintf(log->message, sizeof(log->message),
+                                     "!asdERR no next-hop neighbor"));
+              tsch_flow_missing_neighbor++;
+              return NULL; // TODO delete packet? tricky. Do not return?
+            }
+          }
+          else {
+
+          }
+        }
+        else {
+#endif
+          n = tsch_queue_get_nbr(&link->addr);
+          p = tsch_queue_get_packet_for_nbr(n, link);
+#if BUILD_WITH_LAYERED_FLOW
+        }
+#endif
 
 #if BUILD_WITH_LAYERED
         // Because we add all RPL and KA to the broadcast queue
@@ -435,7 +484,7 @@ get_packet_and_neighbor_for_link(struct tsch_link *link, struct tsch_neighbor **
             if(packet_dest_neighbor == NULL) {
 //              TSCH_LOG_ADD(tsch_log_message,
 //                  snprintf(log->message, sizeof(log->message),
-//                  "asd ERR is NULL"));
+//                  "asd ERR is NULL")); TODO log?
             }
             // Set packet neighbor as neighbor if mismatch
             else if(packet_dest_neighbor != n) {
@@ -627,7 +676,7 @@ PT_THREAD(tsch_tx_slot(struct pt *pt, struct rtimer *t))
       /* if is this a broadcast packet, don't wait for ack */
       do_wait_for_ack = !current_neighbor->is_broadcast;
 
-#if BUILD_WITH_LAYERED
+#if BUILD_WITH_LAYERED_HACK
       // Check if there is mismatch between current_neighbor and packet dest
       // Only necessary if packet destination is not broadcast
       linkaddr_t* packet_dest =
@@ -1163,15 +1212,15 @@ PT_THREAD(tsch_slot_operation(struct rtimer *t, void *ptr))
       /* Get a packet ready to be sent */
       current_packet = get_packet_and_neighbor_for_link(current_link, &current_neighbor);
       uint8_t do_skip_best_link = 0;
-#if BUILD_WITH_LAYERED
-      if(current_packet == NULL) {
+//#if BUILD_WITH_LAYERED
+//      if(current_packet == NULL) {
 //        TSCH_LOG_ADD(tsch_log_message,
 //                        snprintf(log->message, sizeof(log->message),
 //                            "!asd no packet for %u/%u",
 //                              current_link->timeslot,
 //                              current_link->channel_offset));
-      }
-      else {
+//      }
+//      else {
 //        char address[10] = {0};
 //        linkaddr_t *lladdr = tsch_queue_get_nbr_address(current_neighbor);
 //        if(lladdr == NULL || linkaddr_cmp(lladdr, &linkaddr_null)) {
@@ -1194,11 +1243,11 @@ PT_THREAD(tsch_slot_operation(struct rtimer *t, void *ptr))
 //                            "!asd packet for %u/%u %s",
 //                              current_link->timeslot,
 //                              current_link->channel_offset, address));
-      }
+//      }
 //              TSCH_LOG_ADD(tsch_log_message,
 //                              snprintf(log->message, sizeof(log->message),
 //                                  "!mem %d", tsch_queue_global_packet_count()));
-#endif
+//#endif
       if(current_packet == NULL && backup_link != NULL) {
         /* There is no packet to send, and this link does not have Rx flag. Instead of doing
          * nothing, switch to the backup link (has Rx flag) if any

@@ -75,6 +75,11 @@ void layered_callback_child_removed(const linkaddr_t *addr);
 bool layered_calc_packet_cell(uint16_t frame_type, const uint8_t* data, uint16_t data_len,
     uint16_t *slotframe, uint16_t *timeslot, uint16_t *channel_offset,
     layered_packet_type_t* packet_type);
+#if BUILD_WITH_LAYERED_FLOW
+bool layered_get_flow_address_for_packet(uint16_t frame_type, const uint8_t* data,
+                                          uint16_t data_len, linkaddr_t* flow_address);
+#endif
+
 
 // TODO ad-hoc
 #define LAYERED_STATS 1

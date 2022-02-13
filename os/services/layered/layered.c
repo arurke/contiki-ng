@@ -105,11 +105,12 @@ layered_callback_packet_ready(void)
     }
   }
 
-#if TSCH_WITH_LINK_SELECTOR
+//#if TSCH_WITH_LINK_SELECTOR
+  // Add attributes regardless because we use them for stats
   packetbuf_set_attr(PACKETBUF_ATTR_TSCH_SLOTFRAME, slotframe);
   packetbuf_set_attr(PACKETBUF_ATTR_TSCH_TIMESLOT, timeslot);
   packetbuf_set_attr(PACKETBUF_ATTR_TSCH_CHANNEL_OFFSET, channel_offset);
-#endif
+//#endif
 
   return matched_rule;
 }

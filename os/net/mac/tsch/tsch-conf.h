@@ -365,7 +365,8 @@
 #ifdef TSCH_CONF_WITH_LINK_SELECTOR
 #define TSCH_WITH_LINK_SELECTOR TSCH_CONF_WITH_LINK_SELECTOR
 #else /* TSCH_CONF_WITH_LINK_SELECTOR */
-#define TSCH_WITH_LINK_SELECTOR (BUILD_WITH_ORCHESTRA || BUILD_WITH_LAYERED)
+#define TSCH_WITH_LINK_SELECTOR (BUILD_WITH_ORCHESTRA || \
+                                 BUILD_WITH_LAYERED)
 #endif /* TSCH_CONF_WITH_LINK_SELECTOR */
 
 /* Configurable link comparator in case multiple links are scheduled at the same slot */
