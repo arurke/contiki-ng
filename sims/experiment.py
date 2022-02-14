@@ -346,6 +346,10 @@ def parse_arguments():
         print("Cannot do run (must set --norun) when reading data from CSV")
         exit()
 
+    # If fetching we force no running
+    if fetch_from_remote:
+        no_run = False
+
     # If preparation or exection only we force remote
     if prepare_only or run_only:
         remote_execution = True
