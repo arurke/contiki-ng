@@ -412,6 +412,11 @@ get_packet_and_neighbor_for_link(struct tsch_link *link, struct tsch_neighbor **
         // we have switched parent. But no, that would be some cross-layer
         // operation which require some more thinking, let's stick with the
         // next-hop/receiver address specified in the packet
+        // Update: Had problems with the next-hop neighbor being flushed,
+        // and adding the neighbor in the middle of slot operation is
+        // in theory a bad thing. Therefore opted to rather always use
+        // the time-source neighbor. This assumes traffic is upward
+        // convergecast
 
         if(tsch_schedule_link_is_flow_link(link)) {
           // The link is tied to a flow-neighbor.
@@ -428,9 +433,11 @@ get_packet_and_neighbor_for_link(struct tsch_link *link, struct tsch_neighbor **
           if(p != NULL) {
             // Get the next-hop neighbor for this packet and put it
             // into `n` which is what TSCH treats as the next hop neighbor.
-            linkaddr_t* packet_dest =
-                queuebuf_addr(p->qb, PACKETBUF_ADDR_RECEIVER);
-            n = tsch_queue_get_nbr(packet_dest);
+            // Update: Rather use the time-source. See above
+//            linkaddr_t* packet_dest =
+//                queuebuf_addr(p->qb, PACKETBUF_ADDR_RECEIVER);
+//            n = tsch_queue_get_nbr(packet_dest);
+            n = tsch_queue_get_time_source();
             if(n == NULL) {
               // We do not have a next-hop neighbor for this packet
               TSCH_LOG_ADD(tsch_log_message,
