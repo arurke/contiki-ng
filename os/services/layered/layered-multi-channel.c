@@ -65,8 +65,11 @@ static uint8_t channels[NUM_CHANNELS] = CHANNELS;
 #define SRC_ADDR_OFFSET           3
 
 #define FIRST_COMMON_SLOT         (COMMON_SLOT_SPACING - 1)
+#define COMMON_SLOT_OPTIONS       (LINK_OPTION_RX | LINK_OPTION_TX | LINK_OPTION_SHARED)
 
-#if LAYERED_STATS
+#define LAYERED_STATEFUL 0
+
+#if LAYERED_STATS && !LAYERED_STATEFUL
 #define STATS_NUM_LINKS   50
 typedef struct {
   uint16_t timeslot;
@@ -170,6 +173,283 @@ static void stats_deactivate_link(
   }
 }
 #endif /* LAYERED_STATS */
+
+#if LAYERED_STATEFUL
+static bool schedule_in_sync(void);
+static void sync_links_with_schedule(void);
+
+// This also includes RX links now
+#define MAX_NUM_LINKS   100
+
+typedef struct {
+  bool occupied;
+  uint16_t timeslot;
+  uint16_t channel;
+  uint8_t options;
+  enum link_type link_type;
+  linkaddr_t address;
+  bool is_flow;
+  bool should_be_scheduled;
+  bool scheduled;
+#if LAYERED_STATS
+  uint32_t tx_attempts;
+  uint32_t no_ok_mac;
+#endif
+} layered_link_t;
+
+static layered_link_t layered_links[MAX_NUM_LINKS] = {{0}};
+
+static uint32_t unknown_stats = 0;
+
+void layered_stats_update(struct tsch_neighbor *n, struct tsch_packet *p,
+                          struct tsch_link *link, uint8_t channel_offset,
+                          uint8_t mac_tx_status) {
+
+  // (channel offset in link cannot be trusted when TSCH_WITH_LINK_SELECTOR)
+  for(int i = 0; i < MAX_NUM_LINKS; i++) {
+    if(layered_links[i].occupied &&
+        layered_links[i].timeslot == link->timeslot &&
+        layered_links[i].channel == channel_offset &&
+        layered_stats[i].options != LINK_OPTION_RX) {
+
+      layered_links[i].tx_attempts++;
+
+      if(mac_tx_status != MAC_TX_OK) {
+        layered_links[i].no_ok_mac++;
+      }
+
+      return;
+    }
+  }
+  unknown_stats++;
+}
+
+void layered_print_stats() {
+  tsch_schedule_print();
+
+  LOG_INFO("Printing stats:\n");
+  int i = 0;
+  uint8_t num_links = 0;
+  for(i = 0; i < MAX_NUM_LINKS; i++) {
+    if(layered_links[i].timeslot != 0 &&
+        layered_links[i].channel != 0) {
+
+      num_links++;
+
+      if(layered_links[i].options & LINK_OPTION_SHARED) {
+        LOG_INFO("BC: ");
+      }
+      else {
+        LOG_INFO("UC: ");
+      }
+      LOG_INFO_("TS/CH %" PRIu16 "/%" PRIu16 ": %" PRIu32 " attempts, " \
+               " %" PRIu32 " no OK",
+               layered_links[i].timeslot,
+               layered_links[i].channel,
+               layered_links[i].tx_attempts,
+               layered_links[i].no_ok_mac);
+      LOG_INFO_("%s ", layered_links[i].scheduled ? "" : " - not-sched.");
+      LOG_INFO_("%s\n",
+                layered_links[i].scheduled !=
+                    layered_links[i].should_be_scheduled ? " - not in sync" : "");
+    }
+  }
+
+  LOG_INFO("Num links: %" PRIu8 "\n", num_links);
+
+  if(unknown_stats != 0) {
+    LOG_ERR("Unknown stats %" PRIu32 "\n", unknown_stats);
+  }
+
+#if LAYERED_STATEFUL
+  // Utilize the periodic printing to check our sync
+  // TODO is it fast enough?
+  if(!schedule_in_sync()) {
+    LOG_WARN("Schedule not in sync\n");
+    sync_links_with_schedule();
+  }
+#endif
+
+}
+
+
+// Returns link matching the timeslot/channel
+static layered_link_t* get_link(uint16_t timeslot, uint16_t channel) {
+  for(int i = 0; i < MAX_NUM_LINKS; i++) {
+    if(layered_links[i].occupied &&
+        layered_links[i].timeslot == timeslot &&
+        layered_links[i].channel == channel) {
+      return &layered_links[i];
+    }
+  }
+  return NULL;
+}
+
+// Returns the link matching all fields
+static layered_link_t* get_identical_link(
+    uint16_t timeslot, uint16_t channel,
+    uint8_t options, enum link_type link_type,
+    const linkaddr_t* address, bool is_flow) {
+  for(int i = 0; i < MAX_NUM_LINKS; i++) {
+    if(layered_links[i].occupied &&
+        layered_links[i].timeslot == timeslot &&
+        layered_links[i].channel == channel &&
+        layered_links[i].options == options &&
+        layered_links[i].link_type == link_type &&
+        (linkaddr_cmp(&(layered_links[i].address), address) != 0) &&
+        layered_links[i].is_flow == is_flow) {
+      return &layered_links[i];
+    }
+  }
+  return NULL;
+}
+
+static bool link_is_enabled(const layered_link_t* link) {
+  return link->scheduled || link->should_be_scheduled;
+}
+
+static uint8_t get_available_index(void) {
+  for(int i = 0; i < MAX_NUM_LINKS; i++) {
+    if(!layered_links[i].occupied) {
+      return i;
+    }
+  }
+
+  // If no open places in list, find an abandoned link
+  for(int i = 0; i < MAX_NUM_LINKS; i++) {
+    if(!layered_links[i].scheduled && !layered_links[i].should_be_scheduled) {
+      return i;
+    }
+  }
+
+  // Nothing available!
+  return MAX_NUM_LINKS+1;
+}
+
+static bool schedule_in_sync(void) {
+  for(int i = 0; i < MAX_NUM_LINKS; i++) {
+    if(layered_links[i].occupied &&
+        layered_links[i].scheduled != layered_links[i].should_be_scheduled) {
+      return false;
+    }
+  }
+  return true;
+}
+
+static void remove_link(uint16_t timeslot, uint16_t channel) {
+  layered_link_t* existing_link = get_link(timeslot, channel);
+  if(existing_link == NULL) {
+    LOG_WARN("Unable to remove non-existing link %u/%u\n", timeslot, channel);
+    return;
+  }
+  else {
+    existing_link->should_be_scheduled = false;
+    LOG_DBG("Link %u/%u removed\n", timeslot, channel);
+  }
+#if LAYERED_STATEFUL
+  sync_links_with_schedule();
+#endif
+}
+
+static void add_link(
+    uint16_t timeslot, uint16_t channel,
+    uint8_t options, enum link_type link_type,
+    const linkaddr_t* address, bool is_flow) {
+
+  // Check if identical already exists
+  layered_link_t* link =
+      get_identical_link(timeslot, channel, options, link_type, address, is_flow);
+  if(link != NULL) {
+    if(!link_is_enabled(link)) {
+      link->should_be_scheduled = true;
+      LOG_DBG("Link %u/%u already in place, enabling\n", timeslot, channel);
+    }
+    else {
+      LOG_DBG("Link %u/%u already in place and enabled\n", timeslot, channel);
+    }
+    return;
+  }
+
+  // Add new link
+  layered_link_t new_link =
+    { .occupied = true,
+      .timeslot = timeslot,
+      .channel = channel,
+      .options = options,
+      .link_type = link_type,
+      .is_flow = is_flow,
+      .should_be_scheduled = true,
+      .scheduled = false};
+
+  linkaddr_copy(&new_link.address, address);
+
+  layered_link_t* existing_link = get_link(timeslot, channel);
+  if(existing_link != NULL) {
+    *existing_link = new_link;
+  }
+  else {
+    uint8_t new_link_index = get_available_index();
+    if(new_link_index > MAX_NUM_LINKS) {
+      LOG_ERR("No room for more links!\n");
+      return;
+    }
+    else {
+      layered_links[new_link_index] = new_link;
+    }
+  }
+
+  LOG_DBG("Link %u/%u added\n", timeslot, channel);
+}
+
+static void sync_links_with_schedule(void) {
+  for(int i = 0; i < MAX_NUM_LINKS; i++) {
+    if(!layered_links[i].occupied) {
+      continue;
+    }
+
+    // Check if link is out of sync
+    if(layered_links[i].scheduled != layered_links[i].should_be_scheduled) {
+      // Unschedule link
+      if(!layered_links[i].should_be_scheduled) {
+        int res =
+            tsch_schedule_remove_link_by_timeslot(sf_layered,
+                                                  layered_links[i].timeslot,
+                                                  layered_links[i].channel);
+        if(!res) {
+          LOG_WARN("Failed to unschedule link %u/%u\n",
+                  layered_links[i].timeslot, layered_links[i].channel);
+        }
+        else {
+          LOG_DBG("Link %u/%u un-scheduled\n",
+                  layered_links[i].timeslot, layered_links[i].channel);
+          layered_links[i].scheduled = false;
+        }
+      }
+      // Schedule link
+      else {
+        struct tsch_link* link =
+            tsch_schedule_add_link(sf_layered,layered_links[i].options,
+                                   layered_links[i].link_type,
+                                   &layered_links[i].address,
+                                   layered_links[i].timeslot,
+                                   layered_links[i].channel, 1,
+                                   layered_links[i].is_flow);
+        if(link == NULL) {
+          LOG_WARN("Failed to schedule link %u/%u\n",
+                  layered_links[i].timeslot, layered_links[i].channel);
+        }
+        else {
+          LOG_DBG("Link %u/%u scheduled\n",
+                  layered_links[i].timeslot, layered_links[i].channel);
+          layered_links[i].scheduled = true;
+        }
+      }
+    }
+  }
+}
+
+#endif /* LAYERED_STATEFUL */
+
 
 static uint16_t
 get_node_timeslot(const linkaddr_t *addr)
@@ -662,6 +942,7 @@ is_root(void) {
   return NETSTACK_ROUTING.node_is_root();
 }
 
+#if !LAYERED_STATEFUL
 static bool cell_already_there(uint16_t timeslot, uint16_t channel,
                                uint8_t link_options, enum link_type link_type) {
 
@@ -695,6 +976,7 @@ static void remove_other_cells_in_timeslot(uint16_t timeslot, uint16_t channel) 
     }
   }
 }
+#endif
 
 static void
 schedule_upwards_tx_cell(
@@ -708,7 +990,7 @@ schedule_upwards_tx_cell(
   const linkaddr_t* parent_linkaddr =
       rpl_get_parent_lladdr(rpl_dag->preferred_parent);
 
-#if LAYERED_STATS
+#if LAYERED_STATS && !LAYERED_STATEFUL
   if(remove) {
     stats_deactivate_link(timeslot, channel);
   }
@@ -723,12 +1005,26 @@ schedule_upwards_tx_cell(
     LOG_INFO_(" for traffic from ");
     LOG_INFO_LLADDR(linkaddr);
     LOG_INFO_("\n");
+
+#if LAYERED_STATEFUL
+    remove_link(timeslot, channel);
+#else
     struct tsch_link* link_to_remove =
         tsch_schedule_get_link_by_timeslot(sf_layered, timeslot, channel);
     // TODO add error-handling
     tsch_schedule_remove_link(sf_layered, link_to_remove);
+#endif
   }
   else {
+#if LAYERED_STATEFUL
+    LOG_INFO("Adding upwards TX cell %u/%u to ", timeslot, channel);
+         LOG_INFO_LLADDR(parent_linkaddr);
+         LOG_INFO_(" for traffic from ");
+         LOG_INFO_LLADDR(linkaddr);
+         LOG_INFO_("\n");
+    add_link(timeslot, channel, link_options,
+             LINK_TYPE_NORMAL, linkaddr, true);
+#else
     if(!cell_already_there(timeslot, channel, link_options, LINK_TYPE_NORMAL)) {
       LOG_INFO("Adding upwards TX cell %u/%u to ", timeslot, channel);
       LOG_INFO_LLADDR(parent_linkaddr);
@@ -749,6 +1045,7 @@ schedule_upwards_tx_cell(
                              &tsch_broadcast_address, timeslot, channel, 1);
 #endif
     }
+#endif /* LAYERED_STATEFUL */
   }
 }
 
@@ -771,11 +1068,24 @@ schedule_upwards_rx_cell(
              timeslot, channel);
     LOG_INFO_LLADDR(linkaddr);
     LOG_INFO_("\n");
+
+#if LAYERED_STATEFUL
+    remove_link(timeslot, channel);
+#else
     struct tsch_link* link_to_remove =
-        tsch_schedule_get_link_by_timeslot(sf_layered, timeslot, channel);
+            tsch_schedule_get_link_by_timeslot(sf_layered, timeslot, channel);
     tsch_schedule_remove_link(sf_layered, link_to_remove);
+#endif
   }
   else {
+#if LAYERED_STATEFUL
+    LOG_INFO("Adding upwards RX cell %u/%u for traffic from ",
+             timeslot, channel);
+    LOG_INFO_LLADDR(linkaddr);
+    LOG_INFO_("\n");
+    add_link(timeslot, channel, link_options,
+             LINK_TYPE_NORMAL, &tsch_broadcast_address, false);
+#else
     if(!cell_already_there(timeslot, channel, link_options, LINK_TYPE_NORMAL)) {
       LOG_INFO("Adding upwards RX cell %u/%u for traffic from ",
                timeslot, channel);
@@ -792,6 +1102,7 @@ schedule_upwards_rx_cell(
                              &tsch_broadcast_address, timeslot, channel, 1);
 #endif
     }
+#endif /* LAYERED_STATEFUL */
   }
 }
 
@@ -802,7 +1113,7 @@ schedule_downwards_tx_cell(
   uint16_t timeslot = calculate_layered_timeslot(linkaddr, layer);
   uint16_t channel = calculate_channel(depth);
 
-#if LAYERED_STATS
+#if LAYERED_STATS && !LAYERED_STATEFUL
   if(remove) {
     stats_deactivate_link(timeslot, channel);
   }
@@ -817,11 +1128,20 @@ schedule_downwards_tx_cell(
   // How does orchestra avoid RPL packet going into the "application-cells"?
   if(remove) {
     LOG_INFO("Removing downwards TX cell %u/%u\n", timeslot, channel);
+#if LAYERED_STATEFUL
+    remove_link(timeslot, channel);
+#else
     struct tsch_link* link_to_remove =
         tsch_schedule_get_link_by_timeslot(sf_layered, timeslot, channel);
     tsch_schedule_remove_link(sf_layered, link_to_remove);
+#endif
   }
   else {
+#if LAYERED_STATEFUL
+    LOG_INFO("Adding downwards TX cell %u/%u\n", timeslot, channel);
+    add_link(timeslot, channel, link_options,
+             LINK_TYPE_ADVERTISING_ONLY, &tsch_broadcast_address, false);
+#else
     if(!cell_already_there(timeslot, channel, link_options, LINK_TYPE_ADVERTISING_ONLY)) {
       LOG_INFO("Adding downwards TX cell %u/%u\n", timeslot, channel);
 
@@ -836,6 +1156,7 @@ schedule_downwards_tx_cell(
                              &tsch_broadcast_address, timeslot, channel, 1);
 #endif
     }
+#endif /* LAYERED_STATEFUL */
   }
 }
 
@@ -856,11 +1177,20 @@ schedule_downwards_rx_cell(
   // application data. Proper solution is to implement select_packet()
   if(remove) {
     LOG_INFO("Removing downwards RX cell %u/%u\n", timeslot, channel);
+#if LAYERED_STATEFUL
+    remove_link(timeslot, channel);
+#else
     struct tsch_link* link_to_remove =
         tsch_schedule_get_link_by_timeslot(sf_layered, timeslot, channel);
     tsch_schedule_remove_link(sf_layered, link_to_remove);
+#endif
   }
   else {
+#if LAYERED_STATEFUL
+    LOG_INFO("Adding downwards RX cell %u/%u\n", timeslot, channel);
+    add_link(timeslot, channel, link_options,
+             LINK_TYPE_ADVERTISING_ONLY, &tsch_broadcast_address, false);
+#else
     if(!cell_already_there(timeslot, channel, link_options, LINK_TYPE_ADVERTISING_ONLY)) {
       LOG_INFO("Adding downwards RX cell %u/%u\n", timeslot, channel);
 
@@ -875,6 +1205,7 @@ schedule_downwards_rx_cell(
                              &tsch_broadcast_address, timeslot, channel, 1);
 #endif
     }
+#endif /* LAYERED_STATEFUL */
   }
 }
 
@@ -886,10 +1217,14 @@ static void schedule_common_cells(void) {
 
     uint16_t timeslot = i;
     uint16_t channel = COMMON_CELL_CHANNEL;
-    uint8_t options = LINK_OPTION_RX | LINK_OPTION_TX | LINK_OPTION_SHARED;
+    uint8_t options = COMMON_SLOT_OPTIONS;
 
     LOG_INFO("Adding common cell %u/%u\n", timeslot, channel);
 
+#if LAYERED_STATEFUL
+    add_link(timeslot, channel, options,
+             LINK_TYPE_NORMAL, &tsch_broadcast_address, false);
+#else
 #if LAYERED_STATS
     stats_add_link(timeslot, channel, options);
 #endif
@@ -900,7 +1235,11 @@ static void schedule_common_cells(void) {
     tsch_schedule_add_link(sf_layered, options, LINK_TYPE_NORMAL,
                            &tsch_broadcast_address, i, channel, 1);
 #endif
+#endif /* LAYERED_STATEFUL */
   }
+#if LAYERED_STATEFUL
+  sync_links_with_schedule();
+#endif
 }
 
 // TODO NOTE! This does not use same notation as in paper,
@@ -969,6 +1308,9 @@ add_cells(const linkaddr_t *linkaddr, layered_status_t* status, bool default_rou
   if(default_route && !is_root()) {
     schedule_downwards_rx_cell(linkaddr, status->node_layer, status->node_depth, false);
   }
+#if LAYERED_STATEFUL
+  sync_links_with_schedule();
+#endif
 }
 
 static void
@@ -1019,6 +1361,9 @@ remove_cells(const linkaddr_t *linkaddr, layered_status_t* status, bool default_
   if(default_route && !is_root()) {
     schedule_downwards_rx_cell(linkaddr, status->node_layer, status->node_depth, true);
   }
+#if LAYERED_STATEFUL
+  sync_links_with_schedule();
+#endif
 }
 
 static void update_current_status(uint16_t node_new_depth) {
@@ -1049,6 +1394,20 @@ static void update_current_status(uint16_t node_new_depth) {
     current_status.child_layer = child_new_layer;
   }
 }
+#if LAYERED_STATEFUL
+static void remove_all_links(void) {
+  LOG_WARN("Removing all links\n");
+  for(int i = 0; i < MAX_NUM_LINKS; i++) {
+    if(layered_links[i].occupied &&
+        layered_links[i].options != COMMON_SLOT_OPTIONS &&
+        (layered_links[i].scheduled || layered_links[i].should_be_scheduled)) {
+      layered_links[i].should_be_scheduled = false;
+    }
+  }
+
+  sync_links_with_schedule();
+}
+#endif
 
 static void
 route_callback(int event,
@@ -1060,6 +1419,15 @@ route_callback(int event,
   bool route_added =
       (event == UIP_DS6_NOTIFICATION_DEFRT_ADD ||
           event == UIP_DS6_NOTIFICATION_ROUTE_ADD);
+
+#if LAYERED_STATEFUL
+  // Utilize the periodic refreshing of routes to check our sync
+  // TODO is it fast enough?
+  if(!schedule_in_sync()) {
+    LOG_WARN("Schedule not in sync\n");
+    sync_links_with_schedule();
+  }
+#endif
 
   // Fetch the route link-layer address by dissecting the IP
   linkaddr_t route_lladdr = {{0}};
@@ -1079,6 +1447,9 @@ route_callback(int event,
     LOG_ERR("New depth invalid! %u\n", route_added);
     // Our depth is invalid, probably we have lost all parents. Do not
     // add cells for new routes as we don't know the depth, but allow removal of old
+#if LAYERED_STATEFUL
+    remove_all_links();
+#endif
     if(route_added) {
       return;
     }
@@ -1160,7 +1531,11 @@ route_callback(int event,
     LOG_INFO_(" via ");
     LOG_INFO_6ADDR(next_hop);
     LOG_INFO_("\n");
+#if LAYERED_STATEFUL
+    remove_all_links();
+#else
     remove_cells(&route_lladdr, &previous_status, true);
+#endif
   }
   else if(event == UIP_DS6_NOTIFICATION_ROUTE_ADD) {
     LOG_INFO("Added route ");
