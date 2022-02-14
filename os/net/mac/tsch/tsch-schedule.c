@@ -291,7 +291,7 @@ tsch_schedule_add_link(struct tsch_slotframe *slotframe,
         }
 #endif
 #if BUILD_WITH_LAYERED_FLOW
-        LOG_INFO("add_link sf=%u opt=%s type=%s ts=%u ch=%u, flow=%d, addr=",
+        LOG_INFO("add_link sf=%u opt=%s type=%s ts=%u ch=%u flow=%d addr=",
                  slotframe->handle,
                  print_link_options(link_options),
                  print_link_type(link_type), timeslot, channel_offset, is_flow);
