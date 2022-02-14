@@ -43,26 +43,26 @@ echo "Submitting experiment $EXPNAME"
 # Launch the experiment and obtain its ID
 EXPID=$(iotlab-experiment submit -n $EXPNAME -d $DURATION -l $NODES --site-association $SITE,script=serial_script.sh | grep id | cut -d' ' -f6 || exit 1)
 
-# Wait for the experiment to begin. If command fails, try again 10 times
+# Wait for the experiment to begin. If command fails, try again 20 times
 tries=0
-until [ "$tries" -ge 10 ]
+until [ "$tries" -ge 20 ]
 do
    iotlab-experiment wait -i $EXPID && break
    tries=$((tries+1))
-   sleep 15
+   sleep 30
 done
 
 # Flash nodes
 echo "Flashing nodes with $FIRMWARE"
 chronic iotlab-node --flash $FIRMWARE -i $EXPID || exit 1
 
-# Wait for experiment termination. If command fails, try again 10 times
+# Wait for experiment termination. If command fails, try again 20 times
 tries=0
-until [ "$tries" -ge 10 ]
+until [ "$tries" -ge 20 ]
 do
    iotlab-experiment wait -i $EXPID --state Terminated && break
    tries=$((tries+1))
-   sleep 15
+   sleep 30
 done
 
 #----------------------- RETRIEVE LOG -----------------------#
