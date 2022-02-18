@@ -334,7 +334,8 @@ tsch_schedule_slot_operation(struct rtimer *tm, rtimer_clock_t ref_time, rtimer_
       TSCH_LOG_ADD(tsch_log_message,
                       snprintf(log->message, sizeof(log->message),
                           "!dl-miss %s %d %d %d %d err:%d",
-                              str, curr_distance_from_ref, (int)offset, now, ref_time,
+                              str, (int)curr_distance_from_ref, (int)offset,
+                              (int)now, (int)ref_time,
                               curr_distance_from_ref > offset ? 1 : 0);
       );
 #endif
@@ -416,39 +417,110 @@ get_packet_and_neighbor_for_link(struct tsch_link *link, struct tsch_neighbor **
         // and adding the neighbor in the middle of slot operation is
         // in theory a bad thing. Therefore opted to rather always use
         // the time-source neighbor. This assumes traffic is upward
-        // convergecast
+        // convergecast. Update2: But then learned that the packet bytestream
+        // is made before the packet is added to the queue. So it is very
+        // hard to change the actual packet address. Thus there will be
+        // mismatch between the neighbor and destination, which causes
+        // the packets to go to the old neighbor (which might not be
+        // there, and the new neighbor to get the ETX penalty)
+        // It is not impossible to change the address, it is done for other
+        // things (see tsch_sync_ie_offset), but this means the packets
+        // go to the new time source, which might not have cells
+        // scheduled yet.. But it is certain we cannot live with the
+        // mismatch between neighbor (time-source) and address, as this
+        // could lead to wrong drift correction (and maybe other stuff).
+
+        // New plan is to delete the packet. This will actually mean a
+        // packet loss. How have we avoided packet loss in earlier runs?
+        // Probably it has been opportunistic? Sending to old neighbors
+        // which still had their cells scheduled.
+        // TODO rather find a way to keep the next-hop neighbor in the list?
+        // Or alternatively find a way to edit the address. Both ways
+        // are quite uncertain (next-hop neighbor might be gone,
+        // time-source neighbor might not have scheduled yet).
+        // Update: Removed the periodic cleaning of the neighbor table.
+        // We got enough RAM.
 
         if(tsch_schedule_link_is_flow_link(link)) {
-          // The link is tied to a flow-neighbor.
+          // The link is tied to a flow-neighbor
           // Get the neighbor, and the packet from its queue.
           struct tsch_neighbor* flow_neighbor = tsch_queue_get_nbr(&link->addr);
           if(flow_neighbor == NULL) {
+            // This should not happen
             TSCH_LOG_ADD(tsch_log_message,
                           snprintf(log->message, sizeof(log->message),
                                    "!asdERR no flow neighbor"));
             tsch_flow_missing_neighbor++;
             return NULL; // TODO delete packet? tricky. Do not return?
           }
+
+          // Get packet from the flow-neighbor
           p = tsch_queue_get_packet_for_nbr(flow_neighbor, link);
           if(p != NULL) {
-            // Get the next-hop neighbor for this packet and put it
-            // into `n` which is what TSCH treats as the next hop neighbor.
-            // Update: Rather use the time-source. See above
-//            linkaddr_t* packet_dest =
-//                queuebuf_addr(p->qb, PACKETBUF_ADDR_RECEIVER);
-//            n = tsch_queue_get_nbr(packet_dest);
-            n = tsch_queue_get_time_source();
+            // Either get the next-hop neighbor as specified in the packet
+            // when it was added to the queue, or use the time-source
+            // neighbor.
+            // Put this into `n` which is what TSCH uses as the next
+            // hop neighbor (e.g. for ETX, drift correction, etc.).
+            linkaddr_t* packet_dest =
+                queuebuf_addr(p->qb, PACKETBUF_ADDR_RECEIVER);
+            n = tsch_queue_get_nbr(packet_dest);
+//            n = tsch_queue_get_time_source();
             if(n == NULL) {
-              // We do not have a next-hop neighbor for this packet
+              // Could not find neighbor for the packet,
+              // if we use time-source strategy, this should be intermittent
+              // until we get a new time source.
+              // If we use next-hop strategy, it should happen only in
+              // rare cases (if we left the network). Delete the packet.
               TSCH_LOG_ADD(tsch_log_message,
                             snprintf(log->message, sizeof(log->message),
-                                     "!asdERR no next-hop neighbor"));
+                                     "!asdERR no next-hop neighbor."));
               tsch_flow_missing_neighbor++;
-              return NULL; // TODO delete packet? tricky. Do not return?
-            }
-          }
-          else {
 
+              // Delete packet
+              struct tsch_packet* deleted_packet =
+                  tsch_queue_remove_packet_from_queue(flow_neighbor);
+              if(deleted_packet == NULL) {
+                tsch_flow_missing_neighbor++;
+                TSCH_LOG_ADD(tsch_log_message,
+                              snprintf(log->message, sizeof(log->message),
+                                       "!asdERR ERR deleting packet"));
+              }
+              else {
+                  tsch_queue_free_packet(deleted_packet);
+                  p = NULL;
+              }
+            }
+
+            // When using the time-source as next-hop neighbor, it might
+            // be that the neighbor is different now than when the packet
+            // was added to the queue. In those cases we must also update
+            // the packet address. Update: However, this does not work as the
+            // packet bytestream was made long time ago right before
+            // packet was added to queue.
+            // Rather delete the packet.
+//            linkaddr_t* packet_dest =
+//                queuebuf_addr(p->qb, PACKETBUF_ADDR_RECEIVER);
+//            linkaddr_t* time_source_addr = tsch_queue_get_nbr_address(n);
+//            if(!linkaddr_cmp(packet_dest, time_source_addr)) {
+//              tsch_flow_missing_neighbor++;
+//              TSCH_LOG_ADD(tsch_log_message,
+//                            snprintf(log->message, sizeof(log->message),
+//                                     "!asdERR deleting packet"));
+//              // Delete packet
+//              struct tsch_packet* deleted_packet = tsch_queue_remove_packet_from_queue(flow_neighbor);
+//              if(deleted_packet == NULL) {
+//                tsch_flow_missing_neighbor++;
+//                TSCH_LOG_ADD(tsch_log_message,
+//                              snprintf(log->message, sizeof(log->message),
+//                                       "!asdERR ERR deleting packet"));
+//                return NULL;
+//              }
+//              else {
+//                tsch_queue_free_packet(deleted_packet);
+//                p = NULL;
+//              }
+//            }
           }
         }
         else {
@@ -480,9 +552,7 @@ get_packet_and_neighbor_for_link(struct tsch_link *link, struct tsch_neighbor **
           // This is set in sicslowpan.
           // Although the 802.15.4 seems to say broadcast address is 0xff..ff,
           // which is also what the addr. associated to the queue is.
-          // And thus makes the checks below fail if we don't do this ad-hoc
-          // check for broadcast/0x00 first
-          // Unable to identify how this turns out correctly over the air
+          // Summa sumarum we have to check for 0x00 to identify the broadcasts
           if(!linkaddr_cmp(packet_dest, &linkaddr_null)) {
 
             struct tsch_neighbor* packet_dest_neighbor =

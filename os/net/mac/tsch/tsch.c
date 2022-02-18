@@ -1045,7 +1045,7 @@ PROCESS_THREAD(tsch_send_eb_process, ev, data)
     } else {
       delay = TSCH_EB_PERIOD;
     }
-#if BUILD_WITH_LAYERED
+#if BUILD_WITH_LAYERED_HACK
     static int counter = 0;
     counter++;
     if(counter > 10) {
