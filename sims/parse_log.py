@@ -109,6 +109,7 @@ def parseRPL(log):
         # This was the last line, commit full topology
         return {'event': 'topology' }
 
+    # For RPL-classic this means the node has joined the RPL network
     res = re.compile('initialized DAG').match(log)
     if res:
         return {'event': 'DAGinit' }
