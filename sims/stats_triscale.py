@@ -357,59 +357,60 @@ def ad_hoc_etx_per_node_all(scenarios):
                 #print("Node %s: %d / %d : %.4f" % (name, num_tx, num_success, node_etx))
             break
 
-def meta_parent_switches(scenarios, plots_dir):
-    # 1. Distribution of last parent switch
-    last_switches = []
-    last_switches_per_scenario = []
+def meta_last_events(
+        scenarios, event_dfs_name, description, plot_name_postfix, plots_dir):
+    last_events = []
+    last_events_per_scenario = []
     for scenario in scenarios:
-        switch_all_runs_df = scenario['raw_dfs']["raw_switches_dfs"]
-        #last_switches_in_scenario = np.empty(0)
-        last_switches_in_scenario = []
-        for run in switch_all_runs_df.keys():
-            switch_df = switch_all_runs_df[run]
-            if len(switch_df) == 0:
+        event_all_runs_df = scenario['raw_dfs'][event_dfs_name]
+        last_events_in_scenario = []
+        for run in event_all_runs_df.keys():
+            event_df = event_all_runs_df[run]
+            if len(event_df) == 0:
                 continue
-            last_switch = switch_df.iloc[-1:].index.tolist()
-            #print("Last parent switch: " + str(last_switch))
-            last_switches.append(last_switch)
+            # Multi-variable histograms (multiple scenarios) gave us problems
+            # so we therefore use a different approach below which we also
+            # use for single-variable histogram.
 
-            # We try to fetch the index of the last row in the df
+            # Fetch time of last event
+            last_event = event_df.iloc[-1:].index
+
             # Problem is that this is datatype TimeDelta which does not play
             # well when we try to plot histograms with multiple variables,
             # which expects an array of arrays of numbers.
-
-            # Convert from timedelta
+            # Convert from timedelta:
             # I don't understand this one, but we get a Float64Index
             # (which is basically a list, and then we get a Float64 by fetching first value.
             # From https://stackoverflow.com/questions/23543909/plotting-pandas-timedelta/54729327
-            last_switch_timestamp = switch_df.iloc[-1:].index / pd.Timedelta(minutes=1)
-            last_switches_in_scenario.append(last_switch_timestamp.values[0])
+            last_event = last_event / pd.Timedelta(minutes=1)
+            last_events.append(last_event.values[0])
+            last_events_in_scenario.append(last_event.values[0])
 
-        last_switches_per_scenario_array = np.array(last_switches_in_scenario)
-        last_switches_per_scenario.append(last_switches_per_scenario_array)
+        last_events_per_scenario_array = np.array(last_events_in_scenario)
+        last_events_per_scenario.append(last_events_per_scenario_array)
 
     # Last switch for all runs
-    df = pd.DataFrame(last_switches, columns= ['last_switch'])
-    df['last_switch'].astype('timedelta64[m]').plot.hist(bins=20)
+    plt.hist(last_events, bins=20, stacked=False)
+    plt.locator_params(axis='y', integer=True)
     plt.xlabel("Duration of experiment (minutes)")
-    plt.ylabel("Number of runs with last parent switches")
-    plt.savefig(plots_dir + "meta_last_parent_switch.pdf")
+    plt.ylabel("Number of runs with last " + description)
+    plt.savefig(plots_dir + "meta_last_" + plot_name_postfix + ".pdf")
     plt.close()
 
     # Last switch per scenario
-    plt.hist(last_switches_per_scenario, bins=20, stacked=False)
+    plt.hist(last_events_per_scenario, bins=20, stacked=False)
     scenario_names = []
     for scenario in scenarios:
         scenario_names.append(scenario["name"])
     plt.legend(scenario_names)
-    plt.xlabel("Duration of experiment (minutes)")
-    plt.ylabel("Number of runs with last parent switches")
     plt.locator_params(axis='y', integer=True)
-    plt.savefig(plots_dir + "meta_last_parent_switch_per_scenario.pdf")
+    plt.xlabel("Duration of experiment (minutes)")
+    plt.ylabel("Number of runs with last " + description)
+    plt.savefig(plots_dir + "meta_last_" + plot_name_postfix + "_per_scenario.pdf")
     plt.close()
 
-
-    # 2. Distribution of all parent switches
+def meta_all_parent_switches(scenarios, plots_dir):
+    # Distribution of all parent switches
     switches_per_scenario = []
     for scenario in scenarios:
         switches = []
@@ -487,11 +488,49 @@ def meta_etx_timelines(scenarios, plots_dir):
                          "_" + run + "_etx_timeline.pdf")
             plt.close()
 
+    # Timeline ETX of all all packets and all runs, into one timeline
+    for scenario in scenarios:
+        mac_tx_all_runs_df = scenario['raw_dfs']["raw_mac_tx_dfs"]
+        fig, ax = plt.subplots()
+        for run in mac_tx_all_runs_df.keys():
+            mac_tx_df = mac_tx_all_runs_df[run]
+            app_tx_df = mac_tx_df[mac_tx_df["app"] == 1]
+
+            # Resample so that we get one row per 10 second
+            # TODO using transmissions only does not handle failed TXs
+            # TODO we also do all cells and not just the spatial reused
+            app_tx_df = app_tx_df["transmissions"].resample('10s').mean()
+
+            # Convert the index to minutes instead of nanoseconds
+            # (also changes the datatype from TimeDelta to Float64)
+            app_tx_df.index = app_tx_df.index / pd.Timedelta(minutes=1)
+
+            ax.plot(app_tx_df)
+        plt.legend()
+        plt.xlabel("Duration of experiment (minutes)")
+        plt.ylabel("Mean ETX")
+        plt.savefig(plots_dir + "meta_" + scenario['name'] + \
+                     "_all_packets_etx_timeline.pdf")
+        plt.close()
+
+
 def meta_stats(scenarios, plots_dir, plots_time_dir):
 
-    meta_parent_switches(scenarios, plots_dir)
-
     meta_etx_timelines(scenarios, plots_time_dir)
+
+    meta_all_parent_switches(scenarios, plots_dir)
+
+    meta_last_events(scenarios,
+                     "raw_switches_dfs",
+                     "parent switch",
+                     "parent_switch",
+                     plots_dir)
+
+    meta_last_events(scenarios,
+                     "raw_dag_inits_dfs",
+                     "network join",
+                     "network_join",
+                     plots_dir)
 
     #ad_hoc_etx_per_node_all(scenarios)
 
