@@ -491,6 +491,9 @@ get_packet_and_neighbor_for_link(struct tsch_link *link, struct tsch_neighbor **
                   p = NULL;
               }
             }
+            else {
+              p->link_used = link;
+            }
 
             // When using the time-source as next-hop neighbor, it might
             // be that the neighbor is different now than when the packet

@@ -545,6 +545,14 @@ tsch_tx_process_pending(void)
     int timeslot = packetbuf_attr(PACKETBUF_ATTR_TSCH_TIMESLOT);
     int channel = packetbuf_attr(PACKETBUF_ATTR_TSCH_CHANNEL_OFFSET);
 
+#if BUILD_WITH_LAYERED_FLOW
+    // If we got a link for the packet we use the info from it instead
+    if(p->link_used != NULL) {
+      timeslot = p->link_used->timeslot;
+      channel = p->link_used->channel_offset;
+    }
+#endif
+
     // If we could not find channel in the packetbuf, we get it directly
     // from tsch-slot-operation.
     if(channel == 0xffff) {
