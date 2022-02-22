@@ -461,7 +461,7 @@ get_packet_and_neighbor_for_link(struct tsch_link *link, struct tsch_neighbor **
             // when it was added to the queue, or use the time-source
             // neighbor.
             // Put this into `n` which is what TSCH uses as the next
-            // hop neighbor (e.g. for ETX, drift correction, etc.).
+            // hop neighbor (e.g. for drift correction).
             linkaddr_t* packet_dest =
                 queuebuf_addr(p->qb, PACKETBUF_ADDR_RECEIVER);
             n = tsch_queue_get_nbr(packet_dest);

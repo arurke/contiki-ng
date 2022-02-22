@@ -827,7 +827,12 @@ select_packet(uint16_t *slotframe, uint16_t *timeslot, uint16_t *channel_offset)
   if(link == NULL) {
     LOG_ERR("Link %u/%u for %s not existing or TSCH locked\n",
             *timeslot, *channel_offset, type_str);
-    return -1;
+#if BUILD_WITH_LAYERED_FLOW
+    // We may have moved in layer, but have not moved the cells yet
+    return 1;
+#else
+    return 0;
+#endif
   }
 
   return 1;

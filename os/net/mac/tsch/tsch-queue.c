@@ -275,15 +275,15 @@ tsch_queue_add_packet(const linkaddr_t *addr, uint8_t max_transmissions,
 
     if(packet_belongs_to_a_flow) {
       // Add next-hop neighbor
-      // Skip this and rather use the time-source neighbor
-      // (assumes upwards convergecast)
       // (had problem with the next-hop neighbor being deleted (since next-hop
-      // neighbor has nothing in its queues).
-//      if(tsch_queue_add_nbr(&addr_to_use) ==  NULL) {
-//        tsch_flow_error++;
-//        LOG_ERR("!asdERR add neighbor failed!\n");
-//        return NULL;
-//      }
+      // neighbor has nothing in its queues). Removed cleaning up of nbrs.
+      // If using time-source neighbor strategy in tx-slot-operation the below
+      // can be comment (if so, we assume upwards convergecast)
+      if(tsch_queue_add_nbr(&addr_to_use) ==  NULL) {
+        tsch_flow_error++;
+        LOG_ERR("!asdERR add neighbor failed!\n");
+        return NULL;
+      }
 
       // Replace address with the flow address so that flow-addr
       // is added as neighbor and packet is put in the flow-neighbor queue
