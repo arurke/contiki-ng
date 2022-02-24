@@ -29,6 +29,7 @@ BUILD_FOLDER_NAME = "build"
 ORG_FOLDER_NAME = "org"
 PLOT_FOLDER_NAME = "plots"
 PLOT_TIMESERIES_FOLDER_NAME = "timeseries"
+PLOT_META_FOLDER_NAME = "meta"
 BUILD_COOJA_NAME = "node.cooja"
 EXECUTIONS_FOLDER_NAME = "executions"
 MAKEFILE = "Makefile"
@@ -146,15 +147,17 @@ def process_results(scenarios, execution_dir, from_csv):
     # Prepare plot folders
     plots_dir = execution_dir + PLOT_FOLDER_NAME + "/"
     plots_time_dir = plots_dir + PLOT_TIMESERIES_FOLDER_NAME + "/"
+    plots_meta_dir = plots_dir + PLOT_META_FOLDER_NAME + "/"
     if os.path.exists(plots_dir):
         shutil.rmtree(plots_dir)
 
     print("Generating plot dirs at", plots_dir)
     os.mkdir(plots_dir)
     os.mkdir(plots_time_dir)
+    os.mkdir(plots_meta_dir)
 
     # Get stats from the DFs
-    scenarios_df = stats_for_scenarios(scenarios, plots_dir, plots_time_dir, True)
+    scenarios_df = stats_for_scenarios(scenarios, plots_dir, plots_time_dir, plots_meta_dir, True)
 
     # Save DF to CSV
     df_csv = execution_dir + "scenarios_df.csv"

@@ -513,24 +513,170 @@ def meta_etx_timelines(scenarios, plots_dir):
                      "_all_packets_etx_timeline.pdf")
         plt.close()
 
+def meta_channel_performance_per_node(
+        scenarios, plots_dir, node_field, plot_name, plot_only_problems):
+    for scenario in scenarios:
+        mac_cell_all_runs_df = scenario['raw_dfs']["raw_mac_cell_dfs"]
+        scenario_channel_perf_dfs = []
+        for run in mac_cell_all_runs_df.keys():
+            mac_cell_df = mac_cell_all_runs_df[run]
+            # We are only interested in app-packets
+            mac_cell_app_all_runs_df = mac_cell_df[mac_cell_df["app_started"] == 1]
+            mac_cell_app_df = mac_cell_df[mac_cell_df["app"] == 1]
+            #if len(mac_cell_app_df) == 0:
+            #    continue
 
-def meta_stats(scenarios, plots_dir, plots_time_dir):
+            # Select the columns we are interested in
+            channel_perf_df = mac_cell_app_df[["channel", "result", node_field]]
+            #scenario_channel_perf_dfs.append(channel_perf_df)
+            #print(scenario_channel_perf_dfs)
+
+            # Create one large DF out of the list of run DFs
+            #scenario_channel_perf_df = \
+            #    pd.concat(scenario_channel_perf_dfs, ignore_index=True)
+
+            number_of_nodes = channel_perf_df[node_field].nunique()
+            columns = 3
+            rows = number_of_nodes // columns
+            rows += number_of_nodes % columns
+            position = range(1,number_of_nodes + 1)
+            fig = plt.figure(1)
+
+            # Treat each node
+            node_num = 0
+            make_plot = False
+            for node in channel_perf_df[node_field].unique():
+                node_channel_perf_df = \
+                    channel_perf_df[channel_perf_df[node_field] == node]
+
+                # Calculate ETX per channel
+                groups = node_channel_perf_df.groupby("channel")["result"]
+                channels = []
+                etxs = []
+                any_without_success = False # not used
+                high_etx = False
+                for name, group in groups:
+                    # 0 indicate success
+                    num_success = len(group[group == 0])
+                    num_total = len(group)
+
+                    # Include only if there is enough traffic
+                    if num_total < 100:
+                        continue
+
+                    if num_success == 0:
+                        etx = 8
+                        any_without_success = True
+                    else:
+                        etx = num_total / num_success
+
+                    if etx > 4:
+                        # Make plot for this run only if anyone has high ETX
+                        make_plot = True
+                        high_etx = True
+                    else:
+                        # Skip if plot_only_problems and ETX is low
+                        if plot_only_problems:
+                            continue
+
+                    etxs.append(etx)
+                    channels.append(name)
+
+                # Make plot for this node if there is data for it
+                if etxs:
+                    node_channel_perf_df = pd.DataFrame({'channel':channels, 'etxs':etxs})
+                    ax = fig.add_subplot(rows,columns,position[node_num])
+                    ax.set_ylim(0, 10) # Ad-hoc value. Difficult to do dynamically.
+                    ax.bar(node_channel_perf_df["channel"], node_channel_perf_df["etxs"])
+                    ax.set_xticks(node_channel_perf_df["channel"])
+                    ax.set_title('Node ' + str(node))
+                    ax.label_outer()
+                    if high_etx:
+                        ax.set_facecolor('red')
+                    node_num += 1
+
+            if make_plot:
+                fig.supylabel("ETX (ALL application packet " + plot_name + ")")
+                fig.supxlabel("Physical channel")
+                plt.tight_layout()
+                plt.savefig(plots_dir + "meta_" + scenario['name'] + \
+                          "_" + run + "_all_" + plot_name + "_nodes_channels_etx.pdf")
+                plt.close()
+
+# TODO to make temp-folder
+import os
+def meta_channel_performance(scenarios, plots_dir):
+    for scenario in scenarios:
+        mac_cell_all_runs_df = scenario['raw_dfs']["raw_mac_cell_dfs"]
+        scenario_channel_perf_dfs = []
+        for run in mac_cell_all_runs_df.keys():
+            mac_cell_df = mac_cell_all_runs_df[run]
+            # We are only interested in app-packets
+            mac_cell_app_all_runs_df = mac_cell_df[mac_cell_df["app_started"] == 1]
+            mac_cell_app_df = mac_cell_df[mac_cell_df["app"] == 1]
+            #if len(mac_cell_app_df) == 0:
+            #    continue
+
+            # Select the columns we are interested in
+            channel_perf_df = mac_cell_app_df[["channel", "result"]]
+            scenario_channel_perf_dfs.append(channel_perf_df)
+            #print(scenario_channel_perf_dfs)
+
+        # Create one large DF out of the list of run DFs
+        scenario_channel_perf_df = pd.concat(scenario_channel_perf_dfs, ignore_index=True)
+        groups = scenario_channel_perf_df.groupby("channel")["result"]
+        channels = []
+        etxs = []
+        for name, group in groups:
+            # 0 indicate success
+            num_success = len(group[group == 0])
+            num_total = len(group)
+            if num_success == 0:
+                etx = 8
+            else:
+                etx = num_total / num_success
+
+            etxs.append(etx)
+            channels.append(name)
+
+#        scenario_channel_perf_df = scenario_channel_perf_df.groupby("channel")["transmissions"].mean()
+#        scenario_channel_perf_df = scenario_channel_perf_df.reset_index()
+        scenario_channel_perf_df = pd.DataFrame({'channel':channels, 'etxs':etxs})
+        plt.bar(scenario_channel_perf_df["channel"], scenario_channel_perf_df["etxs"])
+        plt.xticks(scenario_channel_perf_df["channel"])
+        plt.xlabel("Physical channel")
+        plt.ylabel("ETX (ALL application packet TXes)")
+        plt.savefig(plots_dir + "meta_" + scenario['name'] + \
+                  "_channels_etx.pdf")
+        plt.close()
+
+    # Make plots with all nodes, per run
+    temp_dir = plots_dir + "temp/"
+    os.mkdir(temp_dir)
+    # ETX per transmitting node
+    meta_channel_performance_per_node(scenarios, temp_dir, "node", "tx", False)
+    # ETX per receiving node
+    meta_channel_performance_per_node(scenarios, temp_dir, "node_dest", "rx", True)
+
+def meta_stats(scenarios, plots_meta_dir, plots_time_dir):
 
     meta_etx_timelines(scenarios, plots_time_dir)
 
-    meta_all_parent_switches(scenarios, plots_dir)
+    meta_all_parent_switches(scenarios, plots_meta_dir)
 
     meta_last_events(scenarios,
                      "raw_switches_dfs",
                      "parent switch",
                      "parent_switch",
-                     plots_dir)
+                     plots_meta_dir)
 
     meta_last_events(scenarios,
                      "raw_dag_inits_dfs",
                      "network join",
                      "network_join",
-                     plots_dir)
+                     plots_meta_dir)
+
+    meta_channel_performance(scenarios, plots_meta_dir)
 
     #ad_hoc_etx_per_node_all(scenarios)
 
@@ -560,9 +706,7 @@ def print_meta_info(scenarios):
               ", errors: " + str(skipped_runs_error))
         print("\tConverged: " + str(converged_runs) + " out of " + str(parsed_runs))
 
-def stats_for_scenarios(scenarios, plots_dir, plots_time_dir, write_runs_csv = False):
-    meta_stats(scenarios, plots_dir, plots_time_dir)
-
+def stats_for_scenarios(scenarios, plots_dir, plots_time_dir, plots_meta_dir, write_runs_csv = False):
     scenarios_df_list = []
     for scenario in scenarios:
         scenarios_df_list.append(stats_for_scenario(scenario, write_runs_csv))
@@ -570,6 +714,8 @@ def stats_for_scenarios(scenarios, plots_dir, plots_time_dir, write_runs_csv = F
     # Make one DF from the list of scenario DFs
     scenarios_df = pd.concat(scenarios_df_list)
     scenarios_df.set_index("scenario", inplace=True)
+
+    meta_stats(scenarios, plots_meta_dir, plots_time_dir)
 
     print_meta_info(scenarios)
 
