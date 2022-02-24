@@ -153,14 +153,14 @@ def analyze_run(run_name, packets_df, energest_df, queue_df,
                 run_metric_name = df["prefix"] + metric["metric"] + "_" + str(measure)
                 run_entry[run_metric_name] = \
                     calculate_metric(df["df"], metric["metric"], measure,
-                                     run_metric_name + "_" + run_name)
+                                     run_name + "_" + run_metric_name)
 
     # Make DF out of the entry
     df = pd.DataFrame([run_entry])
     df = df.set_index("name")
     return df
 
-def analyze_runs(raw_dfs):
+def analyze_runs(raw_dfs, scenario_name):
     raw_packets_dfs = raw_dfs["raw_packets_dfs"]
     raw_energest_dfs = raw_dfs["raw_energest_dfs"]
     raw_queue_dfs = raw_dfs["raw_queue_dfs"]
@@ -172,7 +172,7 @@ def analyze_runs(raw_dfs):
     runs_df_dict = []
     for run in raw_packets_dfs.keys():
         runs_df_dict.append(
-            analyze_run(run,
+            analyze_run(scenario_name + "_" + run,
                         raw_packets_dfs[run][raw_packets_dfs[run]["app_started"] == 1],
                         raw_energest_dfs[run][raw_energest_dfs[run]["app_started"] == 1],
                         raw_queue_dfs[run][raw_queue_dfs[run]["app_started"] == 1],
@@ -192,11 +192,11 @@ def calculate_kpi(values, settings, metric, name):
                         #to_plot=["autocorr", "horizontal", "vertical"], plot_out_name=name,
                         # Only "vertical" and "horizontal" prints to file.
                         # Note that they overwrite each other!
-                        #to_plot=["horizontal"], plot_out_name=("deleteme/" + name + ".pdf"),
+                        plots=["vertical"], plot_out_name=("deleteme/" + name + ".pdf"),
                         verbose=False)
     if np.isnan(kpi):
         print("KPI Nan, too few values(" +
-              str(len(values)) + ") for " + name)
+              str(sum(~np.isnan(values))) + ") for " + name)
         return kpi
 
     # Independence is not critical in simulations?
@@ -307,7 +307,7 @@ def analyze_scenario(runs_df, scenario_name):
 def stats_for_scenario(scenario, write_runs_csv = False):
 
     # Get stats per run (which are typically not very interesting)
-    runs_df = analyze_runs(scenario['raw_dfs'])
+    runs_df = analyze_runs(scenario['raw_dfs'], scenario['name'])
 
     if write_runs_csv:
         runs_df_csv = scenario["path"] + "runs_df.csv"
@@ -488,7 +488,7 @@ def meta_etx_timelines(scenarios, plots_dir):
                          "_" + run + "_etx_timeline.pdf")
             plt.close()
 
-    # Timeline ETX of all all packets and all runs, into one timeline
+    # Timeline ETX of all packets and all runs, into one timeline
     for scenario in scenarios:
         mac_tx_all_runs_df = scenario['raw_dfs']["raw_mac_tx_dfs"]
         fig, ax = plt.subplots()
@@ -496,16 +496,20 @@ def meta_etx_timelines(scenarios, plots_dir):
             mac_tx_df = mac_tx_all_runs_df[run]
             app_tx_df = mac_tx_df[mac_tx_df["app"] == 1]
 
-            # Resample so that we get one row per 10 second
+            # Resample so that we get one row per 30 second
             # TODO using transmissions only does not handle failed TXs
             # TODO we also do all cells and not just the spatial reused
-            app_tx_df = app_tx_df["transmissions"].resample('10s').mean()
+            app_tx_df = app_tx_df["transmissions"].resample('30s').agg({'transmissions':'mean'})
 
             # Convert the index to minutes instead of nanoseconds
             # (also changes the datatype from TimeDelta to Float64)
             app_tx_df.index = app_tx_df.index / pd.Timedelta(minutes=1)
 
+            if app_tx_df["transmissions"].max() > 5:
+                print("High ETX " + str(app_tx_df["transmissions"].max()) + " in " + run)
+
             ax.plot(app_tx_df)
+
         plt.legend()
         plt.xlabel("Duration of experiment (minutes)")
         plt.ylabel("Mean ETX")
