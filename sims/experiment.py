@@ -28,8 +28,6 @@ CODE_FOLDER_NAME = "code"
 BUILD_FOLDER_NAME = "build"
 ORG_FOLDER_NAME = "org"
 PLOT_FOLDER_NAME = "plots"
-PLOT_TIMESERIES_FOLDER_NAME = "timeseries"
-PLOT_META_FOLDER_NAME = "meta"
 BUILD_COOJA_NAME = "node.cooja"
 EXECUTIONS_FOLDER_NAME = "executions"
 MAKEFILE = "Makefile"
@@ -146,18 +144,14 @@ def process_results(scenarios, execution_dir, from_csv):
 
     # Prepare plot folders
     plots_dir = execution_dir + PLOT_FOLDER_NAME + "/"
-    plots_time_dir = plots_dir + PLOT_TIMESERIES_FOLDER_NAME + "/"
-    plots_meta_dir = plots_dir + PLOT_META_FOLDER_NAME + "/"
     if os.path.exists(plots_dir):
         shutil.rmtree(plots_dir)
 
-    print("Generating plot dirs at", plots_dir)
+    print("Generating plots dir ", plots_dir)
     os.mkdir(plots_dir)
-    os.mkdir(plots_time_dir)
-    os.mkdir(plots_meta_dir)
 
     # Get stats from the DFs
-    scenarios_df = stats_for_scenarios(scenarios, plots_dir, plots_time_dir, plots_meta_dir, True)
+    scenarios_df = stats_for_scenarios(scenarios, plots_dir, True)
 
     # Save DF to CSV
     df_csv = execution_dir + "scenarios_df.csv"
@@ -180,13 +174,13 @@ def create_execution_id(exp_name, executions_dir):
     # ID should be: [config_name]-[date]-[id] (id is incremental)
     new_execution_id = exp_name + \
                         "_" + datetime.now().strftime("%Y%m%d")
-    
+
     # Find next available id
     i = 0
     while os.path.exists(executions_dir + new_execution_id +  "_%s" % i):
         i += 1
     new_execution_id += "_%s" % i
-    
+
     return new_execution_id
 
 def prepare_datastructures(scenarios, execution_dir):

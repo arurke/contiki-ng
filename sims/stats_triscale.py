@@ -7,6 +7,10 @@ import matplotlib.pyplot as plt
 sys.path.append('triscale')
 import triscale as triscale
 
+PLOT_TIMESERIES_FOLDER_NAME = "timeseries"
+PLOT_META_FOLDER_NAME = "meta"
+PLOT_TRISCALE_FOLDER_NAME = "triscale"
+
 def calculate_absolute_metrics(input_df, metric, measure):
     if metric == "mac_app_tx_etx" and measure == "absolute":
         app_tx_etx = input_df["transmissions"].sum() / \
@@ -185,14 +189,14 @@ def analyze_runs(raw_dfs, scenario_name):
 
     return pd.concat(runs_df_dict)
 
-def calculate_kpi(values, settings, metric, name):
+def calculate_kpi(values, settings, metric, name, plots_dir):
     independent, kpi = triscale.analysis_kpi(
                         values,
                         settings,
                         #to_plot=["autocorr", "horizontal", "vertical"], plot_out_name=name,
                         # Only "vertical" and "horizontal" prints to file.
                         # Note that they overwrite each other!
-                        plots=["vertical"], plot_out_name=("deleteme/" + name + ".pdf"),
+                        plots=["vertical"], plot_out_name=(plots_dir + "/" + name + ".pdf"),
                         verbose=False)
     if np.isnan(kpi):
         print("KPI Nan, too few values(" +
@@ -227,7 +231,7 @@ def add_kpi(kpis, metric,
         new_kpi["settings"]["bound"] = "upper"
         kpis.append(new_kpi)
 
-def analyze_scenario(runs_df, scenario_name):
+def analyze_scenario(runs_df, scenario_name, plots_triscale_dir):
     scenario_entry = {"scenario": scenario_name}
 
     # Add KPIs
@@ -286,7 +290,9 @@ def analyze_scenario(runs_df, scenario_name):
                 entry_name = metric + kpi['name']
                 scenario_entry[entry_name] = \
                     calculate_kpi(runs_df[metric].values,
-                                  kpi["settings"], metric, entry_name)
+                                  kpi["settings"], metric,
+                                  scenario_name + "_" + entry_name,
+                                  plots_triscale_dir)
 
     # Now do only converged runs for selected metrics
     metrics_for_converged = ["mac_app_tx_etx", "app_cell_etx", "pdr", "latency"]
@@ -300,11 +306,12 @@ def analyze_scenario(runs_df, scenario_name):
                     scenario_entry[entry_name] = \
                         calculate_kpi(runs_converged_df[metric].values,
                                       kpi["settings"],
-                                      metric, entry_name)
+                                      metric, entry_name,
+                                      plots_triscale_dir)
 
     return pd.DataFrame([scenario_entry])
 
-def stats_for_scenario(scenario, write_runs_csv = False):
+def stats_for_scenario(scenario, plots_triscale_dir, write_runs_csv = False):
 
     # Get stats per run (which are typically not very interesting)
     runs_df = analyze_runs(scenario['raw_dfs'], scenario['name'])
@@ -320,7 +327,9 @@ def stats_for_scenario(scenario, write_runs_csv = False):
     #print("Analyzed runs: " + str(runs_df.columns))
 
     # Analyze the run-stats to get scenario-stats
-    scenario_df = analyze_scenario(runs_df, scenario['name'])
+    scenario_df = analyze_scenario(scenario["runs_df"],
+                                   scenario['name'],
+                                   plots_triscale_dir)
 
     return scenario_df
 
@@ -717,16 +726,25 @@ def print_meta_info(scenarios):
               ", errors: " + str(skipped_runs_error))
         print("\tConverged: " + str(converged_runs) + " out of " + str(parsed_runs))
 
-def stats_for_scenarios(scenarios, plots_dir, plots_time_dir, plots_meta_dir, write_runs_csv = False):
+def stats_for_scenarios(scenarios, plots_dir, write_runs_csv = False):
+    # Make directories for plots
+    plots_meta_dir = plots_dir + PLOT_TIMESERIES_FOLDER_NAME + "/"
+    plots_timeseries_dir = plots_dir + PLOT_META_FOLDER_NAME + "/"
+    plots_triscale_dir = plots_dir + PLOT_TRISCALE_FOLDER_NAME + "/"
+    os.mkdir(plots_meta_dir)
+    os.mkdir(plots_timeseries_dir)
+    os.mkdir(plots_triscale_dir)
+
     scenarios_df_list = []
     for scenario in scenarios:
-        scenarios_df_list.append(stats_for_scenario(scenario, write_runs_csv))
+        scenarios_df_list.append(
+            stats_for_scenario(scenario, plots_triscale_dir, write_runs_csv))
 
     # Make one DF from the list of scenario DFs
     scenarios_df = pd.concat(scenarios_df_list)
     scenarios_df.set_index("scenario", inplace=True)
 
-    meta_stats(scenarios, plots_meta_dir, plots_time_dir)
+    meta_stats(scenarios, plots_meta_dir, plots_timeseries_dir)
 
     print_meta_info(scenarios)
 
