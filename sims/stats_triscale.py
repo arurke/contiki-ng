@@ -295,7 +295,8 @@ def analyze_scenario(runs_df, scenario_name, plots_triscale_dir):
                                   plots_triscale_dir)
 
     # Now do only converged runs for selected metrics
-    metrics_for_converged = ["mac_app_tx_etx", "app_cell_etx", "pdr", "latency"]
+    metrics_for_converged = ["mac_app_tx_etx", "app_cell_etx"]
+    #metrics_for_converged = ["mac_app_tx_etx", "app_cell_etx", "pdr", "latency"]
     runs_converged_df = runs_df.copy()
     runs_converged_df = runs_converged_df[runs_converged_df["converged"] == True]
     for metric in runs_converged_df.columns:
