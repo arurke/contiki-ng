@@ -510,7 +510,6 @@ def meta_etx_timelines(scenarios, plots_dir):
 
             ax.plot(app_tx_df)
 
-        plt.legend()
         plt.xlabel("Duration of experiment (minutes)")
         plt.ylabel("Mean ETX")
         plt.savefig(plots_dir + "meta_" + scenario['name'] + \
@@ -540,15 +539,10 @@ def meta_channel_performance_per_node(
             #    pd.concat(scenario_channel_perf_dfs, ignore_index=True)
 
             number_of_nodes = channel_perf_df[node_field].nunique()
-            columns = 3
-            rows = number_of_nodes // columns
-            rows += number_of_nodes % columns
-            position = range(1,number_of_nodes + 1)
-            fig = plt.figure(1)
 
             # Treat each node
-            node_num = 0
             make_plot = False
+            nodes_data = []
             for node in channel_perf_df[node_field].unique():
                 node_channel_perf_df = \
                     channel_perf_df[channel_perf_df[node_field] == node]
@@ -557,20 +551,18 @@ def meta_channel_performance_per_node(
                 groups = node_channel_perf_df.groupby("channel")["result"]
                 channels = []
                 etxs = []
-                any_without_success = False # not used
                 high_etx = False
-                for name, group in groups:
+                for channel, result in groups:
                     # 0 indicate success
-                    num_success = len(group[group == 0])
-                    num_total = len(group)
+                    num_success = len(result[result == 0])
+                    num_total = len(result)
 
                     # Include only if there is enough traffic
-                    if num_total < 100:
+                    if num_total < 75:
                         continue
 
                     if num_success == 0:
                         etx = 8
-                        any_without_success = True
                     else:
                         etx = num_total / num_success
 
@@ -578,28 +570,43 @@ def meta_channel_performance_per_node(
                         # Make plot for this run only if anyone has high ETX
                         make_plot = True
                         high_etx = True
-                    else:
-                        # Skip if plot_only_problems and ETX is low
-                        if plot_only_problems:
-                            continue
 
                     etxs.append(etx)
-                    channels.append(name)
+                    channels.append(channel)
 
                 # Make plot for this node if there is data for it
                 if etxs:
-                    node_channel_perf_df = pd.DataFrame({'channel':channels, 'etxs':etxs})
-                    ax = fig.add_subplot(rows,columns,position[node_num])
-                    ax.set_ylim(0, 10) # Ad-hoc value. Difficult to do dynamically.
-                    ax.bar(node_channel_perf_df["channel"], node_channel_perf_df["etxs"])
-                    ax.set_xticks(node_channel_perf_df["channel"])
-                    ax.set_title('Node ' + str(node))
-                    ax.label_outer()
-                    if high_etx:
-                        ax.set_facecolor('red')
-                    node_num += 1
+                    # If plot_only_problems, add node only if high ETX
+                    if plot_only_problems and not high_etx:
+                        continue
+                    else:
+                        nodes_data.append({"node": node,
+                                           "etxs": etxs,
+                                           "channels": channels,
+                                           "high_etx": high_etx})
 
-            if make_plot:
+            if nodes_data and make_plot:
+                # Define and calculate subplot positions
+                num_nodes = len(nodes_data)
+                num_columns = 3
+                num_rows = num_nodes // num_columns + 1
+                position = range(1, num_nodes + 1)
+                fig = plt.figure(1)
+
+                for num, node_data in enumerate(nodes_data):
+                    node_channel_perf_df = \
+                        pd.DataFrame({'channel':node_data["channels"],
+                                      'etxs':node_data["etxs"]})
+                    ax = fig.add_subplot(num_rows, num_columns, position[num])
+                    ax.set_ylim(0, 10) # Ad-hoc value. Difficult to do dynamically.
+                    ax.bar(node_channel_perf_df["channel"],
+                           node_channel_perf_df["etxs"])
+                    ax.set_xticks(node_channel_perf_df["channel"])
+                    ax.set_title('Node ' + str(node_data["node"]))
+                    ax.label_outer()
+                    if node_data["high_etx"]:
+                        ax.set_facecolor('red')
+
                 fig.supylabel("ETX (ALL application packet " + plot_name + ")")
                 fig.supxlabel("Physical channel")
                 plt.tight_layout()
