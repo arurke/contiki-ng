@@ -726,6 +726,9 @@ def print_meta_info(scenarios):
               ", parent switch: " + str(skipped_runs_switch) +
               ", errors: " + str(skipped_runs_error))
         print("\tConverged: " + str(converged_runs) + " out of " + str(parsed_runs))
+        print("\tTriscale metrics converged:")
+        print(scenario["runs_df"].notnull().sum(axis=0).to_string(dtype=False))
+
 
 def stats_for_scenarios(scenarios, plots_dir, write_runs_csv = False):
     # Make directories for plots
