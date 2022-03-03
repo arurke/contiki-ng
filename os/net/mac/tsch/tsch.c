@@ -1276,8 +1276,34 @@ send_packet(mac_callback_t sent, void *ptr)
              tsch_packet_seqno, tsch_queue_nbr_packet_count(n),
              TSCH_QUEUE_NUM_PER_NEIGHBOR - 1, tsch_queue_global_packet_count(),
              QUEUEBUF_NUM, queuebuf_datalen(p->qb));
+#if BUILD_WITH_LAYERED_FLOW
+      linkaddr_t flow_address = {0};
+      bool packet_belongs_to_a_flow =
+          layered_get_flow_address_for_packet(
+              packetbuf_attr(PACKETBUF_ATTR_FRAME_TYPE),
+              packetbuf_dataptr(), packetbuf_datalen(),
+              &flow_address);
+
+      if(packet_belongs_to_a_flow) {
+        struct tsch_neighbor *flow_neighbor = tsch_queue_get_nbr(&flow_address);
+#if BUILD_WITH_DEPLOYMENT
+        // Flow addresses are not in the deployment mapping, so printing
+        // does not work. We there adjust it
+        // so that it becomes same as the source node id
+        // (which what the flow id is based on).
+        flow_address.u8[0] = 0x02;
+        flow_address.u8[1] = 0x00;
+#endif
+        LOG_WARN("TX to flow ");
+              LOG_WARN_LLADDR(&flow_address);
+              LOG_WARN_(" seqno %u, queue %u/%u\n",
+                     tsch_packet_seqno, tsch_queue_nbr_packet_count(flow_neighbor),
+                     TSCH_QUEUE_NUM_PER_NEIGHBOR - 1);
+      }
+#endif
     }
   }
+
   if(ret != MAC_TX_DEFERRED) {
     mac_call_sent_callback(sent, ptr, ret, 1);
   }
