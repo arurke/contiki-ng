@@ -461,7 +461,44 @@ def meta_all_parent_switches(scenarios, plots_dir):
     plt.savefig(plots_dir + "meta_parent_switch.pdf")
     plt.close()
 
-def meta_etx_timelines(scenarios, plots_dir):
+# Make timeline for field_name of all runs of given df-name.
+# Note that it filters app packets if applicable
+def meta_timeline_all_runs(scenarios, dfs_name, field_name, name, warn_limit, plots_dir):
+    for scenario in scenarios:
+        all_runs_df = scenario['raw_dfs'][dfs_name]
+        fig, ax = plt.subplots()
+        for run in all_runs_df.keys():
+            run_df = all_runs_df[run]
+
+            if "app" in run_df:
+                run_df = run_df[run_df["app"] == 1]
+
+            # Resample so that we get one row per 30 second
+            # Comments for ETX:
+            # TODO using transmissions only does not handle failed TXs
+            # TODO we also do all cells and not just the spatial reused
+            run_df = run_df[field_name].resample('30s').agg({field_name:'mean'})
+
+            # Convert the index to minutes instead of nanoseconds
+            # (also changes the datatype from TimeDelta to Float64)
+            run_df.index = run_df.index / pd.Timedelta(minutes=1)
+
+            line, = ax.plot(run_df)
+
+            if run_df[field_name].max() > warn_limit:
+                print("High " + name + " (" + str(run_df[field_name].max()) +
+                      ") in " + scenario['name'] + " " + run)
+                # Add legend only for the violating runs
+                line.set_label(run)
+
+        plt.legend()
+        plt.xlabel("Duration of experiment (minutes)")
+        plt.ylabel("Mean " + name)
+        plt.savefig(plots_dir + "meta_" + scenario['name'] + \
+                     "_all_" + name + "_timeline.pdf")
+        plt.close()
+
+def meta_non_converged_run_etx_timelines(scenarios, plots_dir):
     for scenario in scenarios:
         mac_tx_all_runs_df = scenario['raw_dfs']["raw_mac_tx_dfs"]
         for run in mac_tx_all_runs_df.keys():
@@ -497,34 +534,6 @@ def meta_etx_timelines(scenarios, plots_dir):
             plt.savefig(plots_dir + "meta_" + scenario['name'] + \
                          "_" + run + "_etx_timeline.pdf")
             plt.close()
-
-    # Timeline ETX of all packets and all runs, into one timeline
-    for scenario in scenarios:
-        mac_tx_all_runs_df = scenario['raw_dfs']["raw_mac_tx_dfs"]
-        fig, ax = plt.subplots()
-        for run in mac_tx_all_runs_df.keys():
-            mac_tx_df = mac_tx_all_runs_df[run]
-            app_tx_df = mac_tx_df[mac_tx_df["app"] == 1]
-
-            # Resample so that we get one row per 30 second
-            # TODO using transmissions only does not handle failed TXs
-            # TODO we also do all cells and not just the spatial reused
-            app_tx_df = app_tx_df["transmissions"].resample('30s').agg({'transmissions':'mean'})
-
-            # Convert the index to minutes instead of nanoseconds
-            # (also changes the datatype from TimeDelta to Float64)
-            app_tx_df.index = app_tx_df.index / pd.Timedelta(minutes=1)
-
-            if app_tx_df["transmissions"].max() > 5:
-                print("High ETX " + str(app_tx_df["transmissions"].max()) + " in " + run)
-
-            ax.plot(app_tx_df)
-
-        plt.xlabel("Duration of experiment (minutes)")
-        plt.ylabel("Mean ETX")
-        plt.savefig(plots_dir + "meta_" + scenario['name'] + \
-                     "_all_packets_etx_timeline.pdf")
-        plt.close()
 
 def meta_channel_performance_per_node(
         scenarios, plots_dir, node_field, plot_name, plot_only_problems):
@@ -679,32 +688,6 @@ def meta_channel_performance(scenarios, plots_dir):
     # ETX per receiving node
     meta_channel_performance_per_node(scenarios, temp_dir, "node_dest", "rx", True)
 
-def meta_stats(scenarios, plots_meta_dir, plots_time_dir):
-
-    meta_etx_timelines(scenarios, plots_time_dir)
-
-    meta_all_parent_switches(scenarios, plots_meta_dir)
-
-    meta_last_events(scenarios,
-                     "raw_switches_dfs",
-                     "parent switch",
-                     "parent_switch",
-                     plots_meta_dir)
-
-    meta_last_events(scenarios,
-                     "raw_dag_inits_dfs",
-                     "network join",
-                     "network_join",
-                     plots_meta_dir)
-
-    meta_channel_performance(scenarios, plots_meta_dir)
-
-    #ad_hoc_etx_per_node_all(scenarios)
-
-    for scenario in scenarios:
-        print("Meta for scenario " + scenario['name'] + ":")
-        print(scenario["meta_df"])
-
 def print_meta_info(scenarios):
     for scenario in scenarios:
         scenario_meta_df = scenario["meta_df"]
@@ -729,6 +712,35 @@ def print_meta_info(scenarios):
         print("\tTriscale metrics converged:")
         print(scenario["runs_df"].notnull().sum(axis=0).to_string(dtype=False))
 
+def meta_stats(scenarios, plots_meta_dir, plots_time_dir):
+
+    meta_non_converged_run_etx_timelines(scenarios, plots_time_dir)
+
+    meta_timeline_all_runs(scenarios, "raw_mac_tx_dfs", "transmissions", "ETX", 5, plots_meta_dir)
+    meta_timeline_all_runs(scenarios, "raw_packets_dfs", "latency", "latency", 10, plots_meta_dir)
+    meta_timeline_all_runs(scenarios, "raw_packets_dfs", "pdr", "PDR", 100, plots_meta_dir)
+
+    meta_all_parent_switches(scenarios, plots_meta_dir)
+
+    meta_last_events(scenarios,
+                     "raw_switches_dfs",
+                     "parent switch",
+                     "parent_switch",
+                     plots_meta_dir)
+
+    meta_last_events(scenarios,
+                     "raw_dag_inits_dfs",
+                     "network join",
+                     "network_join",
+                     plots_meta_dir)
+
+    meta_channel_performance(scenarios, plots_meta_dir)
+
+    #ad_hoc_etx_per_node_all(scenarios)
+
+    for scenario in scenarios:
+        print("Meta for scenario " + scenario['name'] + ":")
+        print(scenario["meta_df"])
 
 def stats_for_scenarios(scenarios, plots_dir, write_runs_csv = False):
     # Make directories for plots
