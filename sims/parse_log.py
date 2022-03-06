@@ -139,17 +139,19 @@ def parseEnergest(log):
 def parseApp(log):
     global application_done_count
 
-    res = re.compile('TX (.+?) num (\d+) tick (\d+) to 6G-([0-9a-fA-F]+)').match(log)
+    res = re.compile('TX (.+?) num (\d+) tick (\d+) to 6G-([0-9a-fA-F]+) from depth (\d+)').match(log)
     if res:
         type = res.group(1)
         id = int(res.group(2))
         tick = int(res.group(3))
         dest = int(res.group(4), 16)
+        depth = int(res.group(5))
         return {'event': 'send',
                 'type': type,
                 'tick':tick,
                 'id': id,
-                'dest': dest }
+                'dest': dest,
+                'depth': depth}
 
     res = re.compile('RX (.+?) num (\d+) oTick (\d+) tick (\d+) from 6G-([0-9a-fA-F]+)').match(log)
     if res:
@@ -658,6 +660,16 @@ def parse_logfile(file, app_warmup, quiet=False):
     packets_sent = len(app_packets_df);
     # A packet which is not received is stored with PDR = 0
     packets_received = app_packets_df["pdr"].sum() / 100
+
+    # Abort if there are almost no eligible packets sent
+    if packets_sent < 100:
+        print("Too few eligible app. packets! (" + str(packets_sent) + ")")
+        meta["result"] = "error"
+        return None, meta
+
+    # Abort if packets are sent too shallow
+    # This test is redundant as the problem is catched by the spatial reuse test
+    #too_shallow_tx = len(app_packets_df[app_packets_df["depth"] < 6])
 
     # Max. hop count after app started
     hop_count_df = dfs["rpl_stats"]
