@@ -206,6 +206,8 @@ def calculate_kpi(values, settings, metric, name, plots_dir):
     # Independence is not critical in simulations?
     if not independent:
         print("Not independent for", name)
+        print("Values:")
+        print(values)
 
     return kpi
 
@@ -490,8 +492,8 @@ def meta_timeline_all_runs(scenarios, dfs_name, field_name, name, warn_limit, pl
                       ") in " + scenario['name'] + " " + run)
                 # Add legend only for the violating runs
                 line.set_label(run)
+                plt.legend()
 
-        plt.legend()
         plt.xlabel("Duration of experiment (minutes)")
         plt.ylabel("Mean " + name)
         plt.savefig(plots_dir + "meta_" + scenario['name'] + \
@@ -744,8 +746,8 @@ def meta_stats(scenarios, plots_meta_dir, plots_time_dir):
 
 def stats_for_scenarios(scenarios, plots_dir, write_runs_csv = False):
     # Make directories for plots
-    plots_meta_dir = plots_dir + PLOT_TIMESERIES_FOLDER_NAME + "/"
-    plots_timeseries_dir = plots_dir + PLOT_META_FOLDER_NAME + "/"
+    plots_meta_dir = plots_dir + PLOT_META_FOLDER_NAME + "/"
+    plots_timeseries_dir = plots_dir + PLOT_TIMESERIES_FOLDER_NAME + "/"
     plots_triscale_dir = plots_dir + PLOT_TRISCALE_FOLDER_NAME + "/"
     os.mkdir(plots_meta_dir)
     os.mkdir(plots_timeseries_dir)
