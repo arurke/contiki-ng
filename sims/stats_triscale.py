@@ -541,6 +541,86 @@ def meta_non_converged_run_etx_timelines(scenarios, plots_dir):
                          "_" + run + "_etx_timeline.pdf")
             plt.close()
 
+def meta_channel_performance_overview(scenarios, plots_dir):
+    channels_high_etx = {}
+    nodes_high_etx = {}
+    make_plot = False
+
+    for scenario in scenarios:
+        mac_cell_all_runs_df = scenario['raw_dfs']["raw_mac_cell_dfs"]
+        scenario_channel_perf_dfs = []
+
+        # Go through each run
+        for run in mac_cell_all_runs_df.keys():
+            mac_cell_df = mac_cell_all_runs_df[run]
+            # We are only interested in app-packets
+            mac_cell_app_all_runs_df = mac_cell_df[mac_cell_df["app_started"] == 1]
+            mac_cell_app_df = mac_cell_df[mac_cell_df["app"] == 1]
+            #if len(mac_cell_app_df) == 0:
+            #    continue
+
+            # Select the columns we are interested in
+            channel_perf_df = mac_cell_app_df[["channel", "result", "node"]]
+
+            # Treat each node
+            for node in channel_perf_df["node"].unique():
+                node_channel_perf_df = \
+                    channel_perf_df[channel_perf_df["node"] == node]
+
+                # Calculate ETX per channel
+                groups = node_channel_perf_df.groupby("channel")["result"]
+                add_node = False
+                for channel, result in groups:
+                    # 0 indicate success
+                    num_success = len(result[result == 0])
+                    num_total = len(result)
+                    if num_success == 0:
+                        etx = 8
+                    else:
+                        etx = num_total / num_success
+
+                    # High ETX. Add this channel and node to list
+                    if etx > 5:
+                        make_plot = True
+                        add_node = True
+                        if channel in channels_high_etx:
+                            channels_high_etx[channel] += 1
+                        else:
+                            channels_high_etx[channel] = 1
+
+                if add_node:
+                        if node in nodes_high_etx:
+                            nodes_high_etx[node] += 1
+                        else:
+                            nodes_high_etx[node] = 1
+
+    if not make_plot:
+        return
+
+    # Make DFs out of the dicts
+    channels_perf_df = pd.DataFrame(channels_high_etx.items(), columns=['channel', "count"])
+    channels_perf_df = channels_perf_df.sort_values("channel", ascending=True)
+    nodes_perf_df = pd.DataFrame(nodes_high_etx.items(), columns=['node', "count"])
+    nodes_perf_df = nodes_perf_df.sort_values("node", ascending=True)
+
+    # Plot channels
+    plt.bar(channels_perf_df["channel"], channels_perf_df["count"])
+    plt.xticks(channels_perf_df["channel"])
+    plt.xlabel("Physical channel")
+    plt.ylabel("Num. runs with high ETX")
+    plt.locator_params(axis='y', integer=True)
+    plt.savefig(plots_dir + "meta_all_runs_channels_etx_count.pdf")
+    plt.close()
+
+    # Plot nodes
+    plt.bar(nodes_perf_df["node"], nodes_perf_df["count"])
+    plt.xticks(nodes_perf_df["node"])
+    plt.xlabel("Node")
+    plt.ylabel("Num. runs with high ETX")
+    plt.locator_params(axis='y', integer=True)
+    plt.savefig(plots_dir + "meta_all_runs_node_etx_count.pdf")
+    plt.close()
+
 def meta_channel_performance_per_node(
         scenarios, plots_dir, node_field, plot_name, plot_only_problems):
     for scenario in scenarios:
@@ -722,7 +802,7 @@ def meta_stats(scenarios, plots_meta_dir, plots_time_dir):
 
     meta_non_converged_run_etx_timelines(scenarios, plots_time_dir)
 
-    meta_timeline_all_runs(scenarios, "raw_mac_tx_dfs", "transmissions", "ETX", 5, plots_meta_dir)
+    meta_timeline_all_runs(scenarios, "raw_mac_tx_dfs", "transmissions", "ETX", 4, plots_meta_dir)
     meta_timeline_all_runs(scenarios, "raw_packets_dfs", "latency", "latency", 10, plots_meta_dir)
     meta_timeline_all_runs(scenarios, "raw_packets_dfs", "pdr", "PDR", 100, plots_meta_dir)
 
@@ -741,6 +821,8 @@ def meta_stats(scenarios, plots_meta_dir, plots_time_dir):
                      plots_meta_dir)
 
     meta_channel_performance(scenarios, plots_meta_dir)
+
+    meta_channel_performance_overview(scenarios, plots_meta_dir)
 
     #ad_hoc_etx_per_node_all(scenarios)
 
