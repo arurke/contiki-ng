@@ -11,6 +11,76 @@ PLOT_TIMESERIES_FOLDER_NAME = "timeseries"
 PLOT_META_FOLDER_NAME = "meta"
 PLOT_TRISCALE_FOLDER_NAME = "triscale"
 
+spatial_reuse_links = []
+
+def generate_list_of_links_with_spatial_reuse(scenarios):
+    spatial_reuse_links = []
+    for scenario in scenarios:
+        # We are only interested in spatial reuse
+        # Note, not generic implementation
+        if scenario["name"] == "no_spatial_reuse":
+            continue
+
+        mac_cell_tx_dfs = scenario['raw_dfs']["raw_mac_cell_dfs"]
+
+        for run in mac_cell_tx_dfs.keys():
+            mac_cell_tx_df = mac_cell_tx_dfs[run]
+            # We are only interested in app-packets in measurement period
+            mac_cell_tx_app_df = mac_cell_tx_df[mac_cell_tx_df["app_started"] == 1]
+            mac_cell_tx_app_df = mac_cell_tx_app_df[mac_cell_tx_app_df["app"] == 1]
+
+            # Now identify the links which have more than X % spatial reuse
+            # or just any spatial reuse? Let's begin with the second one.
+
+            # Extract only TXes which are spatial reuse
+            spatial_reuse_tx_df = \
+                mac_cell_tx_app_df.groupby(["asn", "channel"]).filter(lambda x: len(x) >= 2)
+
+            # Fetch unique links
+            spatial_reuse_links_df = \
+                spatial_reuse_tx_df.drop_duplicates(subset=["node_src", "node_dest"], keep='first')
+
+            # Iterate the unique links and add to list
+            # Note! Internet says iteration is an anti-pattern
+            for index, link in spatial_reuse_links_df.iterrows():
+                link = {"src": link["node_src"], "dest": link["node_dest"]}
+                if link not in spatial_reuse_links:
+                    spatial_reuse_links.append(link)
+
+    return spatial_reuse_links
+
+def calculate_etx_for_selected_links(mac_cell_df):
+    global spatial_reuse_links
+
+    # We have a list of links which had spatial reuse in the spatial reuse scenario
+    # Now when we analyze the non-spatial reuse scenario we pick only
+    # transmissions on those links
+    # mac_tx df does not give us the recepient, so therefore use mac_cell df
+    links_dfs = []
+    for link in spatial_reuse_links:
+        link_df = mac_cell_df[(mac_cell_df["node_src"] == link["src"]) & \
+                              (mac_cell_df["node_dest"] == link["dest"])]
+        links_dfs.append(link_df)
+
+    tx_selected_links_df = pd.concat(links_dfs, ignore_index=True)
+
+    # Calculate the ETX for those links
+    # Remove any stray non-spatial reuse TX (not necessary? confuses the semantic of the function)
+    # no_spatial_reuse_df = app_cells_df.drop_duplicates(subset=["asn", "channel"], keep=False)
+    tx_total = len(tx_selected_links_df)
+    tx_success = len(tx_selected_links_df[tx_selected_links_df["result"] == 0])
+
+    if tx_total == 0:
+        print("No TX on selected links!")
+        return NaN
+
+    if tx_success == 0:
+        print("No success TX on selected links!")
+        return NaN
+
+    etx = tx_total / tx_success
+    return etx
+
 def calculate_absolute_metrics(input_df, metric, measure):
     if metric == "mac_app_tx_etx" and measure == "absolute":
         app_tx_etx = input_df["transmissions"].sum() / \
@@ -53,8 +123,10 @@ def calculate_absolute_metrics(input_df, metric, measure):
     return None
 
 def calculate_metric(input_df, metric, measure, name, check_convergence=False):
-
     # Calculate metrics which does not require TriScale
+    if metric == "app_selected_cell_etx":
+        return calculate_etx_for_selected_links(input_df)
+
     if type(measure) == str and "absolute" in measure:
         return calculate_absolute_metrics(input_df, metric, measure)
 
@@ -131,6 +203,8 @@ def analyze_run(run_name, packets_df, energest_df, queue_df,
     metric_mac_app_tx = [{"metric": "mac_app_tx_etx", "measures":["absolute"]}]
     metric_app_cell = [{"metric": "app_cell_etx",
                         "measures":["absolute_spatial", "absolute_no_spatial"]}]
+    metric_app_selected_cell = [{"metric": "app_selected_cell_etx",
+                        "measures":["absolute"]}]
     metric_energest = [{"metric": "duty_cycle", "measures":default_measures},
                        {"metric": "duty_cycle_tx", "measures":default_measures},
                        {"metric": "duty_cycle_rx", "measures":default_measures}]
@@ -144,6 +218,7 @@ def analyze_run(run_name, packets_df, energest_df, queue_df,
            #{"df":queue_df, "metric":metric_queue, "prefix":""},
            {"df":app_mac_tx_df, "metric":metric_mac_app_tx, "prefix":""},
            {"df":app_cell_df, "metric":metric_app_cell, "prefix":""},
+           {"df":app_cell_df, "metric":metric_app_selected_cell, "prefix":""},
            {"df":rpl_stats_df, "metric":metric_rpl, "prefix":""},
            {"df":rpl_stats_transmitters_df, "metric":metric_rpl, "prefix":"transmitters_"},
            #{"df":ss_queue_df_2, "metric":metric_queue, "prefix":"ss2_"},
@@ -262,6 +337,9 @@ def analyze_scenario(runs_df, scenario_name, plots_triscale_dir):
             percentile=adhoc_percentile, confidence=adhoc_confidence,
             bounds=[0.001,9])
     add_kpi(kpis, "app_cell_etx",
+            percentile=adhoc_percentile, confidence=adhoc_confidence,
+            bounds=[0.001,9])
+    add_kpi(kpis, "app_selected_cell_etx",
             percentile=adhoc_percentile, confidence=adhoc_confidence,
             bounds=[0.001,9])
 
@@ -589,10 +667,10 @@ def meta_channel_performance_overview(scenarios, plots_dir):
                             channels_high_etx[channel] = 1
 
                 if add_node:
-                        if node in nodes_high_etx:
-                            nodes_high_etx[node] += 1
-                        else:
-                            nodes_high_etx[node] = 1
+                    if node in nodes_high_etx:
+                        nodes_high_etx[node] += 1
+                    else:
+                        nodes_high_etx[node] = 1
 
     if not make_plot:
         return
@@ -607,7 +685,7 @@ def meta_channel_performance_overview(scenarios, plots_dir):
     plt.bar(channels_perf_df["channel"], channels_perf_df["count"])
     plt.xticks(channels_perf_df["channel"])
     plt.xlabel("Physical channel")
-    plt.ylabel("Num. runs with high ETX")
+    plt.ylabel("Num. nodes who experience high ETX on channel")
     plt.locator_params(axis='y', integer=True)
     plt.savefig(plots_dir + "meta_all_runs_channels_etx_count.pdf")
     plt.close()
@@ -616,7 +694,7 @@ def meta_channel_performance_overview(scenarios, plots_dir):
     plt.bar(nodes_perf_df["node"], nodes_perf_df["count"])
     plt.xticks(nodes_perf_df["node"])
     plt.xlabel("Node")
-    plt.ylabel("Num. runs with high ETX")
+    plt.ylabel("Num. runs node experience high ETX on any channel")
     plt.locator_params(axis='y', integer=True)
     plt.savefig(plots_dir + "meta_all_runs_node_etx_count.pdf")
     plt.close()
@@ -831,6 +909,11 @@ def meta_stats(scenarios, plots_meta_dir, plots_time_dir):
         print(scenario["meta_df"])
 
 def stats_for_scenarios(scenarios, plots_dir, write_runs_csv = False):
+
+    # Populate list of links with spatial reuse
+    global spatial_reuse_links
+    spatial_reuse_links = generate_list_of_links_with_spatial_reuse(scenarios)
+
     # Make directories for plots
     plots_meta_dir = plots_dir + PLOT_META_FOLDER_NAME + "/"
     plots_timeseries_dir = plots_dir + PLOT_TIMESERIES_FOLDER_NAME + "/"

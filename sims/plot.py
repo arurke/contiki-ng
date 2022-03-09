@@ -82,8 +82,11 @@ def plot_etx_details(scenarios_df, plot_dir, title=False):
     plt.close()
     print("Made figure", fig_path)
 
-
-def plot_spatial_comparison(scenarios_df, plot_dir, title=False):
+def plot_spatial_comparison_kpis(scenarios_df,
+                                 kpi_etx_no_spatial, kpi_etx_spatial,
+                                 kpi_pdr_no_spatial, kpi_pdr_spatial,
+                                 kpi_latency_no_spatial, kpi_latency_spatial,
+                                 name, plot_dir, title=False):
 
     #print(scenarios_df.index)
     #print(str(scenarios_df))
@@ -106,8 +109,8 @@ def plot_spatial_comparison(scenarios_df, plot_dir, title=False):
     spatial_reuse_row = scenarios_df.loc["spatial_reuse"]
     no_spatial_reuse_row = scenarios_df.loc["no_spatial_reuse"]
 
-    no_spatial_etx_min = no_spatial_reuse_row[make_spatial_kpi_name('mac_app_tx_etx_absolute','lower')]
-    no_spatial_etx_max = no_spatial_reuse_row[make_spatial_kpi_name('mac_app_tx_etx_absolute','upper')]
+    no_spatial_etx_min = no_spatial_reuse_row[make_spatial_kpi_name(kpi_etx_no_spatial,'lower')]
+    no_spatial_etx_max = no_spatial_reuse_row[make_spatial_kpi_name(kpi_etx_no_spatial,'upper')]
     no_spatial_etx = (no_spatial_etx_max + no_spatial_etx_min) / 2
 
     # Use etx from all packets in the run
@@ -115,24 +118,24 @@ def plot_spatial_comparison(scenarios_df, plot_dir, title=False):
     #spatial_etx_max = spatial_reuse_row['mac_app_tx_etx_absolute_etx_U']
 
     # Use etx from the spatial reuse cells only
-    spatial_etx_min = spatial_reuse_row[make_spatial_kpi_name('app_cell_etx_absolute_spatial','lower')]
-    spatial_etx_max = spatial_reuse_row[make_spatial_kpi_name('app_cell_etx_absolute_spatial','upper')]
+    spatial_etx_min = spatial_reuse_row[make_spatial_kpi_name(kpi_etx_spatial,'lower')]
+    spatial_etx_max = spatial_reuse_row[make_spatial_kpi_name(kpi_etx_spatial,'upper')]
     spatial_etx = (spatial_etx_max + spatial_etx_min) / 2
 
-    no_spatial_pdr_min = no_spatial_reuse_row[make_spatial_kpi_name('pdr_mean','lower')]
-    no_spatial_pdr_max = no_spatial_reuse_row[make_spatial_kpi_name('pdr_mean','upper')]
+    no_spatial_pdr_min = no_spatial_reuse_row[make_spatial_kpi_name(kpi_pdr_no_spatial,'lower')]
+    no_spatial_pdr_max = no_spatial_reuse_row[make_spatial_kpi_name(kpi_pdr_no_spatial,'upper')]
     no_spatial_pdr = (no_spatial_pdr_max + no_spatial_pdr_min) / 2
 
-    spatial_pdr_min = spatial_reuse_row[make_spatial_kpi_name('pdr_mean','upper')]
-    spatial_pdr_max = spatial_reuse_row[make_spatial_kpi_name('pdr_mean','upper')]
+    spatial_pdr_min = spatial_reuse_row[make_spatial_kpi_name(kpi_pdr_spatial,'upper')]
+    spatial_pdr_max = spatial_reuse_row[make_spatial_kpi_name(kpi_pdr_spatial,'upper')]
     spatial_pdr = (spatial_pdr_max + spatial_pdr_min) / 2
 
-    no_spatial_latency_min = no_spatial_reuse_row[make_spatial_kpi_name('latency_mean','lower')]
-    no_spatial_latency_max = no_spatial_reuse_row[make_spatial_kpi_name('latency_mean','upper')]
+    no_spatial_latency_min = no_spatial_reuse_row[make_spatial_kpi_name(kpi_latency_no_spatial,'lower')]
+    no_spatial_latency_max = no_spatial_reuse_row[make_spatial_kpi_name(kpi_latency_no_spatial,'upper')]
     no_spatial_latency = (no_spatial_latency_max + no_spatial_latency_min) / 2
 
-    spatial_latency_min = spatial_reuse_row[make_spatial_kpi_name('latency_mean','lower')]
-    spatial_latency_max = spatial_reuse_row[make_spatial_kpi_name('latency_mean', 'upper')]
+    spatial_latency_min = spatial_reuse_row[make_spatial_kpi_name(kpi_latency_spatial,'lower')]
+    spatial_latency_max = spatial_reuse_row[make_spatial_kpi_name(kpi_latency_spatial, 'upper')]
     spatial_latency = (spatial_latency_max + spatial_latency_min) / 2
 
     no_spatial_reuse_data = DataSet(
@@ -286,7 +289,10 @@ def plot_spatial_comparison(scenarios_df, plot_dir, title=False):
 
     fig.tight_layout()
 
-    fig_name = "spatial_reuse_comparison"
+    fig_name = "spatial_reuse_"
+    if name:
+        fig_name += name + "_"
+    fig_name += "comparison"
     if title:
         plt.title(fig_name)
     fig_dir = plot_dir
@@ -294,6 +300,21 @@ def plot_spatial_comparison(scenarios_df, plot_dir, title=False):
     plt.savefig(fig_path, bbox_inches='tight')
     plt.close()
     print("Made figure", fig_path)
+
+
+def plot_spatial_comparison(scenarios_df, plot_dir, title=False):
+    plot_spatial_comparison_kpis(scenarios_df,
+                                 'mac_app_tx_etx_absolute', 'app_cell_etx_absolute_spatial',
+                                 'pdr_mean', 'pdr_mean',
+                                 'latency_mean', 'latency_mean',
+                                 "", plot_dir, title)
+
+    # Use only links which had spatial reuse
+    plot_spatial_comparison_kpis(scenarios_df,
+                                 'app_selected_cell_etx_absolute', 'app_cell_etx_absolute_spatial',
+                                 'pdr_mean', 'pdr_mean',
+                                 'latency_mean', 'latency_mean',
+                                 "selected_links", plot_dir, title)
 
 def plot_queue_util_selected_nodes(scenarios_df, plot_dir, title=False):
 
