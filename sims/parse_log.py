@@ -239,7 +239,7 @@ def parseTSCH(log):
         return {'event': 'mac',
                 'type': 'dl_miss_err'}
 
-    res = re.compile('! can\'t send packet to LL-([0-9a-fA-F]+) with seqno (\d+), queue (\d+)\/(\d+) (\d+)\/(\d+) app (\d+)').match(log)
+    res = re.compile('! can\'t send packet to LL-([0-9a-fA-F]+)(.*) with seqno (\d+), queue (\d+)\/(\d+) (\d+)\/(\d+) app (\d+)').match(log)
     if res:
         queue_num = int(res.group(5))
         queue_size = int(res.group(6))
@@ -252,7 +252,7 @@ def parseTSCH(log):
                 'queue_fill': queue_fill,
                 'app': app}
 
-    res = re.compile('TX to LL-([0-9a-fA-F]+) seqno (\d+), queue (\d+)\/(\d+) (\d+)\/(\d+)').match(log)
+    res = re.compile('TX to LL-([0-9a-fA-F]+)(.*) seqno (\d+), queue (\d+)\/(\d+) (\d+)\/(\d+)').match(log)
     if res:
         queue_num = int(res.group(5))
         queue_size = int(res.group(6))
