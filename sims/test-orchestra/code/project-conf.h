@@ -69,7 +69,8 @@
 #define QUEUEBUF_CONF_NUM                 PACKET_BUFFER_SIZE
 
 // Max queue size per neighbor. Must be power of two.
-#define TSCH_QUEUE_CONF_NUM_PER_NEIGHBOR  32
+// Note, must be increased if not using flows with Layered
+#define TSCH_QUEUE_CONF_NUM_PER_NEIGHBOR  16
 
 // Increase incoming packets buffer (def. 4)
 #define TSCH_CONF_MAX_INCOMING_PACKETS    8
