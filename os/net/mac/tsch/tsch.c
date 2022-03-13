@@ -1179,6 +1179,42 @@ tsch_init(void)
 
   tsch_stats_init();
 }
+
+#if BUILD_WITH_LAYERED
+static void
+print_packetbuf_queue_address(void) {
+  if(packetbuf_attr(PACKETBUF_ATTR_TEST) == LAYERED_PACKET_TYPE_RPL ||
+      packetbuf_attr(PACKETBUF_ATTR_TEST) == LAYERED_PACKET_TYPE_KEEPALIVE) {
+    LOG_WARN_("/queue: ");
+    LOG_WARN_LLADDR(&tsch_broadcast_address);
+    return;
+  }
+
+#if BUILD_WITH_LAYERED_FLOW
+  linkaddr_t flow_address = {0};
+  bool packet_belongs_to_a_flow =
+      layered_get_flow_address_for_packet(
+          packetbuf_attr(PACKETBUF_ATTR_FRAME_TYPE),
+          packetbuf_dataptr(), packetbuf_datalen(),
+          &flow_address);
+
+  if(packet_belongs_to_a_flow) {
+#if BUILD_WITH_DEPLOYMENT
+    // Flow addresses are not in the deployment mapping, so printing
+    // does not work. We there adjust it
+    // so that it becomes same as the source node id
+    // (which what the flow id is based on).
+    flow_address.u8[0] = 0x02;
+    flow_address.u8[1] = 0x00;
+#endif
+    LOG_WARN_("/queue: ");
+    LOG_WARN_LLADDR(&flow_address);
+    return;
+  }
+#endif /* BUILD_WITH_LAYERED_FLOW */
+}
+#endif /* BUILD_WITH_LAYERED */
+
 /*---------------------------------------------------------------------------*/
 /* Function send for TSCH-MAC, puts the packet in packetbuf in the MAC queue */
 static void
@@ -1246,22 +1282,19 @@ send_packet(mac_callback_t sent, void *ptr)
     /* Enqueue packet */
     p = tsch_queue_add_packet(addr, max_transmissions, sent, ptr);
 #if BUILD_WITH_LAYERED
-    // RPL and KA packets are put into the broadcast queue (so that they are
-    // sent in common slots). To show the correct queue utilization below we
-    // fetch the broadcast neighbor if it is a RPL or KA packet
-    if(packetbuf_attr(PACKETBUF_ATTR_TEST) == LAYERED_PACKET_TYPE_RPL ||
-        packetbuf_attr(PACKETBUF_ATTR_TEST) == LAYERED_PACKET_TYPE_KEEPALIVE) {
-      n = tsch_queue_get_nbr(&tsch_broadcast_address);
-    }
-    else {
-      n = tsch_queue_get_nbr(addr);
-    }
+    linkaddr_t queue_addr = {0};
+    linkaddr_copy(&queue_addr, addr);
+    tsch_queue_get_actual_queue(&queue_addr);
+    n = tsch_queue_get_nbr(&queue_addr);
 #else
     n = tsch_queue_get_nbr(addr);
 #endif
     if(p == NULL) {
       LOG_ERR("! can't send packet to ");
       LOG_ERR_LLADDR(addr);
+#if BUILD_WITH_LAYERED
+      print_packetbuf_queue_address();
+#endif
       LOG_ERR_(" with seqno %u, queue %u/%u %u/%u app %d\n",
           tsch_packet_seqno, tsch_queue_nbr_packet_count(n),
           TSCH_QUEUE_NUM_PER_NEIGHBOR - 1, tsch_queue_global_packet_count(),
@@ -1272,35 +1305,13 @@ send_packet(mac_callback_t sent, void *ptr)
       p->header_len = hdr_len;
       LOG_WARN("TX to ");
       LOG_WARN_LLADDR(addr);
+#if BUILD_WITH_LAYERED
+      print_packetbuf_queue_address();
+#endif
       LOG_WARN_(" seqno %u, queue %u/%u %u/%u, len %u\n",
              tsch_packet_seqno, tsch_queue_nbr_packet_count(n),
              TSCH_QUEUE_NUM_PER_NEIGHBOR - 1, tsch_queue_global_packet_count(),
              QUEUEBUF_NUM, queuebuf_datalen(p->qb));
-#if BUILD_WITH_LAYERED_FLOW
-      linkaddr_t flow_address = {0};
-      bool packet_belongs_to_a_flow =
-          layered_get_flow_address_for_packet(
-              packetbuf_attr(PACKETBUF_ATTR_FRAME_TYPE),
-              packetbuf_dataptr(), packetbuf_datalen(),
-              &flow_address);
-
-      if(packet_belongs_to_a_flow) {
-        struct tsch_neighbor *flow_neighbor = tsch_queue_get_nbr(&flow_address);
-#if BUILD_WITH_DEPLOYMENT
-        // Flow addresses are not in the deployment mapping, so printing
-        // does not work. We there adjust it
-        // so that it becomes same as the source node id
-        // (which what the flow id is based on).
-        flow_address.u8[0] = 0x02;
-        flow_address.u8[1] = 0x00;
-#endif
-        LOG_WARN("TX to flow ");
-              LOG_WARN_LLADDR(&flow_address);
-              LOG_WARN_(" seqno %u, queue %u/%u\n",
-                     tsch_packet_seqno, tsch_queue_nbr_packet_count(flow_neighbor),
-                     TSCH_QUEUE_NUM_PER_NEIGHBOR - 1);
-      }
-#endif
     }
   }
 
