@@ -239,6 +239,46 @@ tsch_queue_remove_nbr(struct tsch_neighbor *n)
     }
   }
 }
+
+#if BUILD_WITH_LAYERED
+// Returns the actual neighbor-queue the packet in the packetbuf will be in
+// If queue is equal to the neighbor (i.e. no special handling), the
+// neighbor_queue_addr parameter is left untouched.
+void tsch_queue_get_actual_queue(linkaddr_t* neighbor_queue_addr) {
+  // If this is a RPL packet, change the addr to a broadcast-addr such that
+  // all RPL packets (including unicast) ends up in the broadcast queue
+  // This will reduce reliability of unicast RPL packets
+  if(packetbuf_attr(PACKETBUF_ATTR_TEST) == LAYERED_PACKET_TYPE_RPL) {
+    linkaddr_copy(neighbor_queue_addr, &tsch_broadcast_address);
+    //LOG_DBG("asd Added RPL packet to broadcast queue\n");
+  }
+  // Do same for TSCH keepalive packets
+  else if(packetbuf_attr(PACKETBUF_ATTR_TEST) == LAYERED_PACKET_TYPE_KEEPALIVE) {
+    linkaddr_copy(neighbor_queue_addr, &tsch_broadcast_address);
+    //LOG_DBG("asd Added TSCH KA packet to broadcast queue\n");
+  }
+#if BUILD_WITH_LAYERED_FLOW
+  else {
+    // If this packet is going in a flow, put it in a flow-neighbor queue
+    // instead of the next-hop neighbor
+    linkaddr_t flow_address = {0};
+    bool packet_belongs_to_a_flow =
+        layered_get_flow_address_for_packet(
+            packetbuf_attr(PACKETBUF_ATTR_FRAME_TYPE),
+            packetbuf_dataptr(), packetbuf_datalen(),
+            &flow_address);
+
+    if(packet_belongs_to_a_flow) {
+      // Replace address with the flow address so that flow-addr
+      // is added as neighbor and packet is put in the flow-neighbor queue
+      tsch_schedule_convert_to_flow_address(&flow_address);
+      linkaddr_copy(neighbor_queue_addr, &flow_address);
+    }
+  }
+#endif
+}
+#endif
+
 /*---------------------------------------------------------------------------*/
 /* Add packet to neighbor queue. Use same lockfree implementation as ringbuf.c (put is atomic) */
 struct tsch_packet *
@@ -258,60 +298,32 @@ tsch_queue_add_packet(const linkaddr_t *addr, uint8_t max_transmissions,
   }
 #endif
 
-  linkaddr_t addr_to_use = {0};
-  linkaddr_copy(&addr_to_use, addr);
+  // queue_addr is the queue where the packet will actually go
+  // In some cases this might be different than the next-hop given in addr
+  // Note that this does not change the actual address in the packet
+  linkaddr_t queue_addr = {0};
+  linkaddr_copy(&queue_addr, addr);
 
   if(!tsch_is_locked()) {
 
-#if BUILD_WITH_LAYERED_FLOW
-    // If this packet is going in a flow, put it in a flow-neighbor queue
-    // instead of the next-hop neighbor
-    linkaddr_t flow_address = {0};
-    bool packet_belongs_to_a_flow =
-        layered_get_flow_address_for_packet(
-            packetbuf_attr(PACKETBUF_ATTR_FRAME_TYPE),
-            packetbuf_dataptr(), packetbuf_datalen(),
-            &flow_address);
-
-    if(packet_belongs_to_a_flow) {
-      // Add next-hop neighbor
-      // (had problem with the next-hop neighbor being deleted (since next-hop
-      // neighbor has nothing in its queues). Removed cleaning up of nbrs.
-      // If using time-source neighbor strategy in tx-slot-operation the below
-      // can be comment (if so, we assume upwards convergecast)
-      if(tsch_queue_add_nbr(&addr_to_use) ==  NULL) {
-        tsch_flow_error++;
-        LOG_ERR("!asdERR add neighbor failed!\n");
-        return NULL;
-      }
-
-      // Replace address with the flow address so that flow-addr
-      // is added as neighbor and packet is put in the flow-neighbor queue
-      tsch_schedule_convert_to_flow_address(&flow_address);
-      linkaddr_copy(&addr_to_use, &flow_address);
-    }
-#endif
-
 #if BUILD_WITH_LAYERED
-    // If this is a RPL packet, change the addr to a broadcast-addr such that
-    // all RPL packets (including unicast) ends up in the broadcast queue
-    // This will reduce reliability of unicast RPL packets
-    // Note that this does not change the actual address in the packet
-    if(packetbuf_attr(PACKETBUF_ATTR_TEST) == LAYERED_PACKET_TYPE_RPL) {
-      tsch_queue_add_nbr(&addr_to_use);
-      linkaddr_copy(&addr_to_use, &tsch_broadcast_address);
-      //LOG_DBG("asd Added RPL packet to broadcast queue\n");
-    }
+    tsch_queue_get_actual_queue(&queue_addr);
 
-    // Do same for TSCH keepalive packets
-    if(packetbuf_attr(PACKETBUF_ATTR_TEST) == LAYERED_PACKET_TYPE_KEEPALIVE) {
-      tsch_queue_add_nbr(&addr_to_use);
-      linkaddr_copy(&addr_to_use, &tsch_broadcast_address);
-      //LOG_DBG("asd Added TSCH KA packet to broadcast queue\n");
+    // Always add neighbor to the original destination
+    // Regarding flows:
+    // (had problem with the next-hop neighbor being deleted (since next-hop
+    // neighbor has nothing in its queues). Removed cleaning up of nbrs.
+    // If using time-source neighbor strategy in tx-slot-operation the below
+    // can be commented out (if so, we assume upwards convergecast) (Update:
+    // If so, we must only identify flow and only comment out for flows).
+    if(tsch_queue_add_nbr(addr) ==  NULL) {
+      tsch_flow_error++;
+      LOG_ERR("!asdERR Add next-hop neighbor failed!\n");
+      return NULL;
     }
 #endif
 
-    n = tsch_queue_add_nbr(&addr_to_use);
+    n = tsch_queue_add_nbr(&queue_addr);
     if(n != NULL) {
       put_index = ringbufindex_peek_put(&n->tx_ringbuf);
       if(put_index != -1) {
