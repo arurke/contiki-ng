@@ -16,6 +16,11 @@
 #define LOG_MODULE "App"
 #define LOG_LEVEL LOG_LEVEL_INFO
 
+#if !TESTBED
+#define APP_CONF_NUM_PACKETS  100
+#define APP_CONF_DELAY_TX     600
+#endif
+
 #define UDP_CLIENT_PORT   8765
 #define UDP_SERVER_PORT   5678
 
