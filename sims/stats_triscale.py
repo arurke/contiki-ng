@@ -299,7 +299,7 @@ def add_kpi(kpis, metric,
                            "confidence": confidence
                }}
     if bounds:
-        new_kpi["bounds"] = bounds
+        new_kpi["settings"]["bounds"] = bounds
     if default:
         new_kpi["default"] = True
     if bound_lower:
@@ -335,16 +335,16 @@ def analyze_scenario(runs_df, scenario_name, plots_triscale_dir):
             bounds=[0.001,120])
     add_kpi(kpis, "mac_app_tx_etx",
             percentile=adhoc_percentile, confidence=adhoc_confidence,
-            bounds=[0.001,9])
+            bounds=[1,20])
     add_kpi(kpis, "app_cell_etx",
             percentile=adhoc_percentile, confidence=adhoc_confidence,
-            bounds=[0.001,9])
+            bounds=[1,20])
     add_kpi(kpis, "app_selected_cell_etx",
             percentile=adhoc_percentile, confidence=adhoc_confidence,
-            bounds=[0.001,9])
+            bounds=[1,20])
 
-    add_kpi(kpis, "hop_count",
-            percentile=50, confidence=95)
+    #add_kpi(kpis, "hop_count",
+    #        percentile=50, confidence=95)
 
     # Add names according to the settings
     for kpi in kpis:
