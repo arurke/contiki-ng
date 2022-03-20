@@ -877,7 +877,9 @@ def parse_logs_dir(directory, app_warmup):
     scenario_metadata = []
 
     # Iterate all folders containing different runs in the directory
-    for folder in glob.glob(directory):
+    # Sorting to keep the order of runs (run00, run01, etc.)
+    # Order of runs impacts statistical independence tests
+    for folder in sorted(glob.glob(directory)):
 
         # Delete any existing parsed data (.csvs)
         for csv_file in glob.glob(folder + "/*.csv"):
