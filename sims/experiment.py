@@ -148,7 +148,7 @@ def process_results(scenarios, execution_dir, from_csv):
     if os.path.exists(plots_dir):
         shutil.rmtree(plots_dir)
 
-    print("Generating plots dir ", plots_dir)
+    print("Generating plots dir", plots_dir)
     os.mkdir(plots_dir)
 
     # Get stats from the DFs
@@ -647,7 +647,8 @@ def fetch_data_from_remote(execution_dir, scenarios, num_runs):
     # Fetching run logs
     for scenario in scenarios:
         for run in range(num_runs):
-            run_log_dir = scenario['path'] + "run" + str(run)
+            # Runs always have two digits (run00, run01, etc.)
+            run_log_dir = scenario['path'] + "run" + str('%0.2d' % run)
             if not transfer_from_remote(run_log_dir, scenario['path'], True):
                 return False
     return True
