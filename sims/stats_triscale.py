@@ -106,6 +106,8 @@ def calculate_absolute_metrics(input_df, metric, measure):
         if measure == "absolute_spatial":
             if spatial_reuse_total != 0:
                 spatial_reuse_success = len(spatial_reuse_df[spatial_reuse_df["result"] == 0])
+                if spatial_reuse_success == 0:
+                    return 8
                 spatial_reuse_etx = spatial_reuse_total / spatial_reuse_success
                 #print("ETX for spatial reuse cells: %.4f" % spatial_reuse_etx)
                 return spatial_reuse_etx

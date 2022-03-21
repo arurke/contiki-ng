@@ -707,7 +707,10 @@ def parse_logfile(file, app_warmup, quiet=False):
     if spatial_reuse_total != 0:
         # 0 indicates success
         spatial_reuse_success = len(spatial_reuse_df[spatial_reuse_df["result"] == 0])
-        spatial_reuse_etx = spatial_reuse_total / spatial_reuse_success
+        if spatial_reuse_success != 0:
+            spatial_reuse_etx = spatial_reuse_total / spatial_reuse_success
+        else:
+            spatial_reuse_etx = 8
         spatial_reuse_ratio = len(spatial_reuse_df) / len(app_cell_df) * 100
         print("Spatial reuse ratio: %.4f %% (%d/%d)",
               spatial_reuse_ratio,
