@@ -365,7 +365,7 @@ def doParse(file, app_warmup, testbed):
         # match time, id, module, log; The common format for all log lines
         if "TEST FAILED" in line:
             print("SIMULATION FAILED!")
-            return -1
+            return None
 
         time, nodeid, level, module, log = parseLine(line, testbed)
 
@@ -410,7 +410,7 @@ def doParse(file, app_warmup, testbed):
                             ret['src'] = mac_to_node_id_map[ret['src']]
                         else:
                             print("Missing mapping for " + str(ret['src']))
-                            return -1
+                            return None
 
                     # Update sent request series with latency and PDR
                     # First find the row
@@ -425,7 +425,7 @@ def doParse(file, app_warmup, testbed):
                         print("Tick mismatch. Tick " + str(txElement['tick']) + " sent at " +
                               str(txElement['timestamp']) + " vs. oTick " + str(ret['oTick']) +
                               " received at " + str(entry['timestamp']))
-                        return -1
+                        return None
 
                     # We don't use ASN because
                     # 1. We cannot guarantee it is correct
@@ -513,9 +513,9 @@ def doParse(file, app_warmup, testbed):
 
     #print("Unknown line count: " + str(unknown_line_count))
 
-    if unknown_line_count > 100:
-        print("ERR! Too many unknown lines")
-        return -1
+    if unknown_line_count > 300:
+        print("ERR! Too many unknown lines, " + str(unknown_line_count))
+        return None
 
     return arrays
 
@@ -580,10 +580,15 @@ def parse_logfile(file, app_warmup, quiet=False):
         print("Log is from simulator")
         testbed = False
 
-    data_arrays = doParse(file, app_warmup, testbed)
-    dfs = convert_data_arrays_to_dfs(data_arrays)
-
     meta = {"result": "ok"}
+
+    data_arrays = doParse(file, app_warmup, testbed)
+    if data_arrays is None:
+        print("Error when parsing!")
+        meta["result"] = "error"
+        return None, meta
+
+    dfs = convert_data_arrays_to_dfs(data_arrays)
 
     if len(dfs) == 0:
         print("Empty DFs!")
