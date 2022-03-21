@@ -124,7 +124,7 @@ def calculate_absolute_metrics(input_df, metric, measure):
 
     return None
 
-def calculate_metric(input_df, metric, measure, name, check_convergence=False):
+def calculate_metric(input_df, metric, measure, name, plots_dir):
     # Calculate metrics which does not require TriScale
     if metric == "app_selected_cell_etx":
         return calculate_etx_for_selected_links(input_df)
@@ -159,20 +159,26 @@ def calculate_metric(input_df, metric, measure, name, check_convergence=False):
     #if "transmitters_hop" in name:
     #    return np.nan
 
-    convergence_result, measure, figure = \
+    convergence_result, calculated_measure, figure = \
         triscale.analysis_metric(
             df, {"measure":measure},
-            convergence={"expected": True, "tolerance":5},
-            #showplot=False, verbose=False, plot_out_name="deleteme/" + name + ".pdf")
+            convergence={"expected": True},
+            #showplot=False, verbose=False, plot_out_name=plots_dir + name + ".pdf")
             showplot=False, verbose=False)
 
     if not convergence_result:
         print("Not converged for " + name)
+        # Make plot
+        triscale.analysis_metric(
+            df, {"measure":measure},
+            convergence={"expected": True},
+            showplot=False, verbose=False,
+            plot_out_name=plots_dir + name + ".pdf")
     #else:
         #print("Converged for " + name)
-    return measure
+    return calculated_measure
 
-def analyze_run(run_name, packets_df, energest_df, queue_df,
+def analyze_run(run_name, plots_dir, packets_df, energest_df, queue_df,
                 mac_tx_df, cell_df, switches_df, rpl_stats_df):
     run_entry = {"name": run_name}
     if len(switches_df) == 0:
@@ -234,14 +240,14 @@ def analyze_run(run_name, packets_df, energest_df, queue_df,
                 run_metric_name = df["prefix"] + metric["metric"] + "_" + str(measure)
                 run_entry[run_metric_name] = \
                     calculate_metric(df["df"], metric["metric"], measure,
-                                     run_name + "_" + run_metric_name)
+                                     run_name + "_" + run_metric_name, plots_dir)
 
     # Make DF out of the entry
     df = pd.DataFrame([run_entry])
     df = df.set_index("name")
     return df
 
-def analyze_runs(raw_dfs, scenario_name):
+def analyze_runs(raw_dfs, scenario_name, plots_dir):
     raw_packets_dfs = raw_dfs["raw_packets_dfs"]
     raw_energest_dfs = raw_dfs["raw_energest_dfs"]
     raw_queue_dfs = raw_dfs["raw_queue_dfs"]
@@ -253,7 +259,7 @@ def analyze_runs(raw_dfs, scenario_name):
     runs_df_dict = []
     for run in raw_packets_dfs.keys():
         runs_df_dict.append(
-            analyze_run(scenario_name + "_" + run,
+            analyze_run(scenario_name + "_" + run, plots_dir,
                         raw_packets_dfs[run][raw_packets_dfs[run]["app_started"] == 1],
                         raw_energest_dfs[run][raw_energest_dfs[run]["app_started"] == 1],
                         raw_queue_dfs[run][raw_queue_dfs[run]["app_started"] == 1],
@@ -267,13 +273,18 @@ def analyze_runs(raw_dfs, scenario_name):
     return pd.concat(runs_df_dict)
 
 def calculate_kpi(values, settings, metric, name, plots_dir):
+    bounds_was_set = False
+    if "bounds" in settings:
+        bounds_was_set = True
+
     independent, kpi = triscale.analysis_kpi(
                         values,
                         settings,
                         #to_plot=["autocorr", "horizontal", "vertical"], plot_out_name=name,
                         # Only "vertical" and "horizontal" prints to file.
                         # Note that they overwrite each other!
-                        plots=["vertical"], plot_out_name=(plots_dir + "/" + name + ".pdf"),
+                        plots=["vertical"],
+                        plot_out_name=(plots_dir + name + ".pdf"),
                         verbose=False)
     if np.isnan(kpi):
         print("KPI Nan, too few values(" +
@@ -283,8 +294,21 @@ def calculate_kpi(values, settings, metric, name, plots_dir):
     # Independence is not critical in simulations?
     if not independent:
         print("Not independent for", name)
-        print("Values:")
-        print(values)
+        # Run with verbose for debugging
+        independent, kpi = triscale.analysis_kpi(
+                    values,
+                    settings,
+                    #to_plot=["autocorr", "horizontal", "vertical"], plot_out_name=name,
+                    # Only "vertical" and "horizontal" prints to file.
+                    # Note that they overwrite each other!
+                    #plots=["vertical"], plot_out_name=(plots_dir + "/" + name + ".pdf"),
+                    verbose=True)
+
+        if bounds_was_set:
+            print("Bounds set: " + str(settings["bounds"]))
+        else:
+            print("Bounds set by Triscale: " + str(settings["bounds"]))
+        print("Values:" + str(values.tolist()))
 
     return kpi
 
@@ -398,10 +422,11 @@ def analyze_scenario(runs_df, scenario_name, plots_triscale_dir):
 
     return pd.DataFrame([scenario_entry])
 
-def stats_for_scenario(scenario, plots_triscale_dir, write_runs_csv = False):
+def stats_for_scenario(scenario, plots_metrics_dir, plots_kpis_dir,
+                       write_runs_csv = False):
 
     # Get stats per run (which are typically not very interesting)
-    runs_df = analyze_runs(scenario['raw_dfs'], scenario['name'])
+    runs_df = analyze_runs(scenario['raw_dfs'], scenario['name'], plots_metrics_dir)
 
     if write_runs_csv:
         runs_df_csv = scenario["path"] + "runs_df.csv"
@@ -416,7 +441,7 @@ def stats_for_scenario(scenario, plots_triscale_dir, write_runs_csv = False):
     # Analyze the run-stats to get scenario-stats
     scenario_df = analyze_scenario(scenario["runs_df"],
                                    scenario['name'],
-                                   plots_triscale_dir)
+                                   plots_kpis_dir)
 
     return scenario_df
 
@@ -549,7 +574,8 @@ def meta_all_parent_switches(scenarios, plots_dir):
 
 # Make timeline for field_name of all runs of given df-name.
 # Note that it filters app packets if applicable
-def meta_timeline_all_runs(scenarios, dfs_name, field_name, name, warn_limit, plots_dir):
+def meta_timeline_all_runs(scenarios, dfs_name, field_name,
+                           name, warn_limit, plots_dir):
     for scenario in scenarios:
         all_runs_df = scenario['raw_dfs'][dfs_name]
         fig, ax = plt.subplots()
@@ -920,14 +946,18 @@ def stats_for_scenarios(scenarios, plots_dir, write_runs_csv = False):
     plots_meta_dir = plots_dir + PLOT_META_FOLDER_NAME + "/"
     plots_timeseries_dir = plots_dir + PLOT_TIMESERIES_FOLDER_NAME + "/"
     plots_triscale_dir = plots_dir + PLOT_TRISCALE_FOLDER_NAME + "/"
-    os.mkdir(plots_meta_dir)
-    os.mkdir(plots_timeseries_dir)
-    os.mkdir(plots_triscale_dir)
+    plots_triscale_metrics_dir = plots_triscale_dir + "metrics/"
+    plots_triscale_kpis_dir = plots_triscale_dir + "kpis/"
+    dirs = [plots_meta_dir, plots_timeseries_dir, plots_triscale_dir,
+            plots_triscale_metrics_dir, plots_triscale_kpis_dir]
+    for dir in dirs:
+        os.mkdir(dir)
 
     scenarios_df_list = []
     for scenario in scenarios:
         scenarios_df_list.append(
-            stats_for_scenario(scenario, plots_triscale_dir, write_runs_csv))
+            stats_for_scenario(scenario, plots_triscale_metrics_dir,
+                               plots_triscale_kpis_dir, write_runs_csv))
 
     # Make one DF from the list of scenario DFs
     scenarios_df = pd.concat(scenarios_df_list)
