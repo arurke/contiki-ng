@@ -156,8 +156,8 @@ def calculate_metric(input_df, metric, measure, name, check_convergence=False):
 
     # transmitters_hop data is so different from other data
     # we ad-hoc remove it from here for now. TODO
-    if "transmitters_hop" in name:
-        return np.nan
+    #if "transmitters_hop" in name:
+    #    return np.nan
 
     convergence_result, measure, figure = \
         triscale.analysis_metric(
@@ -191,9 +191,9 @@ def analyze_run(run_name, packets_df, energest_df, queue_df,
     #ss_queue_df_3 = ss_queue_df_3[ss_queue_df_3.node == 3]
 
     # RPL stats for the transmitting nodes only
-    transmitting_nodes = [332, 330, 328, 326]
-    rpl_stats_transmitters_df = \
-        rpl_stats_df[rpl_stats_df["node"].isin(transmitting_nodes)]
+    #transmitting_nodes = [332, 330, 328, 326]
+    #rpl_stats_transmitters_df = \
+    #    rpl_stats_df[rpl_stats_df["node"].isin(transmitting_nodes)]
 
     # Make the following metrics for the given measures for the given DFs
     # The-per-node is a bit hackish - gave them special prefix
@@ -222,7 +222,7 @@ def analyze_run(run_name, packets_df, energest_df, queue_df,
            {"df":app_cell_df, "metric":metric_app_cell, "prefix":""},
            {"df":app_cell_df, "metric":metric_app_selected_cell, "prefix":""},
            {"df":rpl_stats_df, "metric":metric_rpl, "prefix":""},
-           {"df":rpl_stats_transmitters_df, "metric":metric_rpl, "prefix":"transmitters_"},
+           #{"df":rpl_stats_transmitters_df, "metric":metric_rpl, "prefix":"transmitters_"},
            #{"df":ss_queue_df_2, "metric":metric_queue, "prefix":"ss2_"},
            #{"df":ss_queue_df_3, "metric":metric_queue, "prefix":"ss3_"}
            ]
@@ -874,7 +874,7 @@ def print_meta_info(scenarios):
         print("\tSkips due to spatial: " + str(skipped_runs_spatial) +
               ", parent switch: " + str(skipped_runs_switch) +
               ", errors: " + str(skipped_runs_error))
-        print("\tConverged: " + str(converged_runs) + " out of " + str(parsed_runs))
+        print("\tRPL converged: " + str(converged_runs) + " out of " + str(parsed_runs))
         print("\tTriscale metrics converged:")
         print(scenario["runs_df"].notnull().sum(axis=0).to_string(dtype=False))
 
@@ -883,7 +883,7 @@ def meta_stats(scenarios, plots_meta_dir, plots_time_dir):
     meta_non_converged_run_etx_timelines(scenarios, plots_time_dir)
 
     meta_timeline_all_runs(scenarios, "raw_mac_tx_dfs", "transmissions", "ETX", 4, plots_meta_dir)
-    meta_timeline_all_runs(scenarios, "raw_packets_dfs", "latency", "latency", 10, plots_meta_dir)
+    meta_timeline_all_runs(scenarios, "raw_packets_dfs", "latency", "latency", 7, plots_meta_dir)
     meta_timeline_all_runs(scenarios, "raw_packets_dfs", "pdr", "PDR", 100, plots_meta_dir)
 
     meta_all_parent_switches(scenarios, plots_meta_dir)
