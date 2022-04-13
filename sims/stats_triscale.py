@@ -897,7 +897,7 @@ def print_meta_info(scenarios):
         skipped_runs_error = \
             len(scenario_meta_df[scenario_meta_df["result"] == "error"])
         converged_runs = \
-            len(parsed_runs_df[parsed_runs_df["parent_swith_during_app"] == 0])
+            len(parsed_runs_df[parsed_runs_df["parent_switch_app"] == 0])
 
         print("Scenario " + scenario["name"] + ":")
         print("\tParsed " + str(parsed_runs) + " out of " + str(total_runs))

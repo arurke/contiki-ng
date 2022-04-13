@@ -639,7 +639,7 @@ def parse_logfile(file, app_warmup, quiet=False):
     # Topology changes after app started
     parent_switch_df = dfs["switches"]
     parent_switch_count = len(parent_switch_df[parent_switch_df["app_started"] == 1])
-    meta["parent_swith_during_app"] = parent_switch_count
+    meta["parent_switch_app"] = parent_switch_count
     if parent_switch_count > 0:
         print("Parent switch during application!")
         #meta["result"] = "switch"
@@ -773,42 +773,51 @@ def parse_logfile(file, app_warmup, quiet=False):
             mac_stats_app_df.groupby('node')["layered_err"].max().sum() - \
             mac_stats_before_app_df.groupby('node')["layered_err"].max().sum()
 
-        hack_mismatch_total_app = 0
-        hack_err_total_app = 0
-        hack_deletions_total_app = 0
+        #hack_mismatch_total_app = 0
+        #hack_err_total_app = 0
+        #hack_deletions_total_app = 0
 
-        meta["timing_errors_during_app"] = timing_err_total_app
-        meta["hack_mismatch_during_app"] = hack_mismatch_total_app
-        meta["hack_errors_during_app"] = hack_err_total_app
-        meta["hack_deletions_during_app"] = hack_deletions_total_app
-        meta["missing_neighbor_total_app"] = missing_neighbor_total_app
-        meta["layered_err_total_app"] = layered_err_total_app
+        # TODO
+        #timing_err_total_app = 0
+        #missing_neighbor_total_app = 0
+        #layered_err_total_app = 0
 
-        print("MAC errors: timing-error: %d, hack-mismatch: %d, " \
-              "hack-error %d, hack-deletions: %d, missing-neighbor: %d, layered-error %d" % \
-              (timing_err_total_app, hack_mismatch_total_app,
-              hack_err_total_app, hack_deletions_total_app,
-              missing_neighbor_total_app, layered_err_total_app))
+        meta["timing_err_app"] = timing_err_total_app
+        #meta["hack_mismatch_during_app"] = hack_mismatch_total_app
+        #meta["hack_errors_during_app"] = hack_err_total_app
+        #meta["hack_deletions_during_app"] = hack_deletions_total_app
+        meta["queue_err_app"] = missing_neighbor_total_app
+        meta["layered_err_app"] = layered_err_total_app
+
+        print("MAC errors: timing-error: %d, " \
+              "missing-neighbor: %d, layered-error %d" % \
+              (timing_err_total_app, missing_neighbor_total_app,
+               layered_err_total_app))
+        #print("MAC errors: timing-error: %d, hack-mismatch: %d, " \
+        #      "hack-error %d, hack-deletions: %d, missing-neighbor: %d, layered-error %d" % \
+        #      (timing_err_total_app, hack_mismatch_total_app,
+        #      hack_err_total_app, hack_deletions_total_app,
+        #      missing_neighbor_total_app, layered_err_total_app))
         if timing_err_total_app > 10:
             print("Too many timing errors!")
             outputStats(dfs, "mac_stats", "timing_err", "max", "Missed TSCH timings")
             meta["result"] = "error"
             return None, meta
-        if hack_mismatch_total_app > 10:
-            print("Too many hack mismatches!")
-            outputStats(dfs, "mac_stats", "hack_mismatch", "max", "Hack mismatch")
-            meta["result"] = "error"
-            return None, meta
-        if hack_err_total_app > 10:
-            print("Too many hack errors!")
-            outputStats(dfs, "mac_stats", "hack_err", "max", "Hack errors")
-            meta["result"] = "error"
-            return None, meta
-        if hack_deletions_total_app > 10:
-            print("Too many hack deletions!")
-            outputStats(dfs, "mac_stats", "hack_deletions", "max", "Hack deleted packets")
-            meta["result"] = "error"
-            return None, meta
+        #if hack_mismatch_total_app > 10:
+        #    print("Too many hack mismatches!")
+        #    outputStats(dfs, "mac_stats", "hack_mismatch", "max", "Hack mismatch")
+        #    meta["result"] = "error"
+        #    return None, meta
+        #if hack_err_total_app > 10:
+        #    print("Too many hack errors!")
+        #    outputStats(dfs, "mac_stats", "hack_err", "max", "Hack errors")
+        #    meta["result"] = "error"
+        #    return None, meta
+        #if hack_deletions_total_app > 10:
+        #    print("Too many hack deletions!")
+        #    outputStats(dfs, "mac_stats", "hack_deletions", "max", "Hack deleted packets")
+        #    meta["result"] = "error"
+        #    return None, meta
         if missing_neighbor_total_app > 0:
             print("Missing neighbor!")
             outputStats(dfs, "mac_stats", "missing_neighbor", "max", "Missing neighbor")
@@ -828,7 +837,12 @@ def parse_logfile(file, app_warmup, quiet=False):
         # Exclude success and no ack
         cell_tx_errors_df = mac_cell_app_df[mac_cell_app_df["result"] != 0]
         cell_tx_errors_df = cell_tx_errors_df[cell_tx_errors_df["result"] != 2]
-        meta["cell_tx_err_app"] = len(cell_tx_errors_df)
+        cell_tx_errors_total_app = len(cell_tx_errors_df)
+        meta["cell_tx_err_app"] = cell_tx_errors_total_app
+        if cell_tx_errors_total_app > 10:
+            print("Cell TX errors!", cell_tx_errors_total_app)
+            meta["result"] = "error"
+            return None, meta
 
     print("Num tx: " + str(app_tx["transmissions"].sum()))
     print("Num ok tx: " + str(len(app_tx["transmissions"][app_tx["result"] == "ok"])))
@@ -955,7 +969,7 @@ def parse_logs_dir(directory, app_warmup):
     skipped_runs_error = \
         len(scenario_meta_df[scenario_meta_df["result"] == "error"])
     converged_runs = \
-        len(parsed_runs_df[parsed_runs_df["parent_swith_during_app"] == 0])
+        len(parsed_runs_df[parsed_runs_df["parent_switch_app"] == 0])
 
     print("Parsed " + str(parsed_runs) + " out of " + str(total_runs))
     print("Skips due to spatial: " + str(skipped_runs_spatial) +
