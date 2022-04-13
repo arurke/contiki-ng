@@ -210,7 +210,8 @@ def analyze_run(run_name, plots_dir, packets_df, energest_df, queue_df,
                       {"metric": "pdr", "measures":["mean"]}]
     metric_mac_app_tx = [{"metric": "mac_app_tx_etx", "measures":["absolute"]}]
     metric_app_cell = [{"metric": "app_cell_etx",
-                        "measures":["absolute_spatial", "absolute_no_spatial"]}]
+                        "measures":["absolute_spatial", "absolute_no_spatial"]},
+                        {"metric": "prr", "measures":["mean"]}]
     metric_app_selected_cell = [{"metric": "app_selected_cell_etx",
                         "measures":["absolute"]}]
     metric_energest = [{"metric": "duty_cycle", "measures":default_measures},
@@ -357,6 +358,9 @@ def analyze_scenario(runs_df, scenario_name, plots_triscale_dir):
             percentile=adhoc_percentile, confidence=adhoc_confidence,
             bounds=[0.001,120])
     add_kpi(kpis, "pdr",
+            percentile=adhoc_percentile, confidence=adhoc_confidence,
+            bounds=[0.001,120])
+    add_kpi(kpis, "prr",
             percentile=adhoc_percentile, confidence=adhoc_confidence,
             bounds=[0.001,120])
     add_kpi(kpis, "mac_app_tx_etx",

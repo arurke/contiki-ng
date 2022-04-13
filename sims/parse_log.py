@@ -193,6 +193,10 @@ def parseTSCH(log):
         node_src = res.group(6)
         node_dest = res.group(7)
         result = int(res.group(8))
+        if result == 0:
+            prr = 100
+        else:
+            prr = 0 # All failures
         transmissions = int(res.group(9))
         return {'event': 'mac',
                 'type': 'cell',
@@ -204,6 +208,7 @@ def parseTSCH(log):
                 'node_src': node_src,
                 'node_dest': node_dest,
                 'result': result,
+                'prr': prr,
                 'transmissions': transmissions
                 }
 
@@ -815,11 +820,22 @@ def parse_logfile(file, app_warmup, quiet=False):
             meta["result"] = "error"
             return None, meta
 
+    if "mac_cell" in dfs:
+        mac_cell_df = dfs["mac_cell"]
+        mac_cell_app_df = mac_cell_df[mac_cell_df["app_started"] == 1]
+
+        # Get the number of MAC cell TX errors
+        # Exclude success and no ack
+        cell_tx_errors_df = mac_cell_app_df[mac_cell_app_df["result"] != 0]
+        cell_tx_errors_df = cell_tx_errors_df[cell_tx_errors_df["result"] != 2]
+        meta["cell_tx_err_app"] = len(cell_tx_errors_df)
+
     print("Num tx: " + str(app_tx["transmissions"].sum()))
     print("Num ok tx: " + str(len(app_tx["transmissions"][app_tx["result"] == "ok"])))
 
     print("global-stats:")
     print("  pdr: %.4f" % (app_packets_df["pdr"].mean()))
+    print("  prr: %.4f" % (mac_cell_app_df["prr"].mean()))
     print("  loss-rate: %.e" % (1 - (app_packets_df["pdr"].mean() / 100)))
     print("  packets-sent: %u" % (packets_sent))
     print("  packets-received: %u" % (packets_received))
