@@ -101,6 +101,7 @@ def add_commands_build_firmware(scenarios):
         build_command = build_command.split(' ')
         # Add cflagsextra now because they may contain spaces
         build_command.append("CFLAGSEXTRA=" + scenario['cflagsextra'])
+        build_command.append(scenario['makeflags'])
         scenario['build_cmd'] = build_command
 
         # Add firmware path
@@ -482,6 +483,7 @@ def run_testbed(scenarios, num_runs):
             print("\nExecuting run:")
             print("\tScenario:    " + scenario['name'])
             print("\tCflagsextra: " + scenario['cflagsextra'])
+            print("\tMakeflags:   " + scenario['makeflags'])
             print("\tRun:         " + str(run) + " (" + str(run + 1) +
                   " out of " + str(num_runs) + ")")
             print("\tTime now:    " + str(datetime.now()))
@@ -600,7 +602,8 @@ def run_testbed_remote(exp_name, sim_dir, execution_id, execution_dir, scenarios
 def add_firmware(scenarios):
     for scenario in scenarios:
         print("Building scenario " + scenario['name'] + \
-              " with flags: " + scenario['cflagsextra'])
+              ", cflagsextra: " + scenario['cflagsextra'] + \
+              ", makeflags: " + scenario['makeflags'])
 
         # Clean
         process = subprocess.run(scenario['clean_cmd'])

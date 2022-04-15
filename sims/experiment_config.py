@@ -13,6 +13,7 @@ TESTBED_NODES = "nodes"
 TESTBED_APP_WARMUP = "app_warmup"
 
 SCENARIO_CFLAGSEXTRA = "cflagsextra"
+SCENARIO_MAKEFLAGS = "makeflags"
 
 def experiment_config_parse(filename):
     config = configparser.ConfigParser()
@@ -45,9 +46,17 @@ def experiment_config_parse(filename):
             continue
 
         # If not any of the above, it is a scenario
-        scenario = {"name": section_name}
-        cflagsextra = config[section_name][SCENARIO_CFLAGSEXTRA]
-        scenario["cflagsextra"] = cflagsextra
+        scenario_config = config[section_name]
+        scenario = {"name": section_name,
+                    SCENARIO_CFLAGSEXTRA: "",
+                    SCENARIO_MAKEFLAGS: ""}
+
+        if SCENARIO_CFLAGSEXTRA in scenario_config:
+            scenario[SCENARIO_CFLAGSEXTRA] = scenario_config[SCENARIO_CFLAGSEXTRA]
+
+        if SCENARIO_MAKEFLAGS in scenario_config:
+            scenario[SCENARIO_MAKEFLAGS] = scenario_config[SCENARIO_MAKEFLAGS]
+
         scenarios.append(scenario)
         continue
 
