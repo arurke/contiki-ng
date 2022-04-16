@@ -136,8 +136,12 @@ def calculate_metric(input_df, metric, measure, name, plots_dir):
     if type(measure) == str and "absolute" in measure:
         return calculate_absolute_metrics(input_df, metric, measure)
 
-    # TriScale expects an index + two columns x and y
+    if input_df.empty:
+        # This is not unexpected, e.g. when calc. spatial in no-spatial scenario
+        #print("Empty DF for " + name)
+        return np.nan
 
+    # TriScale expects an index + two columns x and y
     # First make a copy so we can edit freely
     df = input_df.copy()
 
@@ -326,7 +330,7 @@ def calculate_kpi(values, settings, metric, name, plots_dir):
                     # Only "vertical" and "horizontal" prints to file.
                     # Note that they overwrite each other!
                     #plots=["vertical"], plot_out_name=(plots_dir + "/" + name + ".pdf"),
-                    verbose=True)
+                    verbose=False)
 
         if bounds_was_set:
             print("Bounds set: " + str(settings["bounds"]))
@@ -374,8 +378,8 @@ def analyze_scenario(runs_df, scenario_name, plots_triscale_dir):
     #add_kpi(kpis, "queue_fill", bound_lower=False, default=True)
 
     # More specialized ones
-    adhoc_percentile_low = 30
     adhoc_percentile_high = 70
+    adhoc_percentile_low = 100 - adhoc_percentile_high
     adhoc_confidence = 95
 
     add_kpi(kpis, "latency",
