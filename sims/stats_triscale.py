@@ -49,7 +49,9 @@ def generate_list_of_links_with_spatial_reuse(scenarios):
 
     return spatial_reuse_links
 
-def calculate_etx_for_selected_links(mac_cell_df):
+# Generates a DF which contain a cell-df with TX only from
+# links mentioned in spatial_reuse_links
+def generate_df_with_cell_tx_selected_links(mac_cell_df):
     global spatial_reuse_links
 
     # We have a list of links which had spatial reuse in the spatial reuse scenario
@@ -62,8 +64,10 @@ def calculate_etx_for_selected_links(mac_cell_df):
                               (mac_cell_df["node_dest"] == link["dest"])]
         links_dfs.append(link_df)
 
-    tx_selected_links_df = pd.concat(links_dfs, ignore_index=True)
+    tx_selected_links_df = pd.concat(links_dfs)
+    return tx_selected_links_df
 
+def calculate_etx_for_selected_links(tx_selected_links_df):
     # Calculate the ETX for those links
     # Remove any stray non-spatial reuse TX (not necessary? confuses the semantic of the function)
     # no_spatial_reuse_df = app_cells_df.drop_duplicates(subset=["asn", "channel"], keep=False)
@@ -186,9 +190,22 @@ def analyze_run(run_name, plots_dir, packets_df, energest_df, queue_df,
     else:
         run_entry["converged"] = False
 
-    # Make DF with app-mac-packets only
+    # DF with app-mac-packets only
     app_mac_tx_df = mac_tx_df[mac_tx_df["app"] == 1].copy()
     app_cell_df = cell_df[cell_df["app"] == 1].copy()
+
+    # Cell-DF with selected links (links who have had spatial reuse any time)
+    cell_tx_selected_links_df = \
+        generate_df_with_cell_tx_selected_links(app_cell_df)
+
+    # Cell-DF with only spatial reuse cells
+    cell_spatial_reuse_df = \
+        app_cell_df.groupby(["asn", "channel"]).filter(lambda x: len(x) >= 2)
+
+    # Cell-DF with only non-spatial reuse cells
+    # (could have done merge of spatial-reuse)
+    cell_no_spatial_reuse_df = \
+        app_cell_df.drop_duplicates(subset=["asn", "channel"], keep=False)
 
     # Make queue DF per node
     #ss_queue_df_2 = ss_queue_df.copy()
@@ -206,14 +223,17 @@ def analyze_run(run_name, plots_dir, packets_df, energest_df, queue_df,
     #default_measures = ["mean", 50, 95, 99, "maximum"]
     # Experienced TriScale crashes with "maximum" and "minimum" in metric convergence test
     default_measures = ["mean", 50]
+
     metric_packets = [{"metric": "latency", "measures":default_measures},
                       {"metric": "pdr", "measures":["mean"]}]
     metric_mac_app_tx = [{"metric": "mac_app_tx_etx", "measures":["absolute"]}]
     metric_app_cell = [{"metric": "app_cell_etx",
                         "measures":["absolute_spatial", "absolute_no_spatial"]},
                         {"metric": "prr", "measures":["mean"]}]
-    metric_app_selected_cell = [{"metric": "app_selected_cell_etx",
-                        "measures":["absolute"]}]
+    metric_app_selected_cell = [
+        {"metric": "app_selected_cell_etx", "measures":["absolute"]},
+        ]
+    metric_prr = [{"metric": "prr", "measures":["mean"]}]
     metric_energest = [{"metric": "duty_cycle", "measures":default_measures},
                        {"metric": "duty_cycle_tx", "measures":default_measures},
                        {"metric": "duty_cycle_rx", "measures":default_measures}]
@@ -227,8 +247,11 @@ def analyze_run(run_name, plots_dir, packets_df, energest_df, queue_df,
            #{"df":queue_df, "metric":metric_queue, "prefix":""},
            {"df":app_mac_tx_df, "metric":metric_mac_app_tx, "prefix":""},
            {"df":app_cell_df, "metric":metric_app_cell, "prefix":""},
-           {"df":app_cell_df, "metric":metric_app_selected_cell, "prefix":""},
+           #{"df":app_cell_df, "metric":metric_app_selected_cell, "prefix":""},
            {"df":rpl_stats_df, "metric":metric_rpl, "prefix":""},
+           {"df":cell_tx_selected_links_df, "metric":metric_app_selected_cell, "prefix":""},
+           {"df":cell_tx_selected_links_df, "metric":metric_prr, "prefix":"selected_cell_"},
+           {"df":cell_spatial_reuse_df, "metric":metric_prr, "prefix":"spatial_cell_"}
            #{"df":rpl_stats_transmitters_df, "metric":metric_rpl, "prefix":"transmitters_"},
            #{"df":ss_queue_df_2, "metric":metric_queue, "prefix":"ss2_"},
            #{"df":ss_queue_df_3, "metric":metric_queue, "prefix":"ss3_"}
@@ -351,27 +374,34 @@ def analyze_scenario(runs_df, scenario_name, plots_triscale_dir):
     #add_kpi(kpis, "queue_fill", bound_lower=False, default=True)
 
     # More specialized ones
-    adhoc_percentile = 85
+    adhoc_percentile_low = 30
+    adhoc_percentile_high = 70
     adhoc_confidence = 95
 
     add_kpi(kpis, "latency",
-            percentile=adhoc_percentile, confidence=adhoc_confidence,
+            percentile=adhoc_percentile_high, confidence=adhoc_confidence,
             bounds=[0.001,120])
     add_kpi(kpis, "pdr",
-            percentile=adhoc_percentile, confidence=adhoc_confidence,
+            percentile=adhoc_percentile_low, confidence=adhoc_confidence,
             bounds=[0.001,120])
     add_kpi(kpis, "prr",
-            percentile=adhoc_percentile, confidence=adhoc_confidence,
+            percentile=adhoc_percentile_low, confidence=adhoc_confidence,
             bounds=[0.001,120])
-    add_kpi(kpis, "mac_app_tx_etx",
-            percentile=adhoc_percentile, confidence=adhoc_confidence,
-            bounds=[1,20])
-    add_kpi(kpis, "app_cell_etx",
-            percentile=adhoc_percentile, confidence=adhoc_confidence,
-            bounds=[1,20])
-    add_kpi(kpis, "app_selected_cell_etx",
-            percentile=adhoc_percentile, confidence=adhoc_confidence,
-            bounds=[1,20])
+    add_kpi(kpis, "selected_cell_prr",
+            percentile=adhoc_percentile_low, confidence=adhoc_confidence,
+            bounds=[0.001,120])
+    add_kpi(kpis, "spatial_cell_prr",
+            percentile=adhoc_percentile_low, confidence=adhoc_confidence,
+            bounds=[0.001,120])
+    #add_kpi(kpis, "mac_app_tx_etx",
+    #        percentile=adhoc_percentile_low, confidence=adhoc_confidence,
+    #        bounds=[1,20])
+    #add_kpi(kpis, "app_cell_etx",
+    #        percentile=adhoc_percentile_low, confidence=adhoc_confidence,
+    #        bounds=[1,20])
+    #add_kpi(kpis, "app_selected_cell_etx",
+    #        percentile=adhoc_percentile_low, confidence=adhoc_confidence,
+    #        bounds=[1,20])
 
     #add_kpi(kpis, "hop_count",
     #        percentile=50, confidence=95)
@@ -409,10 +439,10 @@ def analyze_scenario(runs_df, scenario_name, plots_triscale_dir):
                                   plots_triscale_dir)
 
     # Now do only converged runs for selected metrics
-    metrics_for_converged = ["mac_app_tx_etx", "app_cell_etx"]
-    #metrics_for_converged = ["mac_app_tx_etx", "app_cell_etx", "pdr", "latency"]
-    runs_converged_df = runs_df.copy()
-    runs_converged_df = runs_converged_df[runs_converged_df["converged"] == True]
+    #metrics_for_converged = ["mac_app_tx_etx", "app_cell_etx", "pdr", "latency", "prr"]
+    print(runs_df)
+    metrics_for_converged = ["pdr", "latency", "prr"]
+    runs_converged_df = runs_df[runs_df["converged"] == True]
     for metric in runs_converged_df.columns:
         for kpi in kpis:
             if kpi["metric"] in metric:
