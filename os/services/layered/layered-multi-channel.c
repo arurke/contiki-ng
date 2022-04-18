@@ -1516,6 +1516,10 @@ route_callback(int event,
     LOG_INFO_6ADDR(next_hop);
     LOG_INFO_("\n");
     // Ignore refreshes of the default route where the depth is not changed
+    // TODO is this more correct:
+    // if(route_update && previous_status.node_depth != current_status.node_depth)
+    // Don't dare to change it in the middle of testing.
+    // Problem of the current implementation should be minimal
     if(!(route_update &&
         previous_status.node_depth == current_status.node_depth)) {
 
@@ -1537,7 +1541,7 @@ route_callback(int event,
     LOG_INFO_6ADDR(next_hop);
     LOG_INFO_("\n");
 #if LAYERED_STATEFUL
-    remove_all_links();
+    remove_all_links(); // TODO this changes behavior compared to non-stateful
 #else
     remove_cells(&route_lladdr, &previous_status, true);
 #endif
