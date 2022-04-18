@@ -101,7 +101,8 @@ def add_commands_build_firmware(scenarios):
         build_command = build_command.split(' ')
         # Add cflagsextra now because they may contain spaces
         build_command.append("CFLAGSEXTRA=" + scenario['cflagsextra'])
-        build_command.append(scenario['makeflags'])
+        if scenario["makeflags"] != "":
+            build_command.append(scenario['makeflags'])
         scenario['build_cmd'] = build_command
 
         # Add firmware path
