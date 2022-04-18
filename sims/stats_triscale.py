@@ -186,7 +186,64 @@ def calculate_metric(input_df, metric, measure, name, plots_dir):
         #print("Converged for " + name)
     return calculated_measure
 
-def analyze_run(run_name, plots_dir, packets_df, energest_df, queue_df,
+def add_metrics_for_spatial_comparison(metrics, has_spatial, app_cell_df):
+
+    # 1. Create special DFs
+    # If we are doing spatial comparison in this experiment we need
+    # selected cells df for non-spatial scenarios and spatial cells df
+    # for spatial scenarios
+    if not has_spatial:
+        # Cell-DF with selected links (links who have had spatial reuse any time)
+        cell_tx_selected_links_df = \
+            generate_df_with_cell_tx_selected_links(app_cell_df)
+
+    if has_spatial:
+        # Cell-DF with only spatial reuse cells
+        cell_spatial_reuse_df = \
+            app_cell_df.groupby(["asn", "channel"]).filter(lambda x: len(x) >= 2)
+
+        # Cell-DF with only non-spatial reuse cells
+        # (could have done merge of spatial-reuse)
+        cell_no_spatial_reuse_df = \
+            app_cell_df.drop_duplicates(subset=["asn", "channel"], keep=False)
+
+    # 2. Create metrics
+    if has_spatial:
+        # PRR for spatial cells only, used for spatial comparison
+        metrics_prr_spatial = \
+            [{"df": cell_spatial_reuse_df,
+             "metric": "prr",
+             "measures":["mean"],
+             "prefix": "spatial_cell_"}]
+
+        # ETX separated into spatial and no spatial, using the cell DF
+        # Used for spatial comparison with ETX (deprecated)
+        metrics_cell_etx = \
+            [{"df": app_cell_df, "metric": "app_cell_etx",
+             "measures":["absolute_spatial", "absolute_no_spatial"]}]
+
+    if not has_spatial:
+        # ETX, PRR calculated on selected links, used for spatial comparison
+        # (links which had spatial in any scenario)
+        metrics_on_selected_links = \
+            [{"df": cell_tx_selected_links_df,
+              "metric": "app_selected_cell_etx",
+              "measures":["absolute"]},
+              {"df": cell_tx_selected_links_df,
+               "metric": "prr",
+               "measures":["mean"],
+               "prefix": "selected_cell_"}]
+
+    # 3. Add metrics
+    if has_spatial:
+        metrics.extend(metrics_cell_etx)
+        metrics.extend(metrics_prr_spatial)
+    if not has_spatial:
+        metrics.extend(metrics_on_selected_links)
+
+def analyze_run(run_name, spatial_comparison, has_spatial,
+                plots_dir,
+                packets_df, energest_df, queue_df,
                 mac_tx_df, cell_df, switches_df, rpl_stats_df):
     run_entry = {"name": run_name}
     if len(switches_df) == 0:
@@ -195,21 +252,8 @@ def analyze_run(run_name, plots_dir, packets_df, energest_df, queue_df,
         run_entry["converged"] = False
 
     # DF with app-mac-packets only
-    app_mac_tx_df = mac_tx_df[mac_tx_df["app"] == 1].copy()
+    app_mac_tx_df = mac_tx_df[mac_tx_df["app"] == 1].copy() # TODO unnecessary copy?
     app_cell_df = cell_df[cell_df["app"] == 1].copy()
-
-    # Cell-DF with selected links (links who have had spatial reuse any time)
-    cell_tx_selected_links_df = \
-        generate_df_with_cell_tx_selected_links(app_cell_df)
-
-    # Cell-DF with only spatial reuse cells
-    cell_spatial_reuse_df = \
-        app_cell_df.groupby(["asn", "channel"]).filter(lambda x: len(x) >= 2)
-
-    # Cell-DF with only non-spatial reuse cells
-    # (could have done merge of spatial-reuse)
-    cell_no_spatial_reuse_df = \
-        app_cell_df.drop_duplicates(subset=["asn", "channel"], keep=False)
 
     # Make queue DF per node
     #ss_queue_df_2 = ss_queue_df.copy()
@@ -225,57 +269,59 @@ def analyze_run(run_name, plots_dir, packets_df, energest_df, queue_df,
     # Make the following metrics for the given measures for the given DFs
     # The-per-node is a bit hackish - gave them special prefix
     #default_measures = ["mean", 50, 95, 99, "maximum"]
-    # Experienced TriScale crashes with "maximum" and "minimum" in metric convergence test
     default_measures = ["mean", 50]
 
-    metric_packets = [{"metric": "latency", "measures":default_measures},
-                      {"metric": "pdr", "measures":["mean"]}]
-    metric_mac_app_tx = [{"metric": "mac_app_tx_etx", "measures":["absolute"]}]
-    metric_app_cell = [{"metric": "app_cell_etx",
-                        "measures":["absolute_spatial", "absolute_no_spatial"]},
-                        {"metric": "prr", "measures":["mean"]}]
-    metric_app_selected_cell = [
-        {"metric": "app_selected_cell_etx", "measures":["absolute"]},
-        ]
-    metric_prr = [{"metric": "prr", "measures":["mean"]}]
-    metric_energest = [{"metric": "duty_cycle", "measures":default_measures},
-                       {"metric": "duty_cycle_tx", "measures":default_measures},
-                       {"metric": "duty_cycle_rx", "measures":default_measures}]
-    metric_queue = [{"metric": "queue_fill", "measures":default_measures}]
-    # Experienced TriScale crashes with "maximum" and "minimum" in metric convergence test
-    #metric_rpl = [{"metric": "hop_count", "measures":["mean", "minimum"]}]
-    metric_rpl = [{"metric": "hop_count", "measures":["mean"]}]
+    metrics_basics = \
+        [{"df": packets_df, "metric": "latency", "measures": default_measures},
+         {"df": packets_df, "metric": "pdr", "measures": ["mean"]}]
 
-    dfs = [{"df":packets_df, "metric":metric_packets, "prefix":""},
-           #{"df":energest_df, "metric":metric_energest, "prefix":""},
-           #{"df":queue_df, "metric":metric_queue, "prefix":""},
-           {"df":app_mac_tx_df, "metric":metric_mac_app_tx, "prefix":""},
-           {"df":app_cell_df, "metric":metric_app_cell, "prefix":""},
-           #{"df":app_cell_df, "metric":metric_app_selected_cell, "prefix":""},
-           {"df":rpl_stats_df, "metric":metric_rpl, "prefix":""},
-           {"df":cell_tx_selected_links_df, "metric":metric_app_selected_cell, "prefix":""},
-           {"df":cell_tx_selected_links_df, "metric":metric_prr, "prefix":"selected_cell_"},
-           {"df":cell_spatial_reuse_df, "metric":metric_prr, "prefix":"spatial_cell_"}
-           #{"df":rpl_stats_transmitters_df, "metric":metric_rpl, "prefix":"transmitters_"},
-           #{"df":ss_queue_df_2, "metric":metric_queue, "prefix":"ss2_"},
-           #{"df":ss_queue_df_3, "metric":metric_queue, "prefix":"ss3_"}
-           ]
+    metrics_prr = \
+        [{"df": app_cell_df, "metric": "prr", "measures":["mean"]}]
 
-    # Actually calculate metrics and fill into DF entry
-    for df in dfs:
-        for metric in df["metric"]:
-            for measure in metric["measures"]:
-                run_metric_name = df["prefix"] + metric["metric"] + "_" + str(measure)
-                run_entry[run_metric_name] = \
-                    calculate_metric(df["df"], metric["metric"], measure,
-                                     run_name + "_" + run_metric_name, plots_dir)
+    metrics_energy = \
+        [{"df": energest_df, "metric": "duty_cycle", "measures":default_measures},
+         {"df": energest_df, "metric": "duty_cycle_tx", "measures":default_measures},
+         {"df": energest_df, "metric": "duty_cycle_rx", "measures":default_measures}]
+
+    metrics_rpl = \
+        [{"df": rpl_stats_df, "metric": "hop_count", "measures":["mean"]}]
+
+    # ETX for all TXes, using the MAC TX DF
+    metrics_etx = \
+        [{"df": app_mac_tx_df, "metric": "mac_app_tx_etx", "measures": ["absolute"]}]
+
+    # Add the metrics we want to calculate
+    metrics = []
+    metrics.extend(metrics_basics)
+    metrics.extend(metrics_prr)
+    metrics.extend(metrics_energy)
+    #metrics.extend(metrics_rpl)
+    metrics.extend(metrics_etx)
+
+    # Ad-hoc handling of spatial comparison metrics
+    if spatial_comparison:
+        add_metrics_for_spatial_comparison(metrics, has_spatial, app_cell_df)
+
+    # Actually calculate metric
+    for metric in metrics:
+        #for metric in df["metric"]:
+        for measure in metric["measures"]:
+            prefix = ""
+            if "prefix" in metric:
+                prefix = metric["prefix"]
+            run_metric_name = prefix + metric["metric"] + "_" + str(measure)
+            run_entry[run_metric_name] = \
+                calculate_metric(metric["df"], metric["metric"], measure,
+                                 run_name + "_" + run_metric_name, plots_dir)
 
     # Make DF out of the entry
     df = pd.DataFrame([run_entry])
     df = df.set_index("name")
     return df
 
-def analyze_runs(raw_dfs, scenario_name, plots_dir):
+def analyze_runs(raw_dfs, scenario_name,
+                 spatial_comparison, has_spatial,
+                 plots_dir):
     raw_packets_dfs = raw_dfs["raw_packets_dfs"]
     raw_energest_dfs = raw_dfs["raw_energest_dfs"]
     raw_queue_dfs = raw_dfs["raw_queue_dfs"]
@@ -287,7 +333,9 @@ def analyze_runs(raw_dfs, scenario_name, plots_dir):
     runs_df_dict = []
     for run in raw_packets_dfs.keys():
         runs_df_dict.append(
-            analyze_run(scenario_name + "_" + run, plots_dir,
+            analyze_run(scenario_name + "_" + run,
+                        spatial_comparison, has_spatial,
+                        plots_dir,
                         raw_packets_dfs[run][raw_packets_dfs[run]["app_started"] == 1],
                         raw_energest_dfs[run][raw_energest_dfs[run]["app_started"] == 1],
                         raw_queue_dfs[run][raw_queue_dfs[run]["app_started"] == 1],
@@ -337,11 +385,12 @@ def calculate_kpi(values, settings, metric, name, plots_dir):
         else:
             print("Bounds set by Triscale: " + str(settings["bounds"]))
         print("Values:" + str(values.tolist()))
+        return np.nan
 
     return kpi
 
 def add_kpi(kpis, metric,
-              percentile=90,
+              percentile=50,
               confidence=95,
               bounds=[],
               bound_lower=True,
@@ -363,22 +412,25 @@ def add_kpi(kpis, metric,
         new_kpi["settings"]["bound"] = "upper"
         kpis.append(new_kpi)
 
-def analyze_scenario(runs_df, scenario_name, plots_triscale_dir):
+def analyze_scenario(runs_df, scenario_name,
+                     spatial_comparison, has_spatial,
+                     plots_triscale_dir):
     scenario_entry = {"scenario": scenario_name}
 
     # Add KPIs
     kpis = []
 
     # Default ones (see add_kpi() for default values)
-    #add_kpi(kpis, "pdr", bound_upper=False, default=True)
-    #add_kpi(kpis, "latency", bounds=[0.01,70], bound_lower=False, default=True)
-    #add_kpi(kpis, "duty_cycle", bound_lower=False, default=True)
-    #add_kpi(kpis, "duty_cycle_tx", bound_lower=False, default=True)
-    #add_kpi(kpis, "duty_cycle_rx", bound_lower=False, default=True)
+    add_kpi(kpis, "pdr", bounds=[0.001,100], default=True)
+    add_kpi(kpis, "latency", bounds=[0.001,120], default=True)
+    add_kpi(kpis, "prr", bounds=[0.001,100], default=True)
+    add_kpi(kpis, "duty_cycle", bounds=[0.001,100], default=True)
+    add_kpi(kpis, "duty_cycle_tx", bounds=[0.001,100],  default=True)
+    add_kpi(kpis, "duty_cycle_rx", bounds=[0.001,100], default=True)
     #add_kpi(kpis, "queue_fill", bound_lower=False, default=True)
 
     # More specialized ones
-    adhoc_percentile_high = 70
+    adhoc_percentile_high = 80
     adhoc_percentile_low = 100 - adhoc_percentile_high
     adhoc_confidence = 95
 
@@ -391,21 +443,25 @@ def analyze_scenario(runs_df, scenario_name, plots_triscale_dir):
     add_kpi(kpis, "prr",
             percentile=adhoc_percentile_low, confidence=adhoc_confidence,
             bounds=[0.001,120])
-    add_kpi(kpis, "selected_cell_prr",
+    if spatial_comparison:
+        if has_spatial:
+            add_kpi(kpis, "spatial_cell_prr",
+                    percentile=adhoc_percentile_low, confidence=adhoc_confidence,
+                    bounds=[0.001,120])
+            #add_kpi(kpis, "app_cell_etx",
+                    #percentile=adhoc_percentile_low, confidence=adhoc_confidence,
+                    #bounds=[1,20])
+        if not has_spatial:
+            add_kpi(kpis, "selected_cell_prr",
+                    percentile=adhoc_percentile_low, confidence=adhoc_confidence,
+                    bounds=[0.001,120])
+            #add_kpi(kpis, "app_selected_cell_etx",
+                    #percentile=adhoc_percentile_low, confidence=adhoc_confidence,
+                    #bounds=[1,20])
+
+    add_kpi(kpis, "mac_app_tx_etx",
             percentile=adhoc_percentile_low, confidence=adhoc_confidence,
-            bounds=[0.001,120])
-    add_kpi(kpis, "spatial_cell_prr",
-            percentile=adhoc_percentile_low, confidence=adhoc_confidence,
-            bounds=[0.001,120])
-    #add_kpi(kpis, "mac_app_tx_etx",
-    #        percentile=adhoc_percentile_low, confidence=adhoc_confidence,
-    #        bounds=[1,20])
-    #add_kpi(kpis, "app_cell_etx",
-    #        percentile=adhoc_percentile_low, confidence=adhoc_confidence,
-    #        bounds=[1,20])
-    #add_kpi(kpis, "app_selected_cell_etx",
-    #        percentile=adhoc_percentile_low, confidence=adhoc_confidence,
-    #        bounds=[1,20])
+            bounds=[1,20])
 
     #add_kpi(kpis, "hop_count",
     #        percentile=50, confidence=95)
@@ -460,11 +516,14 @@ def analyze_scenario(runs_df, scenario_name, plots_triscale_dir):
 
     return pd.DataFrame([scenario_entry])
 
-def stats_for_scenario(scenario, plots_metrics_dir, plots_kpis_dir,
+def stats_for_scenario(scenario, spatial_comparison,
+                       plots_metrics_dir, plots_kpis_dir,
                        write_runs_csv = False):
 
     # Get stats per run (which are typically not very interesting)
-    runs_df = analyze_runs(scenario['raw_dfs'], scenario['name'], plots_metrics_dir)
+    runs_df = analyze_runs(scenario['raw_dfs'], scenario['name'],
+                           spatial_comparison, scenario['has_spatial'],
+                           plots_metrics_dir)
 
     if write_runs_csv:
         runs_df_csv = scenario["path"] + "runs_df.csv"
@@ -477,8 +536,8 @@ def stats_for_scenario(scenario, plots_metrics_dir, plots_kpis_dir,
     #print("Analyzed runs: " + str(runs_df.columns))
 
     # Analyze the run-stats to get scenario-stats
-    scenario_df = analyze_scenario(scenario["runs_df"],
-                                   scenario['name'],
+    scenario_df = analyze_scenario(scenario["runs_df"], scenario['name'],
+                                   spatial_comparison, scenario['has_spatial'],
                                    plots_kpis_dir)
 
     return scenario_df
@@ -974,11 +1033,15 @@ def meta_stats(scenarios, plots_meta_dir, plots_time_dir):
         print("Meta for scenario " + scenario['name'] + ":")
         print(scenario["meta_df"])
 
-def stats_for_scenarios(scenarios, plots_dir, write_runs_csv = False):
+def stats_for_scenarios(scenarios,
+                        spatial_comparison,
+                        plots_dir,
+                        write_runs_csv = False):
 
     # Populate list of links with spatial reuse
-    global spatial_reuse_links
-    spatial_reuse_links = generate_list_of_links_with_spatial_reuse(scenarios)
+    if spatial_comparison:
+        global spatial_reuse_links
+        spatial_reuse_links = generate_list_of_links_with_spatial_reuse(scenarios)
 
     # Make directories for plots
     plots_meta_dir = plots_dir + PLOT_META_FOLDER_NAME + "/"
@@ -994,7 +1057,8 @@ def stats_for_scenarios(scenarios, plots_dir, write_runs_csv = False):
     scenarios_df_list = []
     for scenario in scenarios:
         scenarios_df_list.append(
-            stats_for_scenario(scenario, plots_triscale_metrics_dir,
+            stats_for_scenario(scenario, spatial_comparison,
+                               plots_triscale_metrics_dir,
                                plots_triscale_kpis_dir, write_runs_csv))
 
     # Make one DF from the list of scenario DFs

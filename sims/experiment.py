@@ -15,6 +15,7 @@ try:
     from plot import plot_duty_cycle
     from plot import plot_queue_util_selected_nodes
     from plot import plot_spatial_comparison
+    from plot import plot_comparison
     from plot import plot_etx_details
     #from stats import stats_for_scenarios
     from stats_triscale import stats_for_scenarios
@@ -153,8 +154,17 @@ def process_results(scenarios, execution_dir, from_csv):
     print("Generating plots dir", plots_dir)
     os.mkdir(plots_dir)
 
+    # TODO ad-hoc way to find if this experiment was a spatial-test
+    spatial_comparison = False
+    for scenario in scenarios:
+        if scenario["spatial_comparison"]:
+            spatial_comparison = True
+
     # Get stats from the DFs
-    scenarios_df = stats_for_scenarios(scenarios, plots_dir, True)
+    scenarios_df = stats_for_scenarios(scenarios,
+                                       spatial_comparison,
+                                       plots_dir,
+                                       write_runs_csv = True)
 
     # Save DF to CSV
     df_csv = execution_dir + "scenarios_df.csv"
@@ -166,8 +176,10 @@ def process_results(scenarios, execution_dir, from_csv):
     print("Scenarios stats:\n", scenarios_df)
 
     # Plot
-    plot_spatial_comparison(scenarios_df, plots_dir)
-    plot_etx_details(scenarios_df, plots_dir)
+    plot_comparison(scenarios, scenarios_df, plots_dir)
+    if spatial_comparison:
+        plot_spatial_comparison(scenarios_df, plots_dir)
+        plot_etx_details(scenarios_df, plots_dir)
     #plot_pdr_latency(scenarios_df, plots_dir)
     #plot_duty_cycle(scenarios_df, plots_dir)
     #plot_queue_util_selected_nodes(scenarios_df, plots_dir)
