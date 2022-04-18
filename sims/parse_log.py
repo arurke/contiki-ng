@@ -20,6 +20,7 @@ from collections import defaultdict
 import logging
 import glob
 from pathlib import Path
+import traceback
 
 # Constants
 SCRIPT_LOG_PATTERN = '*.scriptlog'  # For simulations run by simexec.sh
@@ -503,7 +504,8 @@ def doParse(file, app_warmup, testbed):
                     mac_to_node_id_map[mac] = nodeid;
 
         except Exception as e:  # typical exception: failed str conversion to int, due to lossy logs
-            print("Exception: " + str(e))
+            print(traceback.format_exc())
+            #print(arrays["packets"])
             continue
 
     # Remove last few packets -- might be in-flight when test stopped
@@ -877,13 +879,13 @@ def parse_logfile(file, app_warmup, has_spatial, quiet=False):
     outputStats(dfs, "packets", "pdr", "mean", "Round-trip PDR (%)")
     outputStats(dfs, "packets", "latency", "mean", "Latency mean (s)")
     outputStats(dfs, "packets", "latency", "max", "Latency max (s)")
-    outputStats(dfs, "queue", "queue_fill", "mean", "Queue fill")
+    #outputStats(dfs, "queue", "queue_fill", "mean", "Queue fill")
     #outputStats(dfs, "app_parent_switch", "app_parent_switch", "count", "Parent switch during application")
 
     # outputStats(dfs, "energest", "duty_cycle", "mean", "Radio duty cycle (%)")
     #outputStats(dfs, "rpl_stats", "rank", "mean", "RPL rank (ETX-128)")
     outputStats(dfs, "rpl_stats", "hop_count", "max", "Hop count max")
-    outputStats(dfs, "rpl_stats", "hop_count", "min", "Hop count min")
+    #outputStats(dfs, "rpl_stats", "hop_count", "min", "Hop count min")
     #outputStats(dfs, "rpl_stats", "hop_count", "mean", "Hop count mean")
     outputStats(dfs, "switches", "pswitch", "count", "RPL parent switches (#)")
     #outputStats(dfs, "dag_inits", "event", "count", "RPL joining DAG (#)")
