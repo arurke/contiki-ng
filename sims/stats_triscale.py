@@ -247,9 +247,9 @@ def analyze_run(run_name, spatial_comparison, has_spatial,
                 mac_tx_df, cell_df, switches_df, rpl_stats_df):
     run_entry = {"name": run_name}
     if len(switches_df) == 0:
-        run_entry["converged"] = True
+        run_entry["rpl_converged"] = True
     else:
-        run_entry["converged"] = False
+        run_entry["rpl_converged"] = False
 
     # DF with app-mac-packets only
     app_mac_tx_df = mac_tx_df[mac_tx_df["app"] == 1].copy() # TODO unnecessary copy?
@@ -502,7 +502,7 @@ def analyze_scenario(runs_df, scenario_name,
     #metrics_for_converged = ["mac_app_tx_etx", "app_cell_etx", "pdr", "latency", "prr"]
     print(runs_df)
     metrics_for_converged = ["pdr", "latency", "prr"]
-    runs_converged_df = runs_df[runs_df["converged"] == True]
+    runs_converged_df = runs_df[runs_df["rpl_converged"] == True]
     for metric in runs_converged_df.columns:
         for kpi in kpis:
             if kpi["metric"] in metric:
