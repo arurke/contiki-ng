@@ -38,7 +38,7 @@ def parse_csvs_dir(directory, scenario_name):
     all_runs_dfs = defaultdict(dict)
 
     # Iterate all folders containing different runs in the directory
-    for folder in glob.glob(directory):
+    for folder in sorted(glob.glob(directory)):
         name_of_run = os.path.basename(folder)
 
         # Iterate and parse all log files in the folder
