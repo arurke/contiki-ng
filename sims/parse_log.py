@@ -394,7 +394,6 @@ def doParse(file, app_warmup, testbed):
 
         try:
             if module == "App":
-                #print("nodeid is: " + str(nodeid) + " module is " + str(module))
                 ret = parseApp(log)
 
                 if(ret == None):
@@ -688,56 +687,61 @@ def parse_logfile(file, app_warmup, has_spatial, quiet=False):
     app_max_hop_count = hop_count_df[hop_count_df["app_started"] == 1]["hop_count"].max()
 
     # ETX for application cells
-    mac_tx_df = dfs["mac_tx"]
-    app_tx = mac_tx_df[mac_tx_df["app"] == 1]
-    app_tx = app_tx[app_tx["app_started"] == 1]
-    app_tx_etx = app_tx["transmissions"].sum() / \
-        len(app_tx["transmissions"][app_tx["result"] == "ok"])
+    if "mac_tx" in dfs:
+        mac_tx_df = dfs["mac_tx"]
+        app_tx = mac_tx_df[mac_tx_df["app"] == 1]
+        app_tx = app_tx[app_tx["app_started"] == 1]
+        app_tx_etx = app_tx["transmissions"].sum() / \
+            len(app_tx["transmissions"][app_tx["result"] == "ok"])
 
-    # Find ETX for spatial reused cells. Only supported when running Layered! (due to app field)
-    mac_cell_df = dfs["mac_cell"]
-    # Note that there might be slightly more TX here than with the "mac_tx"
-    # approach above. This is because the mac_tx is printed only at either
-    # success or timeout (reached max rtx). Thus those transmissions which
-    # has not reached that state at the end of experiment will not be included
-    app_cell_df = mac_cell_df[mac_cell_df["app"] == 1]
-    app_cell_df = app_cell_df[app_cell_df["app_started"] == 1]
+        # Find ETX for spatial reused cells. Only supported when running Layered! (due to app field)
+        mac_cell_df = dfs["mac_cell"]
+        # Note that there might be slightly more TX here than with the "mac_tx"
+        # approach above. This is because the mac_tx is printed only at either
+        # success or timeout (reached max rtx). Thus those transmissions which
+        # has not reached that state at the end of experiment will not be included
+        app_cell_df = mac_cell_df[mac_cell_df["app"] == 1]
+        app_cell_df = app_cell_df[app_cell_df["app_started"] == 1]
 
-    # Spatial reuse
-    # Find spatial reuse via groupby and filter
-    spatial_reuse_df = app_cell_df.groupby(["asn", "channel"]).filter(lambda x: len(x) >= 2)
+        # Spatial reuse
+        # Find spatial reuse via groupby and filter
+        spatial_reuse_df = app_cell_df.groupby(["asn", "channel"]).filter(lambda x: len(x) >= 2)
 
-    # Find non-spatial reuse via drop_duplicates
-    # (could have done merge of spatial-reuse)
-    no_spatial_reuse_df = app_cell_df.drop_duplicates(subset=["asn", "channel"], keep=False)
+        # Find non-spatial reuse via drop_duplicates
+        # (could have done merge of spatial-reuse)
+        no_spatial_reuse_df = app_cell_df.drop_duplicates(subset=["asn", "channel"], keep=False)
 
-    spatial_reuse_total = len(spatial_reuse_df)
-    if spatial_reuse_total != 0:
-        # 0 indicates success
-        spatial_reuse_success = len(spatial_reuse_df[spatial_reuse_df["result"] == 0])
-        if spatial_reuse_success != 0:
-            spatial_reuse_etx = spatial_reuse_total / spatial_reuse_success
+        spatial_reuse_total = len(spatial_reuse_df)
+        if spatial_reuse_total != 0:
+            # 0 indicates success
+            spatial_reuse_success = len(spatial_reuse_df[spatial_reuse_df["result"] == 0])
+            if spatial_reuse_success != 0:
+                spatial_reuse_etx = spatial_reuse_total / spatial_reuse_success
+            else:
+                spatial_reuse_etx = 8
+            spatial_reuse_ratio = len(spatial_reuse_df) / len(app_cell_df) * 100
+            print("Spatial reuse ratio: %.4f %% (%d/%d)",
+                  spatial_reuse_ratio,
+                  len(spatial_reuse_df),
+                  len(app_cell_df))
+
+            # TODO
+            #dfs["spatial"] = spatial_reuse_df
+            #dfs["no_spatial"] = no_spatial_reuse_df
+
+            # Skip if this was a spatial reuse scenario, but
+            # there is still not more than 40 % spatial reuse
+            if has_spatial and spatial_reuse_ratio < 40: # TODO
+                print("Too little spatial reuse for scenario!")
+                meta["result"] = "spatial"
+                return None, meta
+
+            print("ETX for spatial reuse cells: %.4f", spatial_reuse_etx)
+            print("ETX for no-spatial reuse cells: %.4f",
+                  len(no_spatial_reuse_df) /
+                  len(no_spatial_reuse_df[no_spatial_reuse_df["result"] == 0]))
         else:
-            spatial_reuse_etx = 8
-        spatial_reuse_ratio = len(spatial_reuse_df) / len(app_cell_df) * 100
-        print("Spatial reuse ratio: %.4f %% (%d/%d)",
-              spatial_reuse_ratio,
-              len(spatial_reuse_df),
-              len(app_cell_df))
-
-        # Skip if this was a spatial reuse scenario (more than 3 %), but
-        # there is still not more than 40 % spatial reuse
-        if has_spatial and spatial_reuse_ratio < 40: # TODO
-            print("Too little spatial reuse for scenario!")
-            meta["result"] = "spatial"
-            return None, meta
-
-        print("ETX for spatial reuse cells: %.4f", spatial_reuse_etx)
-        print("ETX for no-spatial reuse cells: %.4f",
-              len(no_spatial_reuse_df) /
-              len(no_spatial_reuse_df[no_spatial_reuse_df["result"] == 0]))
-    else:
-        print("No spatial reuse")
+            print("No spatial reuse")
 
     # dl-miss with error # redundant with the new MAC stats
     #if "mac_err" in dfs:
@@ -847,8 +851,9 @@ def parse_logfile(file, app_warmup, has_spatial, quiet=False):
             meta["result"] = "error"
             return None, meta
 
-    print("Num tx: " + str(app_tx["transmissions"].sum()))
-    print("Num ok tx: " + str(len(app_tx["transmissions"][app_tx["result"] == "ok"])))
+    if "mac_tx" in dfs:
+        print("Num tx: " + str(app_tx["transmissions"].sum()))
+        print("Num ok tx: " + str(len(app_tx["transmissions"][app_tx["result"] == "ok"])))
 
     print("global-stats:")
     print("  pdr: %.4f" % (app_packets_df["pdr"].mean()))
@@ -865,7 +870,8 @@ def parse_logfile(file, app_warmup, has_spatial, quiet=False):
     print("  duty-cycle tx: %.2f" % (dfs["energest"]["duty_cycle_tx"].mean()))
     print("  duty-cycle rx: %.2f" % (dfs["energest"]["duty_cycle_rx"].mean()))
     print("  network-formation-time: %.3f" % (network_formation_time_ms / 1000))
-    print("  application-cells ETX: " + str(app_tx_etx))
+    if "mac_tx" in dfs:
+        print("  application-cells ETX: " + str(app_tx_etx))
     print("  Max. hop count during app: " + str(app_max_hop_count))
 
     print("stats (includes before App):")
