@@ -339,7 +339,7 @@ def parse_arguments():
     prepare_only = args.prepare
     run_only = args.run_only
     execution_id = args.id_execution
-    fetch_from_remote = args.remote_fetch
+    fetch_from_remote = args.fetch_remote
     from_csv = args.from_csv
 
     if prepare_only and execution_id is None:
