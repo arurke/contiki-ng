@@ -36,6 +36,7 @@ first_unixtime = None
 application_start = None
 application_done_count = 0
 final_time = 0
+log_order_error = 0
 
 metrics = ["packets", "energest", "rpl_stats", "app_parent_switch",
            "switches", "dag_inits", "topology", "queue", "mac_tx",
@@ -143,21 +144,21 @@ def parseApp(log):
     res = re.compile('TX (.+?) num (\d+) tick (\d+) to 6G-([0-9a-fA-F]+) from depth (\d+)').match(log)
     if res:
         type = res.group(1)
-        id = int(res.group(2))
+        packet_id = int(res.group(2))
         tick = int(res.group(3))
         dest = int(res.group(4), 16)
         depth = int(res.group(5))
         return {'event': 'send',
                 'type': type,
                 'tick':tick,
-                'id': id,
+                'packet_id': packet_id,
                 'dest': dest,
                 'depth': depth}
 
     res = re.compile('RX (.+?) num (\d+) oTick (\d+) tick (\d+) from 6G-([0-9a-fA-F]+)').match(log)
     if res:
         type = res.group(1)
-        id = int(res.group(2))
+        packet_id = int(res.group(2))
         oTick = int(res.group(3))
         tick = int(res.group(4))
         src = int(res.group(5), 16)
@@ -165,7 +166,7 @@ def parseApp(log):
                 'type': type,
                 'oTick': oTick,
                 'tick':tick,
-                'id': id,
+                'packet_id': packet_id,
                 'src': src }
 
     # This might be completely redundant and covered by RPL logs
@@ -352,10 +353,12 @@ def doParse(file, app_warmup, testbed):
     global application_start
     global parents
     global final_time
+    global log_order_error
     parent = {}
     network_formation_time_ms = None
     application_start = None
     unknown_line_count = 0
+    log_order_error = 0
     time = None
     arrays = {}
 
@@ -401,6 +404,46 @@ def doParse(file, app_warmup, testbed):
 
                 entry.update(ret)
                 if(ret['event'] == 'send' and ret['type'] == 'data'):
+                    # First check if this packet has already been RXed
+                    # Could happen if log is in wrong order
+                    order_error = False
+                    for packet in arrays["packets"]:
+                        if packet['event'] == 'recv' and \
+                           mac_to_node_id_map[packet['src']] == entry['node'] and \
+                           packet['packet_id'] == ret['packet_id']:
+                            #print("Found packet which is already RX")
+                            #print("TX packet:")
+                            #print(entry)
+                            #print("Rxed packet:")
+                            #print(packet)
+                            packet['event'] = 'send'
+                            packet['dest'] = ret['dest']
+                            packet['depth'] = ret['depth']
+                            packet['latency'] = 0.020 # we assume it was transmitted in previous timeslot
+
+                            # Do some heuristics on how long in front the log was
+                            # If it is never more than 20 ms it points towards the
+                            # log inaccuracy being less than 20 ms
+                            log_time_delta = \
+                                (entry['timestamp'] - packet['timestamp']).total_seconds()
+                            if log_time_delta > 0.020:
+                                print("Time difference in wrong ordered log was " + str(log_time_delta))
+                                return None
+                            print("Log order mismatch delta: " + str(log_time_delta))
+
+                            # Do some heuristics on how large the latency of the packet was
+                            # if larger than 2 ticks it indicate that the log inaccuracy
+                            # is larger than 20 ms. (Disclaimer: Ticks are not 100 % accurate
+                            # as nodes boot with a bit of difference)
+                            tick_delta = ret['tick'] - packet['oTick']
+                            if tick_delta > 2:
+                                print("Tick difference in wrong ordered packets was " + str(tick_delta))
+                                return None
+                            order_error = True
+
+                    if order_error:
+                        continue
+
                     entry['pdr'] = 0.
                     arrays["packets"].append(entry)
                     if network_formation_time_ms == None:
@@ -419,7 +462,23 @@ def doParse(file, app_warmup, testbed):
 
                     # Update sent request series with latency and PDR
                     # First find the row
-                    txElement = [x for x in arrays["packets"] if x['event'] == 'send' and x['node'] == ret['src'] and x['id'] == ret['id']][0]
+                    txElement = None
+                    for packet in arrays["packets"]:
+                        if packet['event'] == 'send' and \
+                           packet['node'] == ret['src'] and \
+                           packet['packet_id'] == ret['packet_id']:
+                            txElement = packet
+
+                    if txElement == None:
+                        # This is because of wrong order of log
+                        # Add packet into array, the TX will be added later
+                        entry['pdr'] = 100.
+                        #print("Unable find the TX of the RXed packet! Looking for:")
+                        #print(entry)
+                        arrays["packets"].append(entry)
+                        log_order_error += 1
+                        continue
+                        #return None
 
                     # Calculate and add latency
                     txElement['latency'] = (entry['timestamp'] - txElement['timestamp']).total_seconds()
@@ -522,6 +581,18 @@ def doParse(file, app_warmup, testbed):
     if unknown_line_count > 300:
         print("ERR! Too many unknown lines, " + str(unknown_line_count))
         return None
+
+    for packet in arrays["packets"]:
+        if packet["event"] == "recv":
+            print("ERR! Missing TX for RXed packet!")
+            return None
+
+    if log_order_error > 0:
+        print("Number of log-lines out of order: ", log_order_error)
+
+        if log_order_error > 100:
+            print("ERR! Too many log-lines out of order")
+            return None
 
     return arrays
 
