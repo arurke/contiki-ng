@@ -312,6 +312,10 @@ def parse_arguments():
                            '--id-execution',
                            type = str,
                            help = 'Execution ID (e.g. spatial_test_20220116_20)')
+    argparser.add_argument('-f',
+                           '--fetch-remote',
+                           action = 'store_true',
+                           help = 'Fetches data from remote and analyses. Used after -r. Requires -i')
     argparser.add_argument('-p',
                            '--prepare',
                            action = 'store_true',
@@ -320,10 +324,6 @@ def parse_arguments():
                            '--run-only',
                            action = 'store_true',
                            help = 'Only execute runs. Used in remote (automatically sets -r.) Requires -i')
-    argparser.add_argument('-f',
-                           '--remote-fetch',
-                           action = 'store_true',
-                           help = 'Fetches data from remote and analyses. Used after -r. Requires -i')
     argparser.add_argument('-c',
                            '--from-csv',
                            action = 'store_true',
