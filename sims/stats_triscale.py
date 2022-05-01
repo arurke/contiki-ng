@@ -254,7 +254,8 @@ def analyze_run(run_name, spatial_comparison, has_spatial,
         run_entry["rpl_converged"] = False
 
     # DF with app-mac-packets only
-    app_mac_tx_df = mac_tx_df[mac_tx_df["app"] == 1].copy() # TODO unnecessary copy?
+    if mac_tx_df is not None:
+        app_mac_tx_df = mac_tx_df[mac_tx_df["app"] == 1].copy() # TODO unnecessary copy?
     app_cell_df = cell_df[cell_df["app"] == 1].copy()
 
     # Make queue DF per node
@@ -289,8 +290,9 @@ def analyze_run(run_name, spatial_comparison, has_spatial,
         [{"df": rpl_stats_df, "metric": "hop_count", "measures":["mean"]}]
 
     # ETX for all TXes, using the MAC TX DF
-    metrics_etx = \
-        [{"df": app_mac_tx_df, "metric": "mac_app_tx_etx", "measures": ["absolute"]}]
+    if mac_tx_df is not None:
+        metrics_etx = \
+            [{"df": app_mac_tx_df, "metric": "mac_app_tx_etx", "measures": ["absolute"]}]
 
     # Add the metrics we want to calculate
     metrics = []
@@ -298,7 +300,8 @@ def analyze_run(run_name, spatial_comparison, has_spatial,
     metrics.extend(metrics_prr)
     metrics.extend(metrics_energy)
     #metrics.extend(metrics_rpl)
-    metrics.extend(metrics_etx)
+    if mac_tx_df is not None:
+        metrics.extend(metrics_etx)
 
     # Ad-hoc handling of spatial comparison metrics
     if spatial_comparison:
@@ -327,13 +330,20 @@ def analyze_runs(raw_dfs, scenario_name,
     raw_packets_dfs = raw_dfs["raw_packets_dfs"]
     raw_energest_dfs = raw_dfs["raw_energest_dfs"]
     raw_queue_dfs = raw_dfs["raw_queue_dfs"]
-    raw_mac_tx_dfs = raw_dfs["raw_mac_tx_dfs"]
+    if "raw_mac_tx_dfs" in raw_dfs:
+        raw_mac_tx_dfs = raw_dfs["raw_mac_tx_dfs"]
+    else:
+        raw_mac_tx_dfs = None
     raw_cell_dfs = raw_dfs["raw_mac_cell_dfs"]
     raw_switches_dfs = raw_dfs["raw_switches_dfs"]
     raw_rpl_stats_dfs = raw_dfs["raw_rpl_stats_dfs"]
 
     runs_df_dict = []
     for run in raw_packets_dfs.keys():
+        if "raw_mac_tx_dfs" in raw_dfs:
+            raw_mac_tx_app_df = raw_mac_tx_dfs[run][raw_mac_tx_dfs[run]["app_started"] == 1]
+        else:
+            raw_mac_tx_app_df = None
         runs_df_dict.append(
             analyze_run(scenario_name + "_" + run,
                         spatial_comparison, has_spatial,
@@ -341,7 +351,7 @@ def analyze_runs(raw_dfs, scenario_name,
                         raw_packets_dfs[run][raw_packets_dfs[run]["app_started"] == 1],
                         raw_energest_dfs[run][raw_energest_dfs[run]["app_started"] == 1],
                         raw_queue_dfs[run][raw_queue_dfs[run]["app_started"] == 1],
-                        raw_mac_tx_dfs[run][raw_mac_tx_dfs[run]["app_started"] == 1],
+                        raw_mac_tx_app_df,
                         raw_cell_dfs[run][raw_cell_dfs[run]["app_started"] == 1],
                         raw_switches_dfs[run][raw_switches_dfs[run]["app_started"] == 1],
                         raw_rpl_stats_dfs[run][raw_rpl_stats_dfs[run]["app_started"] == 1]))
@@ -687,6 +697,8 @@ def meta_all_parent_switches(scenarios, plots_dir):
 def meta_timeline_all_runs(scenarios, dfs_name, field_name,
                            name, warn_limit, plots_dir):
     for scenario in scenarios:
+        if dfs_name not in scenario['raw_dfs']:
+            return
         all_runs_df = scenario['raw_dfs'][dfs_name]
         fig, ax = plt.subplots()
         for run in all_runs_df.keys():
@@ -722,6 +734,8 @@ def meta_timeline_all_runs(scenarios, dfs_name, field_name,
 
 def meta_non_converged_run_etx_timelines(scenarios, plots_dir):
     for scenario in scenarios:
+        if "raw_mac_tx_dfs" not in scenario['raw_dfs']:
+            return
         mac_tx_all_runs_df = scenario['raw_dfs']["raw_mac_tx_dfs"]
         for run in mac_tx_all_runs_df.keys():
             mac_tx_df = mac_tx_all_runs_df[run]
