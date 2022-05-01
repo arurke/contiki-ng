@@ -13,6 +13,8 @@ PLOT_TRISCALE_FOLDER_NAME = "triscale"
 
 spatial_reuse_links = []
 
+plt.rcParams.update({'font.size': 12})
+
 def generate_list_of_links_with_spatial_reuse(scenarios):
     spatial_reuse_links = []
     for scenario in scenarios:
