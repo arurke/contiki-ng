@@ -282,12 +282,15 @@ def analyze_run(run_name, spatial_comparison, has_spatial,
         [{"df": app_cell_df, "metric": "prr", "measures":["mean"]}]
 
     metrics_energy = \
-        [{"df": energest_df, "metric": "duty_cycle", "measures":default_measures},
-         {"df": energest_df, "metric": "duty_cycle_tx", "measures":default_measures},
-         {"df": energest_df, "metric": "duty_cycle_rx", "measures":default_measures}]
+        [{"df": energest_df, "metric": "duty_cycle", "measures": default_measures},
+         {"df": energest_df, "metric": "duty_cycle_tx", "measures": default_measures},
+         {"df": energest_df, "metric": "duty_cycle_rx", "measures": default_measures}]
 
     metrics_rpl = \
         [{"df": rpl_stats_df, "metric": "hop_count", "measures":["mean"]}]
+
+    metrics_queue = \
+        [{"df": queue_df, "metric": "queue_fill", "measures": default_measures}]
 
     # ETX for all TXes, using the MAC TX DF
     if mac_tx_df is not None:
@@ -299,6 +302,7 @@ def analyze_run(run_name, spatial_comparison, has_spatial,
     metrics.extend(metrics_basics)
     metrics.extend(metrics_prr)
     metrics.extend(metrics_energy)
+    metrics.extend(metrics_queue)
     #metrics.extend(metrics_rpl)
     if mac_tx_df is not None:
         metrics.extend(metrics_etx)
@@ -439,7 +443,8 @@ def analyze_scenario(runs_df, scenario_name,
     add_kpi(kpis, "duty_cycle", bounds=[0.001,100], default=True)
     add_kpi(kpis, "duty_cycle_tx", bounds=[0.001,100],  default=True)
     add_kpi(kpis, "duty_cycle_rx", bounds=[0.001,100], default=True)
-    #add_kpi(kpis, "queue_fill", bound_lower=False, default=True)
+    add_kpi(kpis, "duty_cycle_rx", bounds=[0.001,100], default=True)
+    add_kpi(kpis, "queue_fill", bounds=[0.001,100], default=True)
 
     # More specialized ones
     adhoc_percentile_high = 80
