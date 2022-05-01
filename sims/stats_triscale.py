@@ -631,6 +631,7 @@ def meta_last_events(
 
 def meta_all_parent_switches(scenarios, plots_dir):
     # Distribution of all parent switches
+    all_switches = []
     switches_per_scenario = []
     for scenario in scenarios:
         switches = []
@@ -647,6 +648,7 @@ def meta_all_parent_switches(scenarios, plots_dir):
             switches.append(switch_timestamps)
 
         switches_per_scenario.append(switches_in_scenario)
+        all_switches.extend(switches_in_scenario)
 
         # All runs individually per scenario
         plt.hist(switches, bins=60, stacked=True)
@@ -668,7 +670,16 @@ def meta_all_parent_switches(scenarios, plots_dir):
     plt.ylabel("Number of parent switches")
     plt.locator_params(axis='y', integer=True)
     plt.legend(scenario_names)
-    plt.savefig(plots_dir + "meta_parent_switch.pdf")
+    plt.savefig(plots_dir + "meta_per_scenario_parent_switch.pdf")
+    plt.close()
+
+    # All runs combined
+    print(all_switches)
+    plt.hist(all_switches, bins=30, stacked=False)
+    plt.xlabel("Experiment timeline (minutes)")
+    plt.ylabel("Number of parent switches")
+    plt.locator_params(axis='y', integer=True)
+    plt.savefig(plots_dir + "meta_all_parent_switch.pdf")
     plt.close()
 
 # Make timeline for field_name of all runs of given df-name.
