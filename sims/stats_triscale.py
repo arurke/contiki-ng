@@ -612,7 +612,7 @@ def meta_last_events(
     # Last switch for all runs
     plt.hist(last_events, bins=20, stacked=False)
     plt.locator_params(axis='y', integer=True)
-    plt.xlabel("Duration of experiment (minutes)")
+    plt.xlabel("Experiment timeline (minutes)")
     plt.ylabel("Number of runs with last " + description)
     plt.savefig(plots_dir + "meta_last_" + plot_name_postfix + ".pdf")
     plt.close()
@@ -624,7 +624,7 @@ def meta_last_events(
         scenario_names.append(scenario["name"])
     plt.legend(scenario_names)
     plt.locator_params(axis='y', integer=True)
-    plt.xlabel("Duration of experiment (minutes)")
+    plt.xlabel("Experiment timeline (minutes)")
     plt.ylabel("Number of runs with last " + description)
     plt.savefig(plots_dir + "meta_last_" + plot_name_postfix + "_per_scenario.pdf")
     plt.close()
@@ -650,7 +650,7 @@ def meta_all_parent_switches(scenarios, plots_dir):
 
         # All runs individually per scenario
         plt.hist(switches, bins=60, stacked=True)
-        plt.xlabel("Duration of experiment (minutes)")
+        plt.xlabel("Experiment timeline (minutes)")
         plt.ylabel("Number of parent switches")
         plt.locator_params(axis='y', integer=True)
         plt.savefig(plots_dir +
@@ -664,7 +664,7 @@ def meta_all_parent_switches(scenarios, plots_dir):
     scenario_names = []
     for scenario in scenarios:
         scenario_names.append(scenario["name"])
-    plt.xlabel("Duration of experiment (minutes)")
+    plt.xlabel("Experiment timeline (minutes)")
     plt.ylabel("Number of parent switches")
     plt.locator_params(axis='y', integer=True)
     plt.legend(scenario_names)
@@ -703,7 +703,7 @@ def meta_timeline_all_runs(scenarios, dfs_name, field_name,
                 line.set_label(run)
                 plt.legend()
 
-        plt.xlabel("Duration of experiment (minutes)")
+        plt.xlabel("Experiment timeline (minutes)")
         plt.ylabel("Mean " + name)
         plt.savefig(plots_dir + "meta_" + scenario['name'] + \
                      "_all_" + name + "_timeline.pdf")
@@ -740,7 +740,7 @@ def meta_non_converged_run_etx_timelines(scenarios, plots_dir):
             for switch in switches:
                 plt.axvline(x=switch, color="red", linestyle="--", label="Parent switch")
             plt.legend()
-            plt.xlabel("Duration of experiment (minutes)")
+            plt.xlabel("Experiment timeline (minutes)")
             plt.ylabel("Mean ETX")
             plt.savefig(plots_dir + "meta_" + scenario['name'] + \
                          "_" + run + "_etx_timeline.pdf")
