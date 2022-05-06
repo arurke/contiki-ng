@@ -588,7 +588,7 @@ def doParse(file, app_warmup, testbed):
             return None
 
     if log_order_error > 0:
-        print("Number of log-lines out of order: ", log_order_error)
+        print("Number of log-lines out of order: " + str(log_order_error))
 
         if log_order_error > 100:
             print("ERR! Too many log-lines out of order")
