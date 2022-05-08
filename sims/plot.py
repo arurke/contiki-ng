@@ -270,6 +270,8 @@ def plot_compare_kpis(scenarios_df, scenarios_info, kpis,
         plt.title(fig_name)
     fig_dir = plot_dir
     fig_path = fig_dir + fig_name + '.pdf'
+    if "PDR" in kpi_list:
+        plt.ylim(80, 101)
     plt.savefig(fig_path, bbox_inches='tight')
     plt.close()
     print("Made figure", fig_path)
