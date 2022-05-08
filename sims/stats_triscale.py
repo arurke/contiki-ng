@@ -401,7 +401,7 @@ def calculate_kpi(values, settings, metric, name, plots_dir):
         else:
             print("Bounds set by Triscale: " + str(settings["bounds"]))
         print("Values:" + str(values.tolist()))
-        return np.nan
+        #return np.nan #uncomment to ignore kpis which are not independent
 
     return kpi
 
