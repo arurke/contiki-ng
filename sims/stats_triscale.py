@@ -282,9 +282,9 @@ def analyze_run(run_name, spatial_comparison, has_spatial,
         [{"df": app_cell_df, "metric": "prr", "measures":["mean"]}]
 
     metrics_energy = \
-        [{"df": energest_df, "metric": "duty_cycle", "measures": default_measures},
-         {"df": energest_df, "metric": "duty_cycle_tx", "measures": default_measures},
-         {"df": energest_df, "metric": "duty_cycle_rx", "measures": default_measures}]
+        [{"df": energest_df, "metric": "duty_cycle", "measures": default_measures}]
+         #{"df": energest_df, "metric": "duty_cycle_tx", "measures": default_measures},
+         #{"df": energest_df, "metric": "duty_cycle_rx", "measures": default_measures}]
 
     metrics_rpl = \
         [{"df": rpl_stats_df, "metric": "hop_count", "measures":["mean"]}]
@@ -441,9 +441,8 @@ def analyze_scenario(runs_df, scenario_name,
     add_kpi(kpis, "latency", bounds=[0.001,120], default=True)
     add_kpi(kpis, "prr", bounds=[0.001,100], default=True)
     add_kpi(kpis, "duty_cycle", bounds=[0.001,100], default=True)
-    add_kpi(kpis, "duty_cycle_tx", bounds=[0.001,100],  default=True)
-    add_kpi(kpis, "duty_cycle_rx", bounds=[0.001,100], default=True)
-    add_kpi(kpis, "duty_cycle_rx", bounds=[0.001,100], default=True)
+    #add_kpi(kpis, "duty_cycle_tx", bounds=[0.001,100],  default=True)
+    #add_kpi(kpis, "duty_cycle_rx", bounds=[0.001,100], default=True)
     add_kpi(kpis, "queue_fill", bounds=[0.001,100], default=True)
 
     # More specialized ones
