@@ -70,7 +70,7 @@
 
 // Max queue size per neighbor. Must be power of two.
 // Note, must be increased if not using flows with Layered
-#define TSCH_QUEUE_CONF_NUM_PER_NEIGHBOR  16
+#define TSCH_QUEUE_CONF_NUM_PER_NEIGHBOR  32
 
 // Increase incoming packets buffer (def. 4)
 #define TSCH_CONF_MAX_INCOMING_PACKETS    8
@@ -92,9 +92,20 @@
 // Channels (min. 4 available to allow for orchestra multi-channel)
 #define CUSTOM_TSCH_HOPPING_SEQUENCE_16_16 (uint8_t[]){ 16, 17, 23, 18, 26, 15, 25, 22, 19, 11, 12, 13, 24, 14, 20, 21 }
 #define CUSTOM_TSCH_HOPPING_SEQUENCE_4_4 (uint8_t[]){ 18, 22, 24, 17 }
+#define CUSTOM_TSCH_HOPPING_SEQUENCE_4_4_HIGH (uint8_t[]){ 22, 24, 25, 26 }
+#define CUSTOM_TSCH_HOPPING_SEQUENCE_4_4_MED (uint8_t[]){ 18, 19, 20, 21 }
+#define CUSTOM_TSCH_HOPPING_SEQUENCE_6_6_MED (uint8_t[]){ 16, 17, 18, 19, 20, 21 }
 // The TSCH_HOPPING_SEQUENCE_4_4 defined in TSCH avoid Wi-Fi channels
-#define TSCH_CONF_DEFAULT_HOPPING_SEQUENCE    TSCH_HOPPING_SEQUENCE_4_4
+#ifndef TSCH_CONF_DEFAULT_HOPPING_SEQUENCE
+#define TSCH_CONF_DEFAULT_HOPPING_SEQUENCE    CUSTOM_TSCH_HOPPING_SEQUENCE_4_4_MED
+#endif
 
+// TODO for special evaluation
+//#ifdef TSCH_CONF_JOIN_HOPPING_SEQUENCE
+//#define TSCH_CONF_JOIN_HOPPING_SEQUENCE   CUSTOM_TSCH_HOPPING_SEQUENCE_4_4_MED
+//#endif
+
+#if BUILD_WITH_ORCHESTRA
 // Max. channel offset for the unicast slotframe. Minimum is 2.
 #define ORCHESTRA_CONF_UNICAST_MAX_CHANNEL_OFFSET 2
 
@@ -120,7 +131,6 @@
 //#define RPL_CONF_DEFAULT_LIFETIME 60
 //#define RPL_CONF_DAG_LIFETIME 100
 
-#if BUILD_WITH_ORCHESTRA
 #define SCHED_SLOTFRAME_LEN                   ORCHESTRA_CONF_UNICAST_PERIOD
 #endif
 
@@ -136,10 +146,17 @@
 // If increasing, remember to increase hopping sequence as well
 #if TEST_NO_SPATIAL_REUSE
 #define LAYERED_CONF_CHANNELS                 ((uint8_t[]){1,2,3,4})
+#else
+#define LAYERED_CONF_CHANNELS                 ((uint8_t[]){1,2,3}) // TODO for special testing
 #endif
 
 #if BUILD_WITH_LAYERED
 #define TSCH_SCHEDULE_CONF_MAX_SLOTFRAMES     1
+#endif
+
+// TODO make proper
+#if TSCH_SCHEDULE_CONF_WITH_6TISCH_MINIMAL
+#define SCHED_SLOTFRAME_LEN                   7
 #endif
 
 // TODO just for testing after queues got filled up. Number from Atis

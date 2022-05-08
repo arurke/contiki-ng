@@ -21,12 +21,16 @@ MAKE_MAC = MAKE_MAC_TSCH
 MAKE_ROUTING = MAKE_ROUTING_RPL_CLASSIC
 
 # Use Orchestra
-#MODULES += os/services/orchestra
+ifdef ORCHESTRA
+MODULES += os/services/orchestra
+endif
 
 # Use Layered
+ifdef LAYERED
 MODULES += os/services/layered
 CFLAGS += -DBUILD_WITH_LAYERED_HACK=0
 CFLAGS += -DBUILD_WITH_LAYERED_FLOW=1
+endif
 
 ifdef TESTBED
 CFLAGS += -DTESTBED=$(TESTBED)
