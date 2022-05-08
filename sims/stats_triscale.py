@@ -958,6 +958,7 @@ def meta_channel_performance(scenarios, plots_dir):
     for scenario in scenarios:
         mac_cell_all_runs_df = scenario['raw_dfs']["raw_mac_cell_dfs"]
         scenario_channel_perf_dfs = []
+        scenario_channel_prr_dfs = []
         for run in mac_cell_all_runs_df.keys():
             mac_cell_df = mac_cell_all_runs_df[run]
             # We are only interested in app-packets
@@ -968,11 +969,15 @@ def meta_channel_performance(scenarios, plots_dir):
 
             # Select the columns we are interested in
             channel_perf_df = mac_cell_app_df[["channel", "result"]]
+            channel_prr_df = mac_cell_app_df[["channel", "prr"]]
             scenario_channel_perf_dfs.append(channel_perf_df)
+            scenario_channel_prr_dfs.append(channel_prr_df)
             #print(scenario_channel_perf_dfs)
 
         # Create one large DF out of the list of run DFs
         scenario_channel_perf_df = pd.concat(scenario_channel_perf_dfs, ignore_index=True)
+        scenario_channel_prr_df = pd.concat(scenario_channel_prr_dfs, ignore_index=True)
+
         groups = scenario_channel_perf_df.groupby("channel")["result"]
         channels = []
         etxs = []
@@ -988,6 +993,8 @@ def meta_channel_performance(scenarios, plots_dir):
             etxs.append(etx)
             channels.append(name)
 
+        channels_prr = scenario_channel_prr_df.groupby("channel")["prr"].mean().reset_index()
+
 #        scenario_channel_perf_df = scenario_channel_perf_df.groupby("channel")["transmissions"].mean()
 #        scenario_channel_perf_df = scenario_channel_perf_df.reset_index()
         scenario_channel_perf_df = pd.DataFrame({'channel':channels, 'etxs':etxs})
@@ -998,6 +1005,15 @@ def meta_channel_performance(scenarios, plots_dir):
         plt.savefig(plots_dir + "meta_" + scenario['name'] + \
                   "_channels_etx.pdf")
         plt.close()
+
+        plt.bar(channels_prr["channel"], channels_prr["prr"])
+        plt.xticks(channels_prr["channel"])
+        plt.xlabel("Physical channel")
+        plt.ylabel("PRR for all application packets (%)")
+        plt.savefig(plots_dir + "meta_" + scenario['name'] + \
+                  "_channels_prr.pdf")
+        plt.close()
+
 
     # Make plots with all nodes, per run
     temp_dir = plots_dir + "temp/"
