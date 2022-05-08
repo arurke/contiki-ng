@@ -516,7 +516,7 @@ def analyze_scenario(runs_df, scenario_name,
 
     # Now do only converged runs for selected metrics
     #metrics_for_converged = ["mac_app_tx_etx", "app_cell_etx", "pdr", "latency", "prr"]
-    print(runs_df)
+    print("runs_df: " + str(runs_df))
     metrics_for_converged = ["pdr", "latency", "prr"]
     runs_converged_df = runs_df[runs_df["rpl_converged"] == True]
     for metric in runs_converged_df.columns:
@@ -676,7 +676,7 @@ def meta_all_parent_switches(scenarios, plots_dir):
         plt.close()
 
     # All runs in each scenario combined
-    plt.hist(switches_per_scenario, bins=30, stacked=False)
+    plt.hist(switches_per_scenario, bins=60, stacked=False)
     scenario_names = []
     for scenario in scenarios:
         scenario_names.append(scenario["name"])
@@ -688,8 +688,7 @@ def meta_all_parent_switches(scenarios, plots_dir):
     plt.close()
 
     # All runs combined
-    print(all_switches)
-    plt.hist(all_switches, bins=30, stacked=False)
+    plt.hist(all_switches, bins=100, stacked=False)
     plt.xlabel("Experiment timeline (minutes)")
     plt.ylabel("Number of parent switches")
     plt.locator_params(axis='y', integer=True)
