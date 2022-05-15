@@ -690,13 +690,19 @@ def plot_comparison(scenarios, scenarios_df, plot_dir, title=False):
         scenarios_to_plot.append(
             {"name": scenario['name'], "desc": scenario['description']})
 
-    # Comparison of all app-cells
     kpis = [{"desc": "PRR", "name": "prr_mean",
              "percentile": "default", "bound": "lower"},
             {"desc": "PDR", "name": "pdr_mean",
              "percentile": "default", "bound": "lower"}]
     plot_compare_kpis(scenarios_df, scenarios_to_plot, kpis,
                       str(DEFAULT_PERC) + "p_reliability",
+                      plot_dir)
+    kpis = [{"desc": "PRR", "name": "prr_mean",
+             "percentile": "adhoc", "bound": "lower"},
+            {"desc": "PDR", "name": "pdr_mean",
+             "percentile": "adhoc", "bound": "lower"}]
+    plot_compare_kpis(scenarios_df, scenarios_to_plot, kpis,
+                      str(ADHOC_PERC) + "p_reliability",
                       plot_dir)
 
     kpis = [{"desc": "Median latency", "name": "latency_50",
