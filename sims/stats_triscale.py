@@ -15,6 +15,10 @@ spatial_reuse_links = []
 
 plt.rcParams.update({'font.size': 12})
 
+# Must match that in plot. TODO
+DEFAULT_PERC = 50
+ADHOC_PERC = 80
+
 def generate_list_of_links_with_spatial_reuse(scenarios):
     spatial_reuse_links = []
     for scenario in scenarios:
@@ -410,7 +414,7 @@ def calculate_kpi(values, settings, metric, name, plots_dir):
     return kpi
 
 def add_kpi(kpis, metric,
-              percentile=50,
+              percentile=DEFAULT_PERC,
               confidence=95,
               bounds=[],
               bound_lower=True,
@@ -451,7 +455,7 @@ def analyze_scenario(runs_df, scenario_name,
     add_kpi(kpis, "parent_switches", default=True)
 
     # More specialized ones
-    adhoc_percentile_high = 80
+    adhoc_percentile_high = ADHOC_PERC
     adhoc_percentile_low = 100 - adhoc_percentile_high
     adhoc_confidence = 95
 
