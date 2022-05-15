@@ -688,7 +688,7 @@ def meta_all_parent_switches(scenarios, plots_dir):
     plt.hist(switches_per_scenario, bins=60, stacked=False)
     scenario_names = []
     for scenario in scenarios:
-        scenario_names.append(scenario["name"])
+        scenario_names.append(scenario["description"])
     plt.xlabel("Experiment timeline (minutes)")
     plt.ylabel("Number of parent switches")
     plt.locator_params(axis='y', integer=True)
