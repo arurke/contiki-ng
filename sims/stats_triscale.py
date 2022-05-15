@@ -138,6 +138,9 @@ def calculate_metric(input_df, metric, measure, name, plots_dir):
     if type(measure) == str and "absolute" in measure:
         return calculate_absolute_metrics(input_df, metric, measure)
 
+    if type(measure) == str and measure == "count":
+        return len(input_df)
+
     if input_df.empty:
         # This is not unexpected, e.g. when calc. spatial in no-spatial scenario
         #print("Empty DF for " + name)
@@ -287,7 +290,8 @@ def analyze_run(run_name, spatial_comparison, has_spatial,
          #{"df": energest_df, "metric": "duty_cycle_rx", "measures": default_measures}]
 
     metrics_rpl = \
-        [{"df": rpl_stats_df, "metric": "hop_count", "measures":["mean"]}]
+        [#{"df": rpl_stats_df, "metric": "hop_count", "measures":["mean"]},
+         {"df": switches_df, "metric": "parent_switches", "measures":["count"]}]
 
     metrics_queue = \
         [{"df": queue_df, "metric": "queue_fill", "measures": default_measures}]
@@ -303,7 +307,7 @@ def analyze_run(run_name, spatial_comparison, has_spatial,
     metrics.extend(metrics_prr)
     metrics.extend(metrics_energy)
     metrics.extend(metrics_queue)
-    #metrics.extend(metrics_rpl)
+    metrics.extend(metrics_rpl)
     if mac_tx_df is not None:
         metrics.extend(metrics_etx)
 
@@ -334,13 +338,13 @@ def analyze_runs(raw_dfs, scenario_name,
     raw_packets_dfs = raw_dfs["raw_packets_dfs"]
     raw_energest_dfs = raw_dfs["raw_energest_dfs"]
     raw_queue_dfs = raw_dfs["raw_queue_dfs"]
+    raw_cell_dfs = raw_dfs["raw_mac_cell_dfs"]
+    raw_switches_dfs = raw_dfs["raw_switches_dfs"]
+    raw_rpl_stats_dfs = raw_dfs["raw_rpl_stats_dfs"]
     if "raw_mac_tx_dfs" in raw_dfs:
         raw_mac_tx_dfs = raw_dfs["raw_mac_tx_dfs"]
     else:
         raw_mac_tx_dfs = None
-    raw_cell_dfs = raw_dfs["raw_mac_cell_dfs"]
-    raw_switches_dfs = raw_dfs["raw_switches_dfs"]
-    raw_rpl_stats_dfs = raw_dfs["raw_rpl_stats_dfs"]
 
     runs_df_dict = []
     for run in raw_packets_dfs.keys():
@@ -444,6 +448,7 @@ def analyze_scenario(runs_df, scenario_name,
     #add_kpi(kpis, "duty_cycle_tx", bounds=[0.001,100],  default=True)
     #add_kpi(kpis, "duty_cycle_rx", bounds=[0.001,100], default=True)
     add_kpi(kpis, "queue_fill", bounds=[0.001,100], default=True)
+    add_kpi(kpis, "parent_switches", default=True)
 
     # More specialized ones
     adhoc_percentile_high = 80

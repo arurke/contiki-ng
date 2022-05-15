@@ -722,6 +722,12 @@ def plot_comparison(scenarios, scenarios_df, plot_dir, title=False):
                       str(DEFAULT_PERC) + "p_queue_utilization",
                       plot_dir)
 
+    kpis = [{"desc": "RPL parent switches", "name": "parent_switches_count",
+             "percentile": "default", "bound": "upper"}]
+    plot_compare_kpis(scenarios_df, scenarios_to_plot, kpis,
+                      str(DEFAULT_PERC) + "p_parent_switches",
+                      plot_dir)
+
     # Same as above, but only converged runs
     kpis = [{"desc": "PRR", "name": "converged_prr_mean",
              "percentile": "default", "bound": "lower"},
