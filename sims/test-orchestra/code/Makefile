@@ -32,6 +32,10 @@ CFLAGS += -DBUILD_WITH_LAYERED_HACK=0
 CFLAGS += -DBUILD_WITH_LAYERED_FLOW=1
 endif
 
+# Use packet-types, needed for misc. stats (and required by Layered)
+# Ruins security printout field in TSCH. See tsch-slot-operation.c.
+MODULES += os/services/packet-type
+
 ifdef TESTBED
 CFLAGS += -DTESTBED=$(TESTBED)
 MODULES += $(CONTIKI_NG_SERVICES_DIR)/deployment

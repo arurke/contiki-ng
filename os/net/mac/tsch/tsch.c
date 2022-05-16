@@ -62,6 +62,10 @@
 #include "layered.h"
 #endif
 
+#if BUILD_WITH_PACKET_TYPE
+#include "packet-type.h"
+#endif
+
 #if TSCH_WITH_SIXTOP
 #include "net/mac/tsch/sixtop/sixtop.h"
 #endif
@@ -538,6 +542,8 @@ tsch_tx_process_pending(void)
     LOG_INFO_(", %u B, seqno %u, status %d, tx %d\n", packetbuf_datalen(),
       packetbuf_attr(PACKETBUF_ATTR_MAC_SEQNO), p->ret, p->transmissions);
 
+#if TSCH_WITH_LINK_SELECTOR
+
     // Check if this was application packet and then print?
     // Because we are interested in collisions on dedicated cells...?
     // Proper implementation is probably to add stats to cell
@@ -605,7 +611,7 @@ tsch_tx_process_pending(void)
     // Simplified version of fuller prinout further down
     LOG_WARN("cell %d/%d, tx: %u, app: %d, res: %s\n",
              timeslot, channel,p->transmissions,
-             packetbuf_attr(PACKETBUF_ATTR_TEST) == LAYERED_PACKET_TYPE_APP, result);
+             packetbuf_attr(PACKETBUF_ATTR_PACKET_TYPE) == PACKET_TYPE_APP, result);
 
     if(link == NULL) {
       LOG_WARN("link NULL! sf: %u, ts: %d, offset: %d ch: %d\n",
@@ -629,9 +635,10 @@ tsch_tx_process_pending(void)
 //               link->link_type == LINK_TYPE_NORMAL ? true : false,
 //               link->link_options & LINK_OPTION_SHARED ? true : false,
 //               p->transmissions, tsch_current_asn.ls4b,
-//               packetbuf_attr(PACKETBUF_ATTR_TEST) == LAYERED_PACKET_TYPE_APP,
+//               packetbuf_attr(PACKETBUF_ATTR_PACKET_TYPE) == PACKET_TYPE_APP,
 //               result);
     }
+#endif
 
     /* Call packet_sent callback */
     mac_call_sent_callback(p->sent, p->ptr, p->ret, p->transmissions);
@@ -1183,8 +1190,8 @@ tsch_init(void)
 #if BUILD_WITH_LAYERED
 static void
 print_packetbuf_queue_address(void) {
-  if(packetbuf_attr(PACKETBUF_ATTR_TEST) == LAYERED_PACKET_TYPE_RPL ||
-      packetbuf_attr(PACKETBUF_ATTR_TEST) == LAYERED_PACKET_TYPE_KEEPALIVE) {
+  if(packetbuf_attr(PACKETBUF_ATTR_PACKET_TYPE) == PACKET_TYPE_RPL ||
+      packetbuf_attr(PACKETBUF_ATTR_PACKET_TYPE) == PACKET_TYPE_KEEPALIVE) {
     LOG_WARN_("/queue: ");
     LOG_WARN_LLADDR(&tsch_broadcast_address);
     return;
@@ -1295,11 +1302,18 @@ send_packet(mac_callback_t sent, void *ptr)
 #if BUILD_WITH_LAYERED
       print_packetbuf_queue_address();
 #endif
+#if BUILD_WITH_PACKET_TYPE
       LOG_ERR_(" with seqno %u, queue %u/%u %u/%u app %d\n",
-          tsch_packet_seqno, tsch_queue_nbr_packet_count(n),
-          TSCH_QUEUE_NUM_PER_NEIGHBOR - 1, tsch_queue_global_packet_count(),
-          QUEUEBUF_NUM,
-          packetbuf_attr(PACKETBUF_ATTR_TEST) == LAYERED_PACKET_TYPE_APP);
+                tsch_packet_seqno, tsch_queue_nbr_packet_count(n),
+                TSCH_QUEUE_NUM_PER_NEIGHBOR - 1, tsch_queue_global_packet_count(),
+                QUEUEBUF_NUM,
+                packetbuf_attr(PACKETBUF_ATTR_PACKET_TYPE) == PACKET_TYPE_APP);
+#else
+      LOG_ERR_(" with seqno %u, queue %u/%u %u/%u\n",
+                tsch_packet_seqno, tsch_queue_nbr_packet_count(n),
+                TSCH_QUEUE_NUM_PER_NEIGHBOR - 1, tsch_queue_global_packet_count(),
+                QUEUEBUF_NUM);
+#endif
       ret = MAC_TX_QUEUE_FULL;
     } else {
       p->header_len = hdr_len;

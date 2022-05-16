@@ -105,6 +105,11 @@ layered_callback_packet_ready(void)
     }
   }
 
+  // TODO it seems this is not needed anymore as
+  // 1. TSCH does not need the packet-ready to find correct ts/ch
+  // 2. packet-type is set by TSCH
+  // 3. ts/ch for stats is found via used_link
+
 //#if TSCH_WITH_LINK_SELECTOR
   // Add attributes regardless because we use them for stats
   packetbuf_set_attr(PACKETBUF_ATTR_TSCH_SLOTFRAME, slotframe);

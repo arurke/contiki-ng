@@ -53,6 +53,9 @@
 #include "net/mac/framer/framer-802154.h"
 #include "net/mac/tsch/tsch.h"
 #include "sys/critical.h"
+#if BUILD_WITH_PACKET_TYPE
+#include "packet-type.h"
+#endif
 
 #if BUILD_WITH_LAYERED
 // TODO ad-hoc stats
@@ -1028,11 +1031,11 @@ PT_THREAD(tsch_tx_slot(struct pt *pt, struct rtimer *t))
 #if LLSEC802154_ENABLED
         log->tx.sec_level = queuebuf_attr(current_packet->qb, PACKETBUF_ATTR_SECURITY_LEVEL);
 #else /* LLSEC802154_ENABLED */
-#if BUILD_WITH_LAYERED
-        // Hijacking security level field to show if packet is type is app
+#if BUILD_WITH_PACKET_TYPE
+        // Hijacking security level field to show if packet is type is app. TODO
         log->tx.sec_level =
-            queuebuf_attr(current_packet->qb, PACKETBUF_ATTR_TEST) ==
-                LAYERED_PACKET_TYPE_APP ? 1 : 0;
+            queuebuf_attr(current_packet->qb, PACKETBUF_ATTR_PACKET_TYPE) ==
+                PACKET_TYPE_APP ? 1 : 0;
 #endif
 #endif /* LLSEC802154_ENABLED */
         linkaddr_copy(&log->tx.dest, queuebuf_addr(current_packet->qb, PACKETBUF_ADDR_RECEIVER));

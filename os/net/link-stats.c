@@ -142,8 +142,13 @@ link_stats_packet_sent(const linkaddr_t *lladdr, int status, int numtx)
     return;
   }
 
-//  if(packetbuf_attr(PACKETBUF_ATTR_TEST) == 1) {
-//    LOG_WARN("Skipping app packet %u\n", packetbuf_attr(PACKETBUF_ATTR_TEST));
+//  LOG_WARN("ls lladdr: 0x%02x%02x...%02x%02x, id: ",
+//           lladdr->u8[0], lladdr->u8[1], lladdr->u8[6], lladdr->u8[7]);
+//  LOG_WARN_LLADDR(lladdr);
+//  LOG_WARN_("\n");
+
+//  if(packetbuf_attr(PACKETBUF_ATTR_PACKET_TYPE) == PACKET_TYPE_APP) {
+//    LOG_WARN("Skipping app packet %u\n", packetbuf_attr(PACKETBUF_ATTR_PACKET_TYPE));
 //    return;
 //  }
 

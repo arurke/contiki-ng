@@ -59,7 +59,9 @@
 #if BUILD_WITH_LAYERED
 #include "layered.h"
 #endif
-
+#if BUILD_WITH_PACKET_TYPE
+#include "packet-type.h"
+#endif
 /* Log configuration */
 #include "sys/log.h"
 #define LOG_MODULE "TSCH Queue"
@@ -248,12 +250,12 @@ void tsch_queue_get_actual_queue(linkaddr_t* neighbor_queue_addr) {
   // If this is a RPL packet, change the addr to a broadcast-addr such that
   // all RPL packets (including unicast) ends up in the broadcast queue
   // This will reduce reliability of unicast RPL packets
-  if(packetbuf_attr(PACKETBUF_ATTR_TEST) == LAYERED_PACKET_TYPE_RPL) {
+  if(packetbuf_attr(PACKETBUF_ATTR_PACKET_TYPE) == PACKET_TYPE_RPL) {
     linkaddr_copy(neighbor_queue_addr, &tsch_broadcast_address);
     //LOG_DBG("asd Added RPL packet to broadcast queue\n");
   }
   // Do same for TSCH keepalive packets
-  else if(packetbuf_attr(PACKETBUF_ATTR_TEST) == LAYERED_PACKET_TYPE_KEEPALIVE) {
+  else if(packetbuf_attr(PACKETBUF_ATTR_PACKET_TYPE) == PACKET_TYPE_KEEPALIVE) {
     linkaddr_copy(neighbor_queue_addr, &tsch_broadcast_address);
     //LOG_DBG("asd Added TSCH KA packet to broadcast queue\n");
   }
@@ -288,6 +290,10 @@ tsch_queue_add_packet(const linkaddr_t *addr, uint8_t max_transmissions,
   struct tsch_neighbor *n = NULL;
   int16_t put_index = -1;
   struct tsch_packet *p = NULL;
+
+#ifdef BUILD_WITH_PACKET_TYPE
+  packet_type_set_from_packetbuf();
+#endif
 
 #ifdef TSCH_CALLBACK_PACKET_READY
   /* The scheduler provides a callback which sets the timeslot and other attributes */
@@ -410,9 +416,9 @@ tsch_queue_packet_sent(struct tsch_neighbor *n, struct tsch_packet *p,
 #if BUILD_WITH_LAYERED
   // If this was a RPL or KA packet it originated from the broadcast queue
   // and not the unicast-destination queue.
-  int packet_attr_type = queuebuf_attr(p->qb, PACKETBUF_ATTR_TEST);
-  if(packet_attr_type == LAYERED_PACKET_TYPE_RPL ||
-      packet_attr_type == LAYERED_PACKET_TYPE_KEEPALIVE) {
+  int packet_attr_type = queuebuf_attr(p->qb, PACKETBUF_ATTR_PACKET_TYPE);
+  if(packet_attr_type == PACKET_TYPE_RPL ||
+      packet_attr_type == PACKET_TYPE_KEEPALIVE) {
     n = n_broadcast;
   }
 #endif
@@ -526,7 +532,7 @@ static bool scheduler_calculate_packet_cell(
     uint16_t* packet_slotframe, uint16_t* packet_timeslot,
     uint16_t* packet_channel_offset, struct queuebuf* packet_qbuf) {
 
-  layered_packet_type_t packet_type = 0;
+  packet_type_t packet_type = 0;
   uint16_t frame_type = queuebuf_attr(packet_qbuf, PACKETBUF_ATTR_FRAME_TYPE);
   uint8_t* data = ((uint8_t*)queuebuf_dataptr(packet_qbuf)) + 21; // TODO queuebuf does not remove header
   uint16_t data_len = queuebuf_datalen(packet_qbuf);
@@ -542,7 +548,8 @@ static bool scheduler_calculate_packet_cell(
 //  LOG_DBG_LLADDR(queuebuf_addr(packet_qbuf, PACKETBUF_ADDR_RECEIVER));
 //  LOG_DBG("\n");
 
-  if(!layered_calc_packet_cell(frame_type, data, data_len,
+  if(!layered_calc_packet_cell(
+      packetbuf_attr(PACKETBUF_ATTR_PACKET_TYPE), frame_type, data, data_len,
       packet_slotframe, packet_timeslot, packet_channel_offset,
       &packet_type)) {
     return false;
@@ -761,7 +768,7 @@ tsch_queue_get_packet_for_nbr(struct tsch_neighbor *n, struct tsch_link *link)
         struct queuebuf* packet_qbuf = n->tx_array[get_index]->qb;
 
         // Sanity check that we are dealing only with application packets
-        int packet_attr_type = queuebuf_attr(packet_qbuf, PACKETBUF_ATTR_TEST);
+        int packet_attr_type = queuebuf_attr(packet_qbuf, PACKETBUF_ATTR_PACKET_TYPE);
         if(packet_attr_type != 1) {
           TSCH_LOG_ADD(tsch_log_message,
                        snprintf(log->message, sizeof(log->message),

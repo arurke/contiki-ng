@@ -211,7 +211,7 @@ print_link_type(uint16_t link_type)
   }
 }
 #if BUILD_WITH_LAYERED_FLOW
-// We use special prefix 0xffff in addr. to indicate this is a flow
+// We use special prefix 0xff0f in addr. to indicate this is a flow
 // This adds two constraints:
 // 1. Flow-addresses are limited to the 6 LSB
 // 2. Node MAC-addresses cannot start with FLOW_ADDRESS_PREFIX
