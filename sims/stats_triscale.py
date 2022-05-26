@@ -438,6 +438,7 @@ def add_kpi(kpis, metric,
 
 def analyze_scenario(runs_df, scenario_name,
                      spatial_comparison, has_spatial,
+                     rpl_convergence_comparison,
                      plots_triscale_dir):
     scenario_entry = {"scenario": scenario_name}
 
@@ -525,19 +526,20 @@ def analyze_scenario(runs_df, scenario_name,
 
     # Now do only converged runs for selected metrics
     #metrics_for_converged = ["mac_app_tx_etx", "app_cell_etx", "pdr", "latency", "prr"]
-    print("runs_df: " + str(runs_df))
-    metrics_for_converged = ["pdr", "latency", "prr"]
-    runs_converged_df = runs_df[runs_df["rpl_converged"] == True]
-    for metric in runs_converged_df.columns:
-        for kpi in kpis:
-            if kpi["metric"] in metric:
-                if kpi["metric"] in metrics_for_converged:
-                    entry_name = "converged_" + metric + kpi['name']
-                    scenario_entry[entry_name] = \
-                        calculate_kpi(runs_converged_df[metric].values,
-                                      kpi["settings"],
-                                      metric, entry_name,
-                                      plots_triscale_dir)
+    if rpl_convergence_comparison:
+        print("runs_df: " + str(runs_df))
+        metrics_for_converged = ["pdr", "latency", "prr"]
+        runs_converged_df = runs_df[runs_df["rpl_converged"] == True]
+        for metric in runs_converged_df.columns:
+            for kpi in kpis:
+                if kpi["metric"] in metric:
+                    if kpi["metric"] in metrics_for_converged:
+                        entry_name = "converged_" + metric + kpi['name']
+                        scenario_entry[entry_name] = \
+                            calculate_kpi(runs_converged_df[metric].values,
+                                          kpi["settings"],
+                                          metric, entry_name,
+                                          plots_triscale_dir)
 
     return pd.DataFrame([scenario_entry])
 
@@ -563,6 +565,7 @@ def stats_for_scenario(scenario, spatial_comparison,
     # Analyze the run-stats to get scenario-stats
     scenario_df = analyze_scenario(scenario["runs_df"], scenario['name'],
                                    spatial_comparison, scenario['has_spatial'],
+                                   scenario["rpl_convergence_comparison"],
                                    plots_kpis_dir)
 
     return scenario_df
@@ -1053,7 +1056,7 @@ def print_meta_info(scenarios):
               ", parent switch: " + str(skipped_runs_switch) +
               ", errors: " + str(skipped_runs_error))
         print("\tRPL converged: " + str(converged_runs) + " out of " + str(parsed_runs))
-        print("\tTriscale metrics converged:")
+        print("\tTriscale metrics included:")
         print(scenario["runs_df"].notnull().sum(axis=0).to_string(dtype=False))
 
 def meta_stats(scenarios, plots_meta_dir, plots_time_dir):

@@ -685,6 +685,11 @@ def plot_spatial_comparison_kpis(scenarios_df,
     print("Made figure", fig_path)
 
 def plot_comparison(scenarios, scenarios_df, plot_dir, title=False):
+    rpl_convergence_comparison = False
+    for scenario in scenarios:
+        if scenario["rpl_convergence_comparison"]:
+            rpl_convergence_comparison = True
+
     scenarios_to_plot = []
     for scenario in scenarios:
         scenarios_to_plot.append(
@@ -708,24 +713,62 @@ def plot_comparison(scenarios, scenarios_df, plot_dir, title=False):
     kpis = [{"desc": "Median latency", "name": "latency_50",
              "percentile": "default", "bound": "upper"}]
     plot_compare_kpis(scenarios_df, scenarios_to_plot, kpis,
-                      str(DEFAULT_PERC) + "p_latency",
+                      str(DEFAULT_PERC) + "p_latency_50",
                       plot_dir)
     kpis = [{"desc": "Median latency", "name": "latency_50",
              "percentile": "adhoc", "bound": "upper"}]
     plot_compare_kpis(scenarios_df, scenarios_to_plot, kpis,
-                      str(ADHOC_PERC) + "p_latency",
+                      str(ADHOC_PERC) + "p_latency_50",
+                      plot_dir)
+
+    kpis = [{"desc": "Maximum latency", "name": "latency_maximum",
+             "percentile": "adhoc", "bound": "upper"}]
+    plot_compare_kpis(scenarios_df, scenarios_to_plot, kpis,
+                      str(ADHOC_PERC) + "p_latency_max",
+                      plot_dir)
+    kpis = [{"desc": "Maximum latency", "name": "latency_maximum",
+             "percentile": "default", "bound": "upper"}]
+    plot_compare_kpis(scenarios_df, scenarios_to_plot, kpis,
+                      str(DEFAULT_PERC) + "p_latency_max",
+                      plot_dir)
+    
+    kpis = [{"desc": "99 percentile latency", "name": "latency_99",
+             "percentile": "default", "bound": "upper"}]
+    plot_compare_kpis(scenarios_df, scenarios_to_plot, kpis,
+                      str(DEFAULT_PERC) + "p_latency_99",
+                      plot_dir)
+    kpis = [{"desc": "99 percentile latency", "name": "latency_99",
+             "percentile": "adhoc", "bound": "upper"}]
+    plot_compare_kpis(scenarios_df, scenarios_to_plot, kpis,
+                      str(ADHOC_PERC) + "p_latency_99",
                       plot_dir)
 
     kpis = [{"desc": "Median duty cycle", "name": "duty_cycle_50",
              "percentile": "default", "bound": "upper"}]
     plot_compare_kpis(scenarios_df, scenarios_to_plot, kpis,
-                      str(DEFAULT_PERC) + "p_duty_cycle",
+                      str(DEFAULT_PERC) + "p_duty_cycle_50",
+                      plot_dir)
+    kpis = [{"desc": "Median duty cycle", "name": "duty_cycle_50",
+             "percentile": "adhoc", "bound": "upper"}]
+    plot_compare_kpis(scenarios_df, scenarios_to_plot, kpis,
+                      str(ADHOC_PERC) + "p_duty_cycle_50",
+                      plot_dir)
+
+    kpis = [{"desc": "Mean duty cycle", "name": "duty_cycle_mean",
+             "percentile": "default", "bound": "upper"}]
+    plot_compare_kpis(scenarios_df, scenarios_to_plot, kpis,
+                      str(DEFAULT_PERC) + "p_duty_cycle_mean",
+                      plot_dir)
+    kpis = [{"desc": "Mean duty cycle", "name": "duty_cycle_mean",
+             "percentile": "adhoc", "bound": "upper"}]
+    plot_compare_kpis(scenarios_df, scenarios_to_plot, kpis,
+                      str(ADHOC_PERC) + "p_duty_cycle_mean",
                       plot_dir)
 
     kpis = [{"desc": "Median queue utilization", "name": "queue_fill_50",
              "percentile": "default", "bound": "upper"}]
     plot_compare_kpis(scenarios_df, scenarios_to_plot, kpis,
-                      str(DEFAULT_PERC) + "p_queue_utilization",
+                      str(DEFAULT_PERC) + "p_queue_utilization_50",
                       plot_dir)
 
     kpis = [{"desc": "RPL parent switches", "name": "parent_switches_count",
@@ -734,31 +777,32 @@ def plot_comparison(scenarios, scenarios_df, plot_dir, title=False):
                       str(DEFAULT_PERC) + "p_parent_switches",
                       plot_dir)
 
-    # Same as above, but only converged runs
-    kpis = [{"desc": "PRR", "name": "converged_prr_mean",
-             "percentile": "default", "bound": "lower"},
-            {"desc": "PDR", "name": "converged_pdr_mean",
-             "percentile": "default", "bound": "lower"}]
-    plot_compare_kpis(scenarios_df, scenarios_to_plot, kpis,
-                      "converged_" + str(DEFAULT_PERC) + "p_reliability",
-                      plot_dir)
+    if rpl_convergence_comparison:
+        # Same as above, but only converged runs
+        kpis = [{"desc": "PRR", "name": "converged_prr_mean",
+                 "percentile": "default", "bound": "lower"},
+                {"desc": "PDR", "name": "converged_pdr_mean",
+                 "percentile": "default", "bound": "lower"}]
+        plot_compare_kpis(scenarios_df, scenarios_to_plot, kpis,
+                          "converged_" + str(DEFAULT_PERC) + "p_reliability",
+                          plot_dir)
 
-    kpis = [{"desc": "Median latency", "name": "converged_latency_50",
-             "percentile": "default", "bound": "upper"}]
-    plot_compare_kpis(scenarios_df, scenarios_to_plot, kpis,
-                      "converged_" + str(DEFAULT_PERC) + "p_latency",
-                      plot_dir)
-    kpis = [{"desc": "Median latency", "name": "converged_latency_50",
-             "percentile": "adhoc", "bound": "upper"}]
-    plot_compare_kpis(scenarios_df, scenarios_to_plot, kpis,
-                      "converged_" + str(ADHOC_PERC) + "p_latency",
-                      plot_dir) # TODO this naming can be done inside compare_kpis?
+        kpis = [{"desc": "Median latency", "name": "converged_latency_50",
+                 "percentile": "default", "bound": "upper"}]
+        plot_compare_kpis(scenarios_df, scenarios_to_plot, kpis,
+                          "converged_" + str(DEFAULT_PERC) + "p_latency_50",
+                          plot_dir)
+        kpis = [{"desc": "Median latency", "name": "converged_latency_50",
+                 "percentile": "adhoc", "bound": "upper"}]
+        plot_compare_kpis(scenarios_df, scenarios_to_plot, kpis,
+                          "converged_" + str(ADHOC_PERC) + "p_latency_50",
+                          plot_dir) # TODO this naming can be done inside compare_kpis?
 
-    #kpis = [{"desc": "Median queue utilization", "name": "converged_queue_fill_50",
-    #         "percentile": "default", "bound": "upper"}]
-    #plot_compare_kpis(scenarios_df, scenarios_to_plot, kpis,
-    #                  "converged_" + str(DEFAULT_PERC) + "p_queue_utilization",
-    #                  plot_dir)
+        #kpis = [{"desc": "Median queue utilization", "name": "converged_queue_fill_50",
+        #         "percentile": "default", "bound": "upper"}]
+        #plot_compare_kpis(scenarios_df, scenarios_to_plot, kpis,
+        #                  "converged_" + str(DEFAULT_PERC) + "p_queue_utilization",
+        #                  plot_dir)
 
     return
 

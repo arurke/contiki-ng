@@ -12,6 +12,7 @@ TESTBED_DURATION = "duration"
 TESTBED_NODES = "nodes"
 TESTBED_APP_WARMUP = "app_warmup"
 TESTBED_SPATIAL_COMPARISON = "spatial_comparison"
+TESTBED_CONVERGENCE_COMPARISON = "rpl_convergence_comparison"
 
 SCENARIO_CFLAGSEXTRA = "cflagsextra"
 SCENARIO_MAKEFLAGS = "makeflags"
@@ -34,6 +35,8 @@ def experiment_config_parse(filename):
                 int(config[GLOBAL_SECTION][GLOBAL_NUM_RUNS])
             experiment_config[TESTBED_SPATIAL_COMPARISON] = \
                 config[GLOBAL_SECTION].getboolean(TESTBED_SPATIAL_COMPARISON)
+            experiment_config[TESTBED_CONVERGENCE_COMPARISON] = \
+                config[GLOBAL_SECTION].getboolean(TESTBED_CONVERGENCE_COMPARISON)
             continue
 
         if section_name == SIMULATION_SECTION:
@@ -81,5 +84,8 @@ def experiment_config_parse(filename):
         if TESTBED_SPATIAL_COMPARISON not in scenario:
             scenario[TESTBED_SPATIAL_COMPARISON] = \
                 experiment_config[TESTBED_SPATIAL_COMPARISON]
+        if TESTBED_CONVERGENCE_COMPARISON not in scenario:
+            scenario[TESTBED_CONVERGENCE_COMPARISON] = \
+                experiment_config[TESTBED_CONVERGENCE_COMPARISON]
 
     return config, experiment_config, scenarios
