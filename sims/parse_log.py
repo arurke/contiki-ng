@@ -594,7 +594,7 @@ def doParse(file, app_warmup, testbed):
             print("ERR! Too many log-lines out of order")
             return None
 
-    return arrays
+    return arrays, len(mac_to_node_id_map)
 
 def outputStats(dfs, key, metric, agg, name, metricLabel=None):
     if not key in dfs:
@@ -634,7 +634,8 @@ def convert_data_arrays_to_dfs(arrays):
 
     return dfs
 
-def parse_logfile(file, app_warmup, has_spatial, quiet=False):
+def parse_logfile(file, app_warmup, has_spatial,
+                  num_expected_nodes, quiet=False):
     # Stop output. This solution is a mess and I dont understand it. TODO
     global print
     print = logging.info
@@ -659,7 +660,7 @@ def parse_logfile(file, app_warmup, has_spatial, quiet=False):
 
     meta = {"result": "ok"}
 
-    data_arrays = doParse(file, app_warmup, testbed)
+    data_arrays, num_nodes_in_log = doParse(file, app_warmup, testbed)
     if data_arrays is None:
         print("Error when parsing!")
         meta["result"] = "error"
@@ -671,6 +672,15 @@ def parse_logfile(file, app_warmup, has_spatial, quiet=False):
         print("Empty DFs!")
         meta["result"] = "error"
         return None, meta
+
+    # Verify all nodes are running and outputting log
+    if num_expected_nodes != 0:
+        if num_expected_nodes != num_nodes_in_log:
+            print("Node(s) missing! Expected %d, was %d" % \
+                  (num_nodes, num_nodes_in_log))
+            print("All nodes:" + str(num_nodes_in_log))
+            meta["result"] = "error"
+            return None, meta
 
     # Verify application has finished on all nodes
     if "packets" not in dfs:
@@ -985,7 +995,7 @@ def parse_logfile(file, app_warmup, has_spatial, quiet=False):
 
 # Inspired by http://www.randalolson.com/2012/06/26/using-pandas-dataframes/
 # Parses all logs in directory into a dict of DFs
-def parse_logs_dir(directory, app_warmup, has_spatial):
+def parse_logs_dir(directory, app_warmup, has_spatial, num_nodes):
     directory = directory.rstrip('/') + "/*"
 
     # A dictionary of metrics containing dictionaries of DF from each run
@@ -1011,7 +1021,7 @@ def parse_logs_dir(directory, app_warmup, has_spatial):
             print("Parsing " + logfile)
 
             run_dfs, meta = \
-                parse_logfile(logfile, app_warmup, has_spatial,
+                parse_logfile(logfile, app_warmup, has_spatial, num_nodes,
                               logging.getLogger() == logging.INFO)
 
             # Metadata
@@ -1059,12 +1069,23 @@ def parse_logs_dir(directory, app_warmup, has_spatial):
     print("Converged: " + str(converged_runs) + " out of " + str(parsed_runs))
     return scenario_meta_df, all_runs_dfs
 
-def parse_logs_scenario(scenario_dir, scenario_name, app_warmup, has_spatial):
+def parse_logs_scenario(scenario_dir, scenario_name, app_warmup,
+                        has_spatial, num_nodes):
     print("\n\nNow parsing scenario " + scenario_name)
-    scenario_meta_df, dfs = parse_logs_dir(scenario_dir, app_warmup, has_spatial)
+    scenario_meta_df, dfs = parse_logs_dir(scenario_dir, app_warmup,
+                                           has_spatial, num_nodes)
     print(scenario_meta_df)
     print("Done parsing scenario " + scenario_name + "\n\n")
     return scenario_meta_df, dfs
+
+def number_of_nodes_in_scenario(scenario):
+    # Ugly heuristic to find number of nodes in config
+    # String of "nodes" is e.g. "358+356+354+351+348+346"
+    # Note, only testbed supported
+    if "nodes" in scenario:
+        return scenario["nodes"].count('+') + 1
+    else:
+        return 0
 
 def parse_logs_scenarios(scenarios, quiet=False):
     # Stop output. This solution is a mess and I dont understand it. TODO
@@ -1076,10 +1097,12 @@ def parse_logs_scenarios(scenarios, quiet=False):
                     format="%(message)s")
 
     for scenario in scenarios:
+        num_nodes = number_of_nodes_in_scenario(scenario)
         scenario_meta_df, raw_dfs = parse_logs_scenario(scenario['path'],
                                       scenario['name'],
                                       int(scenario['app_warmup']),
-                                      scenario['has_spatial'])
+                                      scenario['has_spatial'],
+                                      num_nodes)
 
         scenario["meta_df"] = scenario_meta_df
         # Add the raw DFs to the scenario dict in the scenarios list

@@ -47,7 +47,7 @@ def experiment_config_parse(filename):
         if section_name == TESTBED_SECTION:
             experiment_config["duration"] = \
                 int(config[TESTBED_SECTION][TESTBED_DURATION])
-            experiment_config["nodes"] = \
+            experiment_config[TESTBED_NODES] = \
                 config[TESTBED_SECTION][TESTBED_NODES]
             experiment_config["app_warmup"] = \
                 config[TESTBED_SECTION][TESTBED_APP_WARMUP]
@@ -87,5 +87,7 @@ def experiment_config_parse(filename):
         if TESTBED_CONVERGENCE_COMPARISON not in scenario:
             scenario[TESTBED_CONVERGENCE_COMPARISON] = \
                 experiment_config[TESTBED_CONVERGENCE_COMPARISON]
+        if TESTBED_NODES not in scenario:
+            scenario[TESTBED_NODES] = experiment_config[TESTBED_NODES]
 
     return config, experiment_config, scenarios
