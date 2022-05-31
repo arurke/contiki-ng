@@ -1063,8 +1063,9 @@ def meta_stats(scenarios, plots_meta_dir, plots_time_dir):
 
     meta_non_converged_run_etx_timelines(scenarios, plots_time_dir)
 
-    meta_timeline_all_runs(scenarios, "raw_mac_tx_dfs", "transmissions", "ETX", 4, plots_meta_dir)
-    meta_timeline_all_runs(scenarios, "raw_packets_dfs", "latency", "latency", 7, plots_meta_dir)
+    #meta_timeline_all_runs(scenarios, "raw_mac_tx_dfs", "transmissions", "ETX", 4, plots_meta_dir)
+    meta_timeline_all_runs(scenarios, "raw_mac_cell_dfs", "prr", "PRR", 100, plots_meta_dir)
+    meta_timeline_all_runs(scenarios, "raw_packets_dfs", "latency", "latency", 20, plots_meta_dir)
     meta_timeline_all_runs(scenarios, "raw_packets_dfs", "pdr", "PDR", 100, plots_meta_dir)
 
     meta_all_parent_switches(scenarios, plots_meta_dir)
