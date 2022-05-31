@@ -193,6 +193,16 @@ def plot_compare_kpis(scenarios_df, scenarios_info, kpis,
                 value = datapoint.lower
                 error_lower = 0
                 error_upper = datapoint.upper - datapoint.lower
+
+            #print("Values (%s/%s/%s) for plot %s" % \
+            #       (str(value), str(error_lower), str(error_upper), name))
+
+            # Skip plot if any values are invalid
+            if np.isnan(value) or np.isnan(error_lower) or np.isnan(error_upper):
+                print("Invalid values (%s / %s / %s). Skipping plot %s" % \
+                      (str(value), str(error_lower), str(error_upper), name))
+                return
+
             kpis_data.append({"name": kpi["name"],
                               "datapoint": datapoint,
                               "value": value,
