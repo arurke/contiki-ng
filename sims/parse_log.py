@@ -906,12 +906,12 @@ def parse_logfile(file, app_warmup, has_spatial,
         #    outputStats(dfs, "mac_stats", "hack_deletions", "max", "Hack deleted packets")
         #    meta["result"] = "error"
         #    return None, meta
-        if missing_neighbor_total_app > 0:
+        if missing_neighbor_total_app > 2:
             print("Missing neighbor!")
             outputStats(dfs, "mac_stats", "missing_neighbor", "max", "Missing neighbor")
             meta["result"] = "error"
             return None, meta
-        if layered_err_total_app > 0:
+        if layered_err_total_app > 2:
             print("Layered error!")
             outputStats(dfs, "mac_stats", "layered_err", "max", "Layered error")
             meta["result"] = "error"
