@@ -280,7 +280,6 @@ def analyze_run(run_name, spatial_comparison, has_spatial,
 
     # Make the following metrics for the given measures for the given DFs
     # The-per-node is a bit hackish - gave them special prefix
-    #default_measures = ["mean", 50, 95, 99, "maximum"]
     default_measures = ["mean", 50, 95, 99, "maximum"]
 
     metrics_basics = \
@@ -421,8 +420,7 @@ def add_kpi(kpis, metric,
               confidence=95,
               bounds=[],
               bound_lower=True,
-              bound_upper=True,
-              default=False):
+              bound_upper=True):
 
     new_kpi = {"metric" : metric,
                "settings":{"percentile": percentile,
@@ -430,8 +428,6 @@ def add_kpi(kpis, metric,
                }}
     if bounds:
         new_kpi["settings"]["bounds"] = bounds
-    if default:
-        new_kpi["default"] = True
     if bound_lower:
         new_kpi["settings"]["bound"] = "lower"
         kpis.append(copy.deepcopy(new_kpi))
@@ -449,15 +445,15 @@ def analyze_scenario(runs_df, scenario_name,
     kpis = []
 
     # Default ones (see add_kpi() for default values)
-    add_kpi(kpis, "pdr", bounds=[0.001,100], default=True)
-    add_kpi(kpis, "latency", bounds=[0.001,100], default=True)
-    add_kpi(kpis, "prr", bounds=[0.001,100], default=True)
-    add_kpi(kpis, "duty_cycle", bounds=[0.001,100], default=True)
-    #add_kpi(kpis, "duty_cycle_tx", bounds=[0.001,100],  default=True)
-    #add_kpi(kpis, "duty_cycle_rx", bounds=[0.001,100], default=True)
-    add_kpi(kpis, "queue_fill", bounds=[0.001,100], default=True)
+    add_kpi(kpis, "pdr", bounds=[0.001,100])
+    add_kpi(kpis, "latency", bounds=[0.001,100])
+    add_kpi(kpis, "prr", bounds=[0.001,100])
+    add_kpi(kpis, "duty_cycle", bounds=[0.001,100])
+    #add_kpi(kpis, "duty_cycle_tx", bounds=[0.001,100])
+    #add_kpi(kpis, "duty_cycle_rx", bounds=[0.001,100])
+    add_kpi(kpis, "queue_fill", bounds=[0.001,100])
     # Setting bounds here just to avoid bug #6 in TriScale
-    add_kpi(kpis, "parent_switches", bounds=[0,10000], default=True)
+    add_kpi(kpis, "parent_switches", bounds=[0,10000])
 
     # More specialized ones
     adhoc_percentile_high = ADHOC_PERC
@@ -508,18 +504,12 @@ def analyze_scenario(runs_df, scenario_name,
             bound = "_lower"
         else:
             bound = "_upper"
-        # KPIs marked as default get special static naming for easier handling
-        if kpi.get("default") == True:
-            kpi["name"] = \
-                "_default" + \
-                bound
-        else:
-            kpi["name"] = \
-                "_perc" + \
-                str(kpi["settings"]["percentile"]) + \
-                "_conf" + \
-                str(kpi["settings"]["confidence"]) + \
-                bound
+        kpi["name"] = \
+            "_perc" + \
+            str(kpi["settings"]["percentile"]) + \
+            "_conf" + \
+            str(kpi["settings"]["confidence"]) + \
+            bound
 
     # Calculate KPIs and add to scenario-dict
     for metric in runs_df.columns:
