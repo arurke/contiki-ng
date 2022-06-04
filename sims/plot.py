@@ -258,6 +258,8 @@ def plot_compare_kpis(scenarios_df, scenarios_info, kpis,
     # Add some decoration. AD HOC TODO
     if "latency" in kpi_list[0]:
         ax.set_ylabel('Latency (s)')
+    elif "parent_switches_count" in kpi_list[0]:
+        ax.set_ylabel('Num. switches')
     else:
         ax.set_ylabel("%")
     #ax.set_title('Key metrics, normalized to without spatial reuse')

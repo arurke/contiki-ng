@@ -281,7 +281,7 @@ def analyze_run(run_name, spatial_comparison, has_spatial,
     # Make the following metrics for the given measures for the given DFs
     # The-per-node is a bit hackish - gave them special prefix
     #default_measures = ["mean", 50, 95, 99, "maximum"]
-    default_measures = ["mean", 50]
+    default_measures = ["mean", 50, 95, 99, "maximum"]
 
     metrics_basics = \
         [{"df": packets_df, "metric": "latency", "measures": default_measures},
@@ -291,7 +291,7 @@ def analyze_run(run_name, spatial_comparison, has_spatial,
         [{"df": app_cell_df, "metric": "prr", "measures":["mean"]}]
 
     metrics_energy = \
-        [{"df": energest_df, "metric": "duty_cycle", "measures": default_measures}]
+        [{"df": energest_df, "metric": "duty_cycle", "measures": ["mean", 50]}]
          #{"df": energest_df, "metric": "duty_cycle_tx", "measures": default_measures},
          #{"df": energest_df, "metric": "duty_cycle_rx", "measures": default_measures}]
 
@@ -300,12 +300,13 @@ def analyze_run(run_name, spatial_comparison, has_spatial,
          {"df": switches_df, "metric": "parent_switches", "measures":["count"]}]
 
     metrics_queue = \
-        [{"df": queue_df, "metric": "queue_fill", "measures": default_measures}]
+        [{"df": queue_df, "metric": "queue_fill", "measures": ["mean", 50, "maximum"]}]
 
+    # Update: We prefer PRR instead of ETX
     # ETX for all TXes, using the MAC TX DF
-    if mac_tx_df is not None:
-        metrics_etx = \
-            [{"df": app_mac_tx_df, "metric": "mac_app_tx_etx", "measures": ["absolute"]}]
+    #if mac_tx_df is not None:
+    #    metrics_etx = \
+    #        [{"df": app_mac_tx_df, "metric": "mac_app_tx_etx", "measures": ["absolute"]}]
 
     # Add the metrics we want to calculate
     metrics = []
@@ -314,8 +315,8 @@ def analyze_run(run_name, spatial_comparison, has_spatial,
     metrics.extend(metrics_energy)
     metrics.extend(metrics_queue)
     metrics.extend(metrics_rpl)
-    if mac_tx_df is not None:
-        metrics.extend(metrics_etx)
+    #if mac_tx_df is not None:
+    #    metrics.extend(metrics_etx)
 
     # Ad-hoc handling of spatial comparison metrics
     if spatial_comparison:
@@ -455,7 +456,8 @@ def analyze_scenario(runs_df, scenario_name,
     #add_kpi(kpis, "duty_cycle_tx", bounds=[0.001,100],  default=True)
     #add_kpi(kpis, "duty_cycle_rx", bounds=[0.001,100], default=True)
     add_kpi(kpis, "queue_fill", bounds=[0.001,100], default=True)
-    add_kpi(kpis, "parent_switches", default=True)
+    # Setting bounds here just to avoid bug #6 in TriScale
+    add_kpi(kpis, "parent_switches", bounds=[0,10000], default=True)
 
     # More specialized ones
     adhoc_percentile_high = ADHOC_PERC
@@ -470,6 +472,9 @@ def analyze_scenario(runs_df, scenario_name,
             bounds=[0.001,120])
     add_kpi(kpis, "prr",
             percentile=adhoc_percentile_low, confidence=adhoc_confidence,
+            bounds=[0.001,120])
+    add_kpi(kpis, "duty_cycle",
+            percentile=adhoc_percentile_high, confidence=adhoc_confidence,
             bounds=[0.001,120])
     if spatial_comparison:
         if has_spatial:
@@ -487,9 +492,10 @@ def analyze_scenario(runs_df, scenario_name,
                     #percentile=adhoc_percentile_low, confidence=adhoc_confidence,
                     #bounds=[1,20])
 
-    add_kpi(kpis, "mac_app_tx_etx",
-            percentile=adhoc_percentile_low, confidence=adhoc_confidence,
-            bounds=[1,20])
+    # We prefer PRR instead of ETX
+    #add_kpi(kpis, "mac_app_tx_etx",
+    #        percentile=adhoc_percentile_low, confidence=adhoc_confidence,
+    #        bounds=[1,20])
 
     #add_kpi(kpis, "hop_count",
     #        percentile=50, confidence=95)
