@@ -450,7 +450,7 @@ def analyze_scenario(runs_df, scenario_name,
 
     # Default ones (see add_kpi() for default values)
     add_kpi(kpis, "pdr", bounds=[0.001,100], default=True)
-    add_kpi(kpis, "latency", bounds=[0.001,120], default=True)
+    add_kpi(kpis, "latency", bounds=[0.001,100], default=True)
     add_kpi(kpis, "prr", bounds=[0.001,100], default=True)
     add_kpi(kpis, "duty_cycle", bounds=[0.001,100], default=True)
     #add_kpi(kpis, "duty_cycle_tx", bounds=[0.001,100],  default=True)
@@ -466,28 +466,28 @@ def analyze_scenario(runs_df, scenario_name,
 
     add_kpi(kpis, "latency",
             percentile=adhoc_percentile_high, confidence=adhoc_confidence,
-            bounds=[0.001,120])
+            bounds=[0.001,100])
     add_kpi(kpis, "pdr",
             percentile=adhoc_percentile_low, confidence=adhoc_confidence,
-            bounds=[0.001,120])
+            bounds=[0.001,100])
     add_kpi(kpis, "prr",
             percentile=adhoc_percentile_low, confidence=adhoc_confidence,
-            bounds=[0.001,120])
+            bounds=[0.001,100])
     add_kpi(kpis, "duty_cycle",
             percentile=adhoc_percentile_high, confidence=adhoc_confidence,
-            bounds=[0.001,120])
+            bounds=[0.001,100])
     if spatial_comparison:
         if has_spatial:
             add_kpi(kpis, "spatial_cell_prr",
                     percentile=adhoc_percentile_low, confidence=adhoc_confidence,
-                    bounds=[0.001,120])
+                    bounds=[0.001,100])
             #add_kpi(kpis, "app_cell_etx",
                     #percentile=adhoc_percentile_low, confidence=adhoc_confidence,
                     #bounds=[1,20])
         if not has_spatial:
             add_kpi(kpis, "selected_cell_prr",
                     percentile=adhoc_percentile_low, confidence=adhoc_confidence,
-                    bounds=[0.001,120])
+                    bounds=[0.001,100])
             #add_kpi(kpis, "app_selected_cell_etx",
                     #percentile=adhoc_percentile_low, confidence=adhoc_confidence,
                     #bounds=[1,20])
