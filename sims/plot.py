@@ -4,13 +4,8 @@ import numpy as np
 from dataclasses import dataclass
 import itertools
 import copy
-# For plot to show up in IPython
-#%matplotlib inline
 
-#df_packets = pd.read_csv('outP.csv')
-#df_queue = pd.read_csv('outQ.csv')
-
-plt.rcParams.update({'font.size': 10})
+plt.rcParams.update({'font.size': 12})
 
 # Must match that in stats_triscale. TODO
 DEFAULT_PERC = 50

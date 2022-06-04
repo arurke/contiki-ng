@@ -176,6 +176,7 @@ def calculate_metric(input_df, metric, measure, name, plots_dir):
     #if "transmitters_hop" in name:
     #    return np.nan
 
+    #print(df)
     convergence_result, calculated_measure, figure = \
         triscale.analysis_metric(
             df, {"measure":measure},
@@ -184,7 +185,8 @@ def calculate_metric(input_df, metric, measure, name, plots_dir):
             showplot=False, verbose=False)
 
     if not convergence_result:
-        print("Not converged for " + name)
+        print("Metric not converged for " + name)
+
         # Make plot
         triscale.analysis_metric(
             df, {"measure":measure},
