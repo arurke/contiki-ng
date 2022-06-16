@@ -88,7 +88,6 @@
 #define LAYERED_RAW_SF_LEN      (LAYERED_MAX_NUM_NODES * LAYERED_NUM_LAYERS)
 #define NUM_COMMON_SLOTS        (LAYERED_RAW_SF_LEN / COMMON_SLOT_SPACING) + 1 //TODO
 #define LAYERED_SF_LEN          (LAYERED_RAW_SF_LEN + NUM_COMMON_SLOTS)
-#define SCHED_SLOTFRAME_LEN     LAYERED_SF_LEN
 
 /* The hash function used to assign timeslot to a given node (based on its link-layer address).
  * For rules with multiple channel offsets, it is also used to select the channel offset. */

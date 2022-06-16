@@ -216,13 +216,18 @@ static bool has_parent_changed(void) {
   }
 }
 
+static uint32_t transmission_start_spread(void) {
+  // Spread transmissions across one interval
+  return random_rand() % SEND_INTERVAL;
+}
+
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(app_process, ev, data)
 {
   static struct etimer periodic_timer;
   static uint32_t packet_count = 0;
   static uint32_t packet_skipped = 0;
-  static char str[64];
+  static char tx_str[64];
   static uip_ipaddr_t dest_ipaddr;
 
   PROCESS_BEGIN();
@@ -261,29 +266,14 @@ PROCESS_THREAD(app_process, ev, data)
 
     // Schedule start of transmission
     clock_time_t convergence_delay_ticks = (APP_DELAY_TX * CLOCK_SECOND);
-    uint32_t slotframe_duration_ms =
-        (uint32_t)((uint32_t)SCHED_SLOTFRAME_LEN * \
-        TSCH_DEFAULT_TIMESLOT_TIMING[tsch_ts_timeslot_length]) / 1000;
-//    LOG_INFO("sizeof clock_time %u, sflen: %u. ts len: %u, sf dur ms: %lu\n",
-//                 sizeof(clock_time_t), SCHED_SLOTFRAME_LEN,
-//                 TSCH_DEFAULT_TIMESLOT_TIMING[tsch_ts_timeslot_length],
-//                 slotframe_duration_ms);
-    uint32_t random = random_rand();
-    clock_time_t intra_slotframe_delay_ticks =
-        ((random % slotframe_duration_ms) * CLOCK_SECOND) / 1000;
-//    LOG_INFO("rand: %lu, rand_ticsk_times_ms: %lu, delay: %"PRIu32"\n",
-//             (random),
-//             ((random % slotframe_duration_ms) * CLOCK_SECOND) ,
-//             intra_slotframe_delay_ticks);
+    clock_time_t spread_delay_ticks = transmission_start_spread();
 
-    etimer_set(
-        &periodic_timer,
-        convergence_delay_ticks + intra_slotframe_delay_ticks);
+    etimer_set(&periodic_timer, convergence_delay_ticks + spread_delay_ticks);
 
     LOG_INFO("Node %u, ticks_in_sec %"PRIu32"," \
              " interval %"PRIu16", c-delay %"PRIu32", s-delay %"PRIu32"\n",
-             node_id, (uint32_t)CLOCK_SECOND, SEND_INTERVAL, convergence_delay_ticks,
-             intra_slotframe_delay_ticks);
+             node_id, (uint32_t)CLOCK_SECOND, SEND_INTERVAL,
+             convergence_delay_ticks, spread_delay_ticks);
   }
 
   while(is_transmitting_node && packet_count < APP_NUM_PACKETS) {
@@ -316,11 +306,11 @@ PROCESS_THREAD(app_process, ev, data)
       LOG_INFO_6ADDR(&dest_ipaddr);
       LOG_INFO_(" from depth %u\n", depth);
       snprintf(
-          str,
-          sizeof(str),
+          tx_str,
+          sizeof(tx_str),
           "num %04"PRIu32" oTick %09"PRIu64"",
           packet_count, network_uptime);
-      simple_udp_sendto(&udp_conn, str, strlen(str), &dest_ipaddr);
+      simple_udp_sendto(&udp_conn, tx_str, strlen(tx_str), &dest_ipaddr);
       packet_count++;
     }
     else {

@@ -131,7 +131,6 @@
 //#define RPL_CONF_DEFAULT_LIFETIME 60
 //#define RPL_CONF_DAG_LIFETIME 100
 
-#define SCHED_SLOTFRAME_LEN                   ORCHESTRA_CONF_UNICAST_PERIOD
 #endif
 
 // Num nodes supported for layers (including sink)
@@ -152,11 +151,6 @@
 
 #if BUILD_WITH_LAYERED
 #define TSCH_SCHEDULE_CONF_MAX_SLOTFRAMES     1
-#endif
-
-// TODO make proper
-#if TSCH_SCHEDULE_CONF_WITH_6TISCH_MINIMAL
-#define SCHED_SLOTFRAME_LEN                   7
 #endif
 
 // TODO just for testing after queues got filled up. Number from Atis
