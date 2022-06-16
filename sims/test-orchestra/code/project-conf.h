@@ -106,8 +106,9 @@
 //#endif
 
 #if BUILD_WITH_ORCHESTRA
-// Max. channel offset for the unicast slotframe. Minimum is 2.
-#define ORCHESTRA_CONF_UNICAST_MAX_CHANNEL_OFFSET 2
+// Max. channel offset for the unicast slotframe.
+// Leave at default
+//#define ORCHESTRA_CONF_UNICAST_MAX_CHANNEL_OFFSET (sizeof(TSCH_CONF_DEFAULT_HOPPING_SEQUENCE) - 1)
 
 // Length of EB SF (def. 397)
 #define ORCHESTRA_CONF_EBSF_PERIOD            397
@@ -121,8 +122,8 @@
 // Is hash collision free? (def.  0)
 #define ORCHESTRA_CONF_COLLISION_FREE_HASH    1
 
-// Max hash output size (def. 0x7fff)
-#define ORCHESTRA_CONF_MAX_HASH               49
+// Max hash output size (def. 0x7fff). Set to number of nodes.
+#define ORCHESTRA_CONF_MAX_HASH               16
 
 // Sender or receiver based (def. receiver)
 #define ORCHESTRA_CONF_UNICAST_SENDER_BASED   1
@@ -131,10 +132,16 @@
 //#define RPL_CONF_DEFAULT_LIFETIME 60
 //#define RPL_CONF_DAG_LIFETIME 100
 
+#if BUILD_WITH_DEPLOYMENT && TESTBED
+// Hash that uses deployment ID. Needed in testbed.
+#define ORCHESTRA_CONF_DEPLOYMENT_HASH        1
+#endif
+
 #endif
 
 // Num nodes supported for layers (including sink)
-#define LAYERED_CONF_MAX_NUM_NODES            49
+//#define LAYERED_CONF_MAX_NUM_NODES            49
+#define LAYERED_CONF_MAX_NUM_NODES            17 // Also removed the ad-hoc fix in layered-conf.h
 #define LAYERED_CONF_NUM_LAYERS               2
 #define LAYERED_CONF_COMMON_SLOT_SPACING      11
 //#define LAYERED_CONF_CHANNELS                 (uint8_t[]){1,2}

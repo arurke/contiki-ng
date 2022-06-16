@@ -58,6 +58,8 @@
 
 #if BUILD_WITH_DEPLOYMENT
 #include "services/deployment/deployment.h"
+// When changing num. nodes, remember to update scheduler configs
+// such as orchestra max. hash.
 const struct id_mac deployment_fit[] = {
   { 0x01, {{0x02,0x00,0x00,0x00,0x00,0x00,0x93,0x78}}}, // 358
   { 0x02, {{0x02,0x00,0x00,0x00,0x00,0x00,0xa6,0x81}}}, // 356
