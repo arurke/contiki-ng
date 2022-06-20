@@ -13,7 +13,9 @@ PLOT_TRISCALE_FOLDER_NAME = "triscale"
 
 spatial_reuse_links = []
 
-plt.rcParams.update({'font.size': 12})
+FONT_SIZE = 17
+
+plt.rcParams.update({'font.size': FONT_SIZE})
 
 # Must match that in plot. TODO
 DEFAULT_PERC = 50
@@ -868,7 +870,6 @@ def meta_channel_performance_per_node(
         scenarios, plots_dir, node_field, plot_name, plot_only_problems):
     for scenario in scenarios:
         mac_cell_all_runs_df = scenario['raw_dfs']["raw_mac_cell_dfs"]
-        scenario_channel_perf_dfs = []
         for run in mac_cell_all_runs_df.keys():
             mac_cell_df = mac_cell_all_runs_df[run]
             # We are only interested in app-packets
@@ -879,62 +880,46 @@ def meta_channel_performance_per_node(
 
             # Select the columns we are interested in
             channel_perf_df = mac_cell_app_df[["channel", "result", node_field]]
-            #scenario_channel_perf_dfs.append(channel_perf_df)
-            #print(scenario_channel_perf_dfs)
-
-            # Create one large DF out of the list of run DFs
-            #scenario_channel_perf_df = \
-            #    pd.concat(scenario_channel_perf_dfs, ignore_index=True)
-
-            number_of_nodes = channel_perf_df[node_field].nunique()
+            channel_prr_df = mac_cell_app_df[["channel", "prr", node_field]]
 
             # Treat each node
             make_plot = False
             nodes_data = []
-            for node in channel_perf_df[node_field].unique():
-                node_channel_perf_df = \
-                    channel_perf_df[channel_perf_df[node_field] == node]
+            for node in channel_prr_df[node_field].unique():
+                high_prr = False
 
-                # Calculate ETX per channel
-                groups = node_channel_perf_df.groupby("channel")["result"]
-                channels = []
-                etxs = []
-                high_etx = False
-                for channel, result in groups:
-                    # 0 indicate success
-                    num_success = len(result[result == 0])
-                    num_total = len(result)
+                node_channel_prr_df = \
+                    channel_prr_df[channel_prr_df[node_field] == node]
 
-                    # Include only if there is enough traffic
-                    if num_total < 75:
-                        continue
+                channels_prr = \
+                    node_channel_prr_df.groupby("channel")["prr"].mean().reset_index()
 
-                    if num_success == 0:
-                        etx = 8
-                    else:
-                        etx = num_total / num_success
+                # Include only if there is enough traffic
+                min_packets_per_channel = 75
+                num_channels = channels_prr["channel"].nunique()
+                if len(node_channel_prr_df) < (num_channels * min_packets_per_channel):
+                    continue
 
-                    if etx > 4:
-                        # Make plot for this run only if anyone has high ETX
-                        make_plot = True
-                        high_etx = True
+                if any(prr < 0.6 for prr in channels_prr["prr"]):
+                    high_prr = True
+                    # Make plot for this run only if anyone has low prr
+                    make_plot = True
 
-                    etxs.append(etx)
-                    channels.append(channel)
-
-                # Make plot for this node if there is data for it
-                if etxs:
-                    # If plot_only_problems, add node only if high ETX
-                    if plot_only_problems and not high_etx:
-                        continue
-                    else:
-                        nodes_data.append({"node": node,
-                                           "etxs": etxs,
-                                           "channels": channels,
-                                           "high_etx": high_etx})
+                # If plot_only_problems, add node only if high PRR
+                if plot_only_problems and not high_prr:
+                    continue
+                else:
+                    nodes_data.append({"node": node,
+                                       "prrs": channels_prr["prr"],
+                                       "channels": channels_prr["channel"],
+                                       "high_prr": high_prr})
 
             if nodes_data and make_plot:
                 # Define and calculate subplot positions
+
+                # Set specific font-size for this plot
+                plt.rcParams['font.size'] = '12'
+
                 num_nodes = len(nodes_data)
                 num_columns = 3
                 num_rows = num_nodes // num_columns + 1
@@ -944,23 +929,28 @@ def meta_channel_performance_per_node(
                 for num, node_data in enumerate(nodes_data):
                     node_channel_perf_df = \
                         pd.DataFrame({'channel':node_data["channels"],
-                                      'etxs':node_data["etxs"]})
+                                      'prr':node_data["prrs"]})
                     ax = fig.add_subplot(num_rows, num_columns, position[num])
-                    ax.set_ylim(0, 10) # Ad-hoc value. Difficult to do dynamically.
+                    ax.set_ylim(0, 105)
                     ax.bar(node_channel_perf_df["channel"],
-                           node_channel_perf_df["etxs"])
+                           node_channel_perf_df["prr"])
                     ax.set_xticks(node_channel_perf_df["channel"])
                     ax.set_title('Node ' + str(node_data["node"]))
                     ax.label_outer()
-                    if node_data["high_etx"]:
-                        ax.set_facecolor('red')
+                    #ax.spines['top'].set_visible(False)
+                    #ax.spines['right'].set_visible(False)
+                    if node_data["high_prr"]:
+                        ax.set_facecolor('#FF6666')
 
-                fig.supylabel("ETX (ALL application packet " + plot_name + ")")
+                fig.supylabel("PRR for application packets (%)")
                 fig.supxlabel("Physical channel")
                 plt.tight_layout()
                 plt.savefig(plots_dir + "meta_" + scenario['name'] + \
-                          "_" + run + "_all_" + plot_name + "_nodes_channels_etx.pdf")
+                          "_" + run + "_all_" + plot_name + "_nodes_channels_prr.pdf")
                 plt.close()
+
+                # Set font-size back to default
+                plt.rcParams['font.size'] = FONT_SIZE
 
 # TODO to make temp-folder
 import os
@@ -1011,15 +1001,20 @@ def meta_channel_performance(scenarios, plots_dir):
         plt.bar(scenario_channel_perf_df["channel"], scenario_channel_perf_df["etxs"])
         plt.xticks(scenario_channel_perf_df["channel"])
         plt.xlabel("Physical channel")
-        plt.ylabel("ETX (ALL application packet TXes)")
+        plt.ylabel("ETX for application packets")
+
         plt.savefig(plots_dir + "meta_" + scenario['name'] + \
                   "_channels_etx.pdf")
         plt.close()
 
+        # Remove box-frame at top and right
+        fig,ax = plt.subplots()
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
         plt.bar(channels_prr["channel"], channels_prr["prr"])
         plt.xticks(channels_prr["channel"])
         plt.xlabel("Physical channel")
-        plt.ylabel("PRR for all application packets (%)")
+        plt.ylabel("PRR for application packets (%)")
         plt.savefig(plots_dir + "meta_" + scenario['name'] + \
                   "_channels_prr.pdf")
         plt.close()
@@ -1028,9 +1023,10 @@ def meta_channel_performance(scenarios, plots_dir):
     # Make plots with all nodes, per run
     temp_dir = plots_dir + "temp/"
     os.mkdir(temp_dir)
-    # ETX per transmitting node
+
+    # PRR per transmitting node
     meta_channel_performance_per_node(scenarios, temp_dir, "node", "tx", False)
-    # ETX per receiving node
+    # PRR per receiving node
     meta_channel_performance_per_node(scenarios, temp_dir, "node_dest", "rx", True)
 
 def print_meta_info(scenarios):
