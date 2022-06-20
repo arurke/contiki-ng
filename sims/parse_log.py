@@ -677,7 +677,7 @@ def parse_logfile(file, app_warmup, has_spatial,
     if num_expected_nodes != 0:
         if num_expected_nodes != num_nodes_in_log:
             print("Node(s) missing! Expected %d, was %d" % \
-                  (num_nodes, num_nodes_in_log))
+                  (num_expected_nodes, num_nodes_in_log))
             print("All nodes:" + str(num_nodes_in_log))
             meta["result"] = "error"
             return None, meta
