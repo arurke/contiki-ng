@@ -359,6 +359,7 @@ def doParse(file, app_warmup, testbed):
     application_start = None
     unknown_line_count = 0
     log_order_error = 0
+    packet_multiple_rx = 0
     time = None
     arrays = {}
 
@@ -470,7 +471,26 @@ def doParse(file, app_warmup, testbed):
                             txElement = packet
 
                     if txElement == None:
-                        # This is because of wrong order of log
+                        # This is because we either
+                        # 1) Already received it (missed ACK), or
+                        # 2) the log is in wrong order
+
+                        # 1. Check if already received (missed ACK)
+                        multiple_rx = False
+                        for packet in arrays["packets"]:
+                            if packet['packet_id'] == ret['packet_id'] and \
+                               packet['node'] == entry['node'] and \
+                               packet['event'] == 'send':
+                                #print("Packet already received")
+                                #print("Received now: " + str(ret))
+                                #print("Already received: " + str(packet))
+                                packet_multiple_rx += 1
+                                multiple_rx = True
+
+                        if multiple_rx:
+                            continue
+
+                        # 2. Assume this is because of wrong order of log
                         # Add packet into array, the TX will be added later
                         entry['pdr'] = 100.
                         #print("Unable find the TX of the RXed packet! Looking for:")
@@ -481,7 +501,8 @@ def doParse(file, app_warmup, testbed):
                         #return None
 
                     # Calculate and add latency
-                    txElement['latency'] = (entry['timestamp'] - txElement['timestamp']).total_seconds()
+                    txElement['latency'] = \
+                        (entry['timestamp'] - txElement['timestamp']).total_seconds()
                     txElement['pdr'] = 100.
 
                     # Sanity check tick at transmission matches the packet oTick
@@ -585,11 +606,17 @@ def doParse(file, app_warmup, testbed):
     for packet in arrays["packets"]:
         if packet["event"] == "recv":
             print("ERR! Missing TX for RXed packet!")
+            print(str(packet))
+            return None
+
+    if packet_multiple_rx > 0:
+        print("Number of duplicate RXs: " + str(packet_multiple_rx))
+        if packet_multiple_rx > 20:
+            print("ERR! Too many duplicate RXes")
             return None
 
     if log_order_error > 0:
         print("Number of log-lines out of order: " + str(log_order_error))
-
         if log_order_error > 100:
             print("ERR! Too many log-lines out of order")
             return None
