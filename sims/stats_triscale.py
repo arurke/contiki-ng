@@ -267,7 +267,10 @@ def analyze_run(run_name, spatial_comparison, has_spatial,
     # DF with app-mac-packets only
     if mac_tx_df is not None:
         app_mac_tx_df = mac_tx_df[mac_tx_df["app"] == 1].copy() # TODO unnecessary copy?
-    app_cell_df = cell_df[cell_df["app"] == 1].copy()
+    if cell_df is not None:
+        app_cell_df = cell_df[cell_df["app"] == 1].copy()
+    else:
+        app_cell_df = None
 
     # Make queue DF per node
     #ss_queue_df_2 = ss_queue_df.copy()
@@ -312,7 +315,8 @@ def analyze_run(run_name, spatial_comparison, has_spatial,
     # Add the metrics we want to calculate
     metrics = []
     metrics.extend(metrics_basics)
-    metrics.extend(metrics_prr)
+    if app_cell_df is not None:
+        metrics.extend(metrics_prr)
     metrics.extend(metrics_energy)
     metrics.extend(metrics_queue)
     metrics.extend(metrics_rpl)
@@ -346,7 +350,10 @@ def analyze_runs(raw_dfs, scenario_name,
     raw_packets_dfs = raw_dfs["raw_packets_dfs"]
     raw_energest_dfs = raw_dfs["raw_energest_dfs"]
     raw_queue_dfs = raw_dfs["raw_queue_dfs"]
-    raw_cell_dfs = raw_dfs["raw_mac_cell_dfs"]
+    if "raw_mac_cell_dfs" in raw_dfs:
+        raw_cell_dfs = raw_dfs["raw_mac_cell_dfs"]
+    else:
+        raw_cell_dfs = None
     raw_switches_dfs = raw_dfs["raw_switches_dfs"]
     raw_rpl_stats_dfs = raw_dfs["raw_rpl_stats_dfs"]
     if "raw_mac_tx_dfs" in raw_dfs:
@@ -360,6 +367,10 @@ def analyze_runs(raw_dfs, scenario_name,
             raw_mac_tx_app_df = raw_mac_tx_dfs[run][raw_mac_tx_dfs[run]["app_started"] == 1]
         else:
             raw_mac_tx_app_df = None
+        if raw_cell_dfs is not None:
+            raw_cell_app_df = raw_cell_dfs[run][raw_cell_dfs[run]["app_started"] == 1]
+        else:
+            raw_cell_app_df = None
         runs_df_dict.append(
             analyze_run(scenario_name + "_" + run,
                         spatial_comparison, has_spatial,
@@ -368,7 +379,7 @@ def analyze_runs(raw_dfs, scenario_name,
                         raw_energest_dfs[run][raw_energest_dfs[run]["app_started"] == 1],
                         raw_queue_dfs[run][raw_queue_dfs[run]["app_started"] == 1],
                         raw_mac_tx_app_df,
-                        raw_cell_dfs[run][raw_cell_dfs[run]["app_started"] == 1],
+                        raw_cell_app_df,
                         raw_switches_dfs[run][raw_switches_dfs[run]["app_started"] == 1],
                         raw_rpl_stats_dfs[run][raw_rpl_stats_dfs[run]["app_started"] == 1]))
 
@@ -588,6 +599,8 @@ def ad_hoc_etx_per_node(raw_mac_tx_dfs, cell_dfs):
 def ad_hoc_etx_per_node_all(scenarios):
     node_max_etx = []
     for scenario in scenarios:
+        if "raw_mac_tx_dfs" not in scenario['raw_dfs']:
+            return
         mac_tx_all_runs_df = scenario['raw_dfs']["raw_mac_tx_dfs"]
         for run in mac_tx_all_runs_df.keys():
             mac_tx_run_df = mac_tx_all_runs_df[run]
@@ -792,6 +805,8 @@ def meta_channel_performance_overview(scenarios, plots_dir):
     make_plot = False
 
     for scenario in scenarios:
+        if "raw_mac_cell_dfs" not in scenario['raw_dfs']:
+            return
         mac_cell_all_runs_df = scenario['raw_dfs']["raw_mac_cell_dfs"]
         scenario_channel_perf_dfs = []
 
@@ -956,6 +971,8 @@ def meta_channel_performance_per_node(
 import os
 def meta_channel_performance(scenarios, plots_dir):
     for scenario in scenarios:
+        if "raw_mac_cell_dfs" not in scenario['raw_dfs']:
+            return
         mac_cell_all_runs_df = scenario['raw_dfs']["raw_mac_cell_dfs"]
         scenario_channel_perf_dfs = []
         scenario_channel_prr_dfs = []
