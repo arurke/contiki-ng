@@ -6,6 +6,8 @@ import copy
 import matplotlib.pyplot as plt
 sys.path.append('triscale')
 import triscale as triscale
+# TODO to make temp-folder
+import os
 
 PLOT_TIMESERIES_FOLDER_NAME = "timeseries"
 PLOT_META_FOLDER_NAME = "meta"
@@ -967,8 +969,6 @@ def meta_channel_performance_per_node(
                 # Set font-size back to default
                 plt.rcParams['font.size'] = FONT_SIZE
 
-# TODO to make temp-folder
-import os
 def meta_channel_performance(scenarios, plots_dir):
     for scenario in scenarios:
         if "raw_mac_cell_dfs" not in scenario['raw_dfs']:
@@ -981,48 +981,15 @@ def meta_channel_performance(scenarios, plots_dir):
             # We are only interested in app-packets
             mac_cell_app_all_runs_df = mac_cell_df[mac_cell_df["app_started"] == 1]
             mac_cell_app_df = mac_cell_df[mac_cell_df["app"] == 1]
-            #if len(mac_cell_app_df) == 0:
-            #    continue
 
             # Select the columns we are interested in
-            channel_perf_df = mac_cell_app_df[["channel", "result"]]
             channel_prr_df = mac_cell_app_df[["channel", "prr"]]
-            scenario_channel_perf_dfs.append(channel_perf_df)
             scenario_channel_prr_dfs.append(channel_prr_df)
-            #print(scenario_channel_perf_dfs)
 
         # Create one large DF out of the list of run DFs
-        scenario_channel_perf_df = pd.concat(scenario_channel_perf_dfs, ignore_index=True)
         scenario_channel_prr_df = pd.concat(scenario_channel_prr_dfs, ignore_index=True)
 
-        groups = scenario_channel_perf_df.groupby("channel")["result"]
-        channels = []
-        etxs = []
-        for name, group in groups:
-            # 0 indicate success
-            num_success = len(group[group == 0])
-            num_total = len(group)
-            if num_success == 0:
-                etx = 8
-            else:
-                etx = num_total / num_success
-
-            etxs.append(etx)
-            channels.append(name)
-
         channels_prr = scenario_channel_prr_df.groupby("channel")["prr"].mean().reset_index()
-
-#        scenario_channel_perf_df = scenario_channel_perf_df.groupby("channel")["transmissions"].mean()
-#        scenario_channel_perf_df = scenario_channel_perf_df.reset_index()
-        scenario_channel_perf_df = pd.DataFrame({'channel':channels, 'etxs':etxs})
-        plt.bar(scenario_channel_perf_df["channel"], scenario_channel_perf_df["etxs"])
-        plt.xticks(scenario_channel_perf_df["channel"])
-        plt.xlabel("Physical channel")
-        plt.ylabel("ETX for application packets")
-
-        plt.savefig(plots_dir + "meta_" + scenario['name'] + \
-                  "_channels_etx.pdf")
-        plt.close()
 
         # Remove box-frame at top and right
         fig,ax = plt.subplots()
