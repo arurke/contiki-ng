@@ -802,6 +802,7 @@ def parse_logfile(file, app_warmup, has_spatial,
         app_tx_etx = app_tx["transmissions"].sum() / \
             len(app_tx["transmissions"][app_tx["result"] == "ok"])
 
+    if "mac_cell" in dfs:
         # Find ETX for spatial reused cells. Only supported when running Layered! (due to app field)
         mac_cell_df = dfs["mac_cell"]
         # Note that there might be slightly more TX here than with the "mac_tx"
@@ -965,7 +966,8 @@ def parse_logfile(file, app_warmup, has_spatial,
 
     print("global-stats:")
     print("  pdr: %.4f" % (app_packets_df["pdr"].mean()))
-    print("  prr: %.4f" % (mac_cell_app_df["prr"].mean()))
+    if "mac_cell" in dfs:
+        print("  prr: %.4f" % (mac_cell_app_df["prr"].mean()))
     print("  loss-rate: %.e" % (1 - (app_packets_df["pdr"].mean() / 100)))
     print("  packets-sent: %u" % (packets_sent))
     print("  packets-received: %u" % (packets_received))
