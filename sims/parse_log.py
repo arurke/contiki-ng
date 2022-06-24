@@ -409,9 +409,9 @@ def doParse(file, app_warmup, testbed):
                     # Could happen if log is in wrong order
                     order_error = False
                     for packet in arrays["packets"]:
-                        if packet['event'] == 'recv' and \
-                           mac_to_node_id_map[packet['src']] == entry['node'] and \
-                           packet['packet_id'] == ret['packet_id']:
+                        if packet['packet_id'] == ret['packet_id'] and \
+                           packet['event'] == 'recv' and \
+                           mac_to_node_id_map[packet['src']] == entry['node']:
                             #print("Found packet which is already RX")
                             #print("TX packet:")
                             #print(entry)
@@ -465,9 +465,9 @@ def doParse(file, app_warmup, testbed):
                     # First find the row
                     txElement = None
                     for packet in arrays["packets"]:
-                        if packet['event'] == 'send' and \
-                           packet['node'] == ret['src'] and \
-                           packet['packet_id'] == ret['packet_id']:
+                        if packet['packet_id'] == ret['packet_id'] and \
+                           packet['event'] == 'send' and \
+                           packet['node'] == ret['src']:
                             txElement = packet
 
                     if txElement == None:
