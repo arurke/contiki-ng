@@ -542,7 +542,7 @@ tsch_tx_process_pending(void)
     LOG_INFO_(", %u B, seqno %u, status %d, tx %d\n", packetbuf_datalen(),
       packetbuf_attr(PACKETBUF_ATTR_MAC_SEQNO), p->ret, p->transmissions);
 
-#if TSCH_WITH_LINK_SELECTOR
+#if TSCH_WITH_LINK_SELECTOR && BUILD_WITH_LAYERED
 
     // Check if this was application packet and then print?
     // Because we are interested in collisions on dedicated cells...?
