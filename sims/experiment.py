@@ -115,9 +115,11 @@ def add_commands_run_testbed(exp_name, scenarios, num_runs, duration, nodes):
         for run in range(num_runs):
             run_name = exp_name + "_scenario_" + scenario['name']
             # Folder for runs have naming run00, run01, etc. for easy sorting
-            logs_path = scenario['path'] + "run" + str('%0.2d' % run) + "/"
-            run_cmd = "./run-testbed.sh " + run_name + " " + scenario['firmware'] + \
-                " " + logs_path + " " + str(duration) + " grenoble,m3," + nodes
+            run_str = "run" + str('%0.2d' % run)
+            logs_path = scenario['path'] + run_str + "/"
+            run_cmd = "./run-testbed.sh " + run_name + "-" + run_str + " " + \
+                scenario['firmware'] + " " + logs_path + " " + \
+                str(duration) + " grenoble,m3," + nodes
 
             # Add finished command to the scenario run-cmd array
             scenario_run_cmds.append(run_cmd.split(' '))
