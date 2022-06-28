@@ -609,9 +609,11 @@ tsch_tx_process_pending(void)
     // TODO With TSCH-queue re-calculating TS/CH, those fields may not be accurate since it is based
     // on the packetbuf content. However, this should only be true when RPL topology changes.
     // Simplified version of fuller prinout further down
+#if 0 // Disable printout for now (only used for ETX)
     LOG_WARN("cell %d/%d, tx: %u, app: %d, res: %s\n",
              timeslot, channel,p->transmissions,
              packetbuf_attr(PACKETBUF_ATTR_PACKET_TYPE) == PACKET_TYPE_APP, result);
+#endif
 
     if(link == NULL) {
       LOG_WARN("link NULL! sf: %u, ts: %d, offset: %d ch: %d\n",
