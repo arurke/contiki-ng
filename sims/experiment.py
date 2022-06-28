@@ -40,9 +40,6 @@ REMOTE_EXPERIMENT_PATH = "~/experiments/"
 REMOTE_CONNECT = "arurke@phd.netwurke.com"
 REMOTE_LOG_FILE = "remote_execution.log"
 
-#NODES = "358+343+328+313+298+290+203+188"
-NODES = "358+356+354+351+348+346+344+342+340+338+336+334+332+330+328+326"
-
 @dataclass
 class Config:
     type: str
