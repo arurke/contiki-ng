@@ -16,6 +16,7 @@ try:
     from plot import plot_queue_util_selected_nodes
     from plot import plot_spatial_comparison
     from plot import plot_comparison
+    from plot import plot_comparison_single_kpi_grouped
     from plot import plot_etx_details
     #from stats import stats_for_scenarios
     from stats_triscale import stats_for_scenarios
@@ -175,6 +176,7 @@ def process_results(scenarios, execution_dir, from_csv):
     print("Scenarios stats:\n", scenarios_df)
 
     # Plot
+    plot_comparison_single_kpi_grouped(scenarios, scenarios_df, plots_dir)
     plot_comparison(scenarios, scenarios_df, plots_dir)
     if spatial_comparison:
         plot_spatial_comparison(scenarios_df, plots_dir)

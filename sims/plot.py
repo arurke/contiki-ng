@@ -111,6 +111,104 @@ def plot_etx_details(scenarios_df, plot_dir, title=False):
     print("Made figure", fig_path)
 
 
+# Makes a plot comparing the given KPI for group1 and group2 in the
+# given scenario
+# Note! Requires group1 and group2 to be set in configuration files
+def plot_compare_single_kpi_with_groups(scenarios_df, scenarios_info, kpi,
+                                        plot_name, x_label, y_label,  plot_dir,
+                                        special=False):
+
+    scenarios = copy.deepcopy(scenarios_info)
+
+    # Fetch correct KPI value fromm the DF of each scenario
+    for scenario in scenarios:
+        row = scenarios_df.loc[scenario["name"]]
+        value = row[make_kpi_field(kpi["name"], kpi["bound"],
+                                       kpi['percentile'], kpi["bound"])]
+
+        # A stupid ad-hoc handling for spatial reuse comparison
+        # Needed because it requires comparing two different metrics
+        # For spatial scenario, the prr_spatial_mean is used (prr of all spatial links)
+        # While non-spatial uses the app_selected_cell_prr_mean
+        # (prr of all links which had spatial traffic in earlier scenario).
+        # TODO long-term solution is to change the input into this function
+        if special:
+            if scenario["name"] == "no_spatial_reuse":
+                if kpi["name"] == "spatial_cell_prr_mean":
+                    value = \
+                        row[make_kpi_field("selected_cell_prr_mean",
+                                           kpi["bound"],
+                                           kpi['percentile'],
+                                           kpi["bound"])]
+                if kpi["name"] == "converged_spatial_cell_prr_mean":
+                    value = \
+                        row[make_kpi_field("converged_selected_cell_prr_mean",
+                                           kpi["bound"],
+                                           kpi['percentile'],
+                                           kpi["bound"])]
+
+        # Skip plot if any values are invalid
+        if np.isnan(value):
+            print("Invalid value (%s). Skipping plot %s" % \
+                  (str(value), name))
+            return
+
+        scenario["kpi_value"] = value
+
+    #print(str(scenarios))
+
+    # Make a DF from the scenarios dict (contains a lot of stuff)
+    df = pd.DataFrame.from_dict(scenarios)
+
+    # Make DF look like this (x-ihdex is index):
+    #        Layered  Minimal  Orchestra
+    # x-index
+    # 0.5 s    4.5520   0.0660    11.5490
+    # 1 s      1.0440  21.8610    22.7400
+    # 2 s      0.8785  34.2565    17.6330
+    df = df.pivot_table(values="kpi_value", index=["x-index"], columns="grouping")
+    # pivot_table makes multi-level index, undo this
+    df = df.rename_axis(None, axis=1)
+
+    # reverse order and fix decimals
+    df = df.reindex(index=df.index[::-1])
+    df = df.round(decimals = 1)
+
+    # Make plot wider
+    plt.rcParams["figure.figsize"] = (10,5)
+    plt.rcParams.update({'font.size': 15})
+
+    ax = df.plot.bar(rot=0, width=0.80)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    for bars in ax.containers:
+        ax.bar_label(bars)
+    plt.xlabel(x_label)
+    plt.ylabel(y_label)
+
+    # Remove some air at on the sides of the first and last bars
+    # Probably not a scalable approach
+    plt.xlim([-0.5, len(df)-0.5])
+
+    fig_name = ""
+    if plot_name:
+        fig_name += plot_name + "_"
+    fig_name += "single_kpi_comparison"
+    fig_dir = plot_dir
+    fig_path = fig_dir + fig_name + '.pdf'
+    #ax.relim()
+
+    plt.tight_layout()
+    plt.savefig(fig_path, bbox_inches='tight')
+    plt.close()
+
+    print("Made figure", fig_path)
+
+    # Reset size
+    plt.rcParams["figure.figsize"] = plt.rcParamsDefault["figure.figsize"]
+    plt.rcParams.update({'font.size': 17})
+
+
 #scenarios = [{"name": "spatial_reuse", "desc": "With spatial reuse"},
 #         {"name": "no_spatial_reuse", "desc": "Without spatial reuse"}]
 #
@@ -690,6 +788,47 @@ def plot_spatial_comparison_kpis(scenarios_df,
     plt.savefig(fig_path, bbox_inches='tight')
     plt.close()
     print("Made figure", fig_path)
+
+def plot_comparison_single_kpi_grouped(scenarios, scenarios_df, plot_dir, title=False):
+    for scenario in scenarios:
+        if "group1" not in scenario or "group2" not in scenario:
+            print("Skipping plotting for single KPI")
+            return
+
+    scenarios_to_plot = []
+    for scenario in scenarios:
+        scenarios_to_plot.append(
+            {"name": scenario['name'], "desc": scenario['description'],
+             "x-index": scenario['group2'], "grouping": scenario["group1"]})
+
+    kpi = {"desc": "99-percentile latency", "name": "latency_99",
+             "percentile": "default", "bound": "upper"}
+    plot_compare_single_kpi_with_groups(scenarios_df, scenarios_to_plot, kpi,
+                      str(DEFAULT_PERC) + "p_latency_99",
+                      "Transmission interval", "Latency (s)",
+                      plot_dir)
+
+    kpi = {"desc": "Mean PDR", "name": "pdr_mean",
+             "percentile": "default", "bound": "upper"}
+    plot_compare_single_kpi_with_groups(scenarios_df, scenarios_to_plot, kpi,
+                      str(DEFAULT_PERC) + "p_pdr_mean",
+                      "Transmission interval", "PDR (%)",
+                      plot_dir)
+
+    kpi = {"desc": "Median duty cycle", "name": "duty_cycle_50",
+             "percentile": "default", "bound": "upper"}
+    plot_compare_single_kpi_with_groups(scenarios_df, scenarios_to_plot, kpi,
+                      str(DEFAULT_PERC) + "p_duty_cycle_50",
+                      "Transmission interval", "Duty cycle (%)",
+                      plot_dir)
+
+    kpi = {"desc": "Mean duty cycle", "name": "duty_cycle_mean",
+             "percentile": "default", "bound": "upper"}
+    plot_compare_single_kpi_with_groups(scenarios_df, scenarios_to_plot, kpi,
+                      str(DEFAULT_PERC) + "p_duty_cycle_mean",
+                      "Transmission interval", "Duty cycle (%)",
+                      plot_dir)
+
 
 def plot_comparison(scenarios, scenarios_df, plot_dir, title=False):
     rpl_convergence_comparison = False
