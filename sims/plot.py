@@ -833,29 +833,33 @@ def plot_comparison_single_kpi_grouped(scenarios, scenarios_df, plot_dir, title=
 
 def plot_comparison(scenarios, scenarios_df, plot_dir, title=False):
     rpl_convergence_comparison = False
+    spatial_comparison = False
     for scenario in scenarios:
         if scenario["rpl_convergence_comparison"]:
             rpl_convergence_comparison = True
+        if scenario["spatial_comparison"]:
+            spatial_comparison = True
 
     scenarios_to_plot = []
     for scenario in scenarios:
         scenarios_to_plot.append(
             {"name": scenario['name'], "desc": scenario['description']})
 
-    kpis = [{"desc": "PRR", "name": "prr_mean",
-             "percentile": "default", "bound": "lower"},
-            {"desc": "PDR", "name": "pdr_mean",
-             "percentile": "default", "bound": "lower"}]
-    plot_compare_kpis(scenarios_df, scenarios_to_plot, kpis,
-                      str(DEFAULT_PERC) + "p_reliability",
-                      plot_dir)
-    kpis = [{"desc": "PRR", "name": "prr_mean",
-             "percentile": "adhoc", "bound": "lower"},
-            {"desc": "PDR", "name": "pdr_mean",
-             "percentile": "adhoc", "bound": "lower"}]
-    plot_compare_kpis(scenarios_df, scenarios_to_plot, kpis,
-                      str(ADHOC_PERC) + "p_reliability",
-                      plot_dir)
+    if spatial_comparison:
+        kpis = [{"desc": "PRR", "name": "prr_mean",
+                 "percentile": "default", "bound": "lower"},
+                {"desc": "PDR", "name": "pdr_mean",
+                 "percentile": "default", "bound": "lower"}]
+        plot_compare_kpis(scenarios_df, scenarios_to_plot, kpis,
+                          str(DEFAULT_PERC) + "p_reliability",
+                          plot_dir)
+        kpis = [{"desc": "PRR", "name": "prr_mean",
+                 "percentile": "adhoc", "bound": "lower"},
+                {"desc": "PDR", "name": "pdr_mean",
+                 "percentile": "adhoc", "bound": "lower"}]
+        plot_compare_kpis(scenarios_df, scenarios_to_plot, kpis,
+                          str(ADHOC_PERC) + "p_reliability",
+                          plot_dir)
 
     kpis = [{"desc": "Median latency", "name": "latency_50",
              "percentile": "default", "bound": "upper"}]
