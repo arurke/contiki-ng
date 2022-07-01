@@ -5,7 +5,8 @@ from dataclasses import dataclass
 import itertools
 import copy
 
-plt.rcParams.update({'font.size': 12})
+plt.rcParams.update({'font.size': 17})
+#plt.style.use('tableau-colorblind10')
 
 # Must match that in stats_triscale. TODO
 DEFAULT_PERC = 50
