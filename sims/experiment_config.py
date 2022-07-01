@@ -18,6 +18,8 @@ SCENARIO_CFLAGSEXTRA = "cflagsextra"
 SCENARIO_MAKEFLAGS = "makeflags"
 SCENARIO_DESCRIPTION = "description"
 SCENARIO_HAS_SPATIAL = "has_spatial"
+SCENARIO_GROUP1 = "group1" # Used for stats
+SCENARIO_GROUP2 = "group2" # Used for stats
 
 def experiment_config_parse(filename):
     config = configparser.ConfigParser()
@@ -72,6 +74,13 @@ def experiment_config_parse(filename):
         if SCENARIO_HAS_SPATIAL in scenario_config:
             scenario[SCENARIO_HAS_SPATIAL] = \
                 scenario_config.getboolean(SCENARIO_HAS_SPATIAL)
+
+        if SCENARIO_GROUP1 in scenario_config:
+            scenario[SCENARIO_GROUP1] = \
+                scenario_config[SCENARIO_GROUP1]
+        if SCENARIO_GROUP2 in scenario_config:
+            scenario[SCENARIO_GROUP2] = \
+                scenario_config[SCENARIO_GROUP2]
 
         scenarios.append(scenario)
         continue
