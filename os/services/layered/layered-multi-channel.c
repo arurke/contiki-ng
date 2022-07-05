@@ -845,7 +845,9 @@ schedule_upwards_tx_cell(
     struct tsch_link* link_to_remove =
         tsch_schedule_get_link_by_timeslot(sf_layered, timeslot, channel);
     // TODO add error-handling
-    tsch_schedule_remove_link(sf_layered, link_to_remove);
+    if(!tsch_schedule_remove_link(sf_layered, link_to_remove)) {
+      LOG_WARN("Remove link failed\n");
+    }
 #endif
   }
   else {
@@ -871,8 +873,10 @@ schedule_upwards_tx_cell(
       // all RPL operations.
       remove_other_cells_in_timeslot(timeslot, channel);
 #if BUILD_WITH_LAYERED_FLOW
-      tsch_schedule_add_link(sf_layered, link_options, LINK_TYPE_NORMAL,
-                             linkaddr, timeslot, channel, 1, true);
+      if(!tsch_schedule_add_link(sf_layered, link_options, LINK_TYPE_NORMAL,
+                                 linkaddr, timeslot, channel, 1, true)) {
+        LOG_WARN("Add link failed\n");
+      }
 #else
       tsch_schedule_add_link(sf_layered, link_options, LINK_TYPE_NORMAL,
                              &tsch_broadcast_address, timeslot, channel, 1);
@@ -907,7 +911,9 @@ schedule_upwards_rx_cell(
 #else
     struct tsch_link* link_to_remove =
             tsch_schedule_get_link_by_timeslot(sf_layered, timeslot, channel);
-    tsch_schedule_remove_link(sf_layered, link_to_remove);
+    if(!tsch_schedule_remove_link(sf_layered, link_to_remove)) {
+      LOG_WARN("Remove link failed\n");
+    }
 #endif
   }
   else {
@@ -928,8 +934,11 @@ schedule_upwards_rx_cell(
       remove_other_cells_in_timeslot(timeslot, channel);
 #if BUILD_WITH_LAYERED_FLOW
       // We do not care about RX cells being connected to flow
-      tsch_schedule_add_link(sf_layered, link_options, LINK_TYPE_NORMAL,
-                             &tsch_broadcast_address, timeslot, channel, 1, false);
+      if(!tsch_schedule_add_link(sf_layered, link_options, LINK_TYPE_NORMAL,
+                                 &tsch_broadcast_address, timeslot, channel,
+                                 1, false)) {
+        LOG_WARN("Add link failed\n");
+      }
 #else
       tsch_schedule_add_link(sf_layered, link_options, LINK_TYPE_NORMAL,
                              &tsch_broadcast_address, timeslot, channel, 1);
@@ -966,7 +975,9 @@ schedule_downwards_tx_cell(
 #else
     struct tsch_link* link_to_remove =
         tsch_schedule_get_link_by_timeslot(sf_layered, timeslot, channel);
-    tsch_schedule_remove_link(sf_layered, link_to_remove);
+    if(!tsch_schedule_remove_link(sf_layered, link_to_remove)) {
+      LOG_WARN("Remove link failed\n");
+    }
 #endif
   }
   else {
@@ -980,9 +991,12 @@ schedule_downwards_tx_cell(
 
       remove_other_cells_in_timeslot(timeslot, channel);
 #if BUILD_WITH_LAYERED_FLOW
-      tsch_schedule_add_link(sf_layered, link_options,
-                             LINK_TYPE_ADVERTISING_ONLY,
-                             &tsch_broadcast_address, timeslot, channel, 1, false);
+      if(!tsch_schedule_add_link(sf_layered, link_options,
+                                 LINK_TYPE_ADVERTISING_ONLY,
+                                 &tsch_broadcast_address, timeslot, channel,
+                                 1, false)) {
+        LOG_WARN("Add link failed\n");
+      }
 #else
       tsch_schedule_add_link(sf_layered, link_options,
                              LINK_TYPE_ADVERTISING_ONLY,
@@ -1015,7 +1029,9 @@ schedule_downwards_rx_cell(
 #else
     struct tsch_link* link_to_remove =
         tsch_schedule_get_link_by_timeslot(sf_layered, timeslot, channel);
-    tsch_schedule_remove_link(sf_layered, link_to_remove);
+    if(!tsch_schedule_remove_link(sf_layered, link_to_remove)) {
+      LOG_WARN("Remove link failed\n");
+    }
 #endif
   }
   else {
@@ -1029,9 +1045,12 @@ schedule_downwards_rx_cell(
 
       remove_other_cells_in_timeslot(timeslot, channel);
 #if BUILD_WITH_LAYERED_FLOW
-      tsch_schedule_add_link(sf_layered, link_options,
-                             LINK_TYPE_ADVERTISING_ONLY,
-                             &tsch_broadcast_address, timeslot, channel, 1, false);
+      if(!tsch_schedule_add_link(sf_layered, link_options,
+                                 LINK_TYPE_ADVERTISING_ONLY,
+                                 &tsch_broadcast_address, timeslot, channel,
+                                 1, false)) {
+        LOG_WARN("Add link failed\n");
+      }
 #else
       tsch_schedule_add_link(sf_layered, link_options,
                              LINK_TYPE_ADVERTISING_ONLY,
@@ -1062,8 +1081,10 @@ static void schedule_common_cells(void) {
     stats_add_link(timeslot, channel, options);
 #endif
 #if BUILD_WITH_LAYERED_FLOW
-    tsch_schedule_add_link(sf_layered, options, LINK_TYPE_NORMAL,
-                           &tsch_broadcast_address, i, channel, 1, false);
+    if(!tsch_schedule_add_link(sf_layered, options, LINK_TYPE_NORMAL,
+                           &tsch_broadcast_address, i, channel, 1, false)) {
+      LOG_ERR("Add common cells failed!\n");
+    }
 #else
     tsch_schedule_add_link(sf_layered, options, LINK_TYPE_NORMAL,
                            &tsch_broadcast_address, i, channel, 1);
