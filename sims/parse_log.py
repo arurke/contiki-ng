@@ -690,14 +690,14 @@ def parse_logfile(file, app_warmup, has_spatial,
     data_arrays, num_nodes_in_log = doParse(file, app_warmup, testbed)
     if data_arrays is None:
         print("Error when parsing!")
-        meta["result"] = "error"
+        meta["result"] = "error-parsing"
         return None, meta
 
     dfs = convert_data_arrays_to_dfs(data_arrays)
 
     if len(dfs) == 0:
         print("Empty DFs!")
-        meta["result"] = "error"
+        meta["result"] = "error-no-df"
         return None, meta
 
     # Verify all nodes are running and outputting log
@@ -706,13 +706,13 @@ def parse_logfile(file, app_warmup, has_spatial,
             print("Node(s) missing! Expected %d, was %d" % \
                   (num_expected_nodes, num_nodes_in_log))
             print("All nodes:" + str(num_nodes_in_log))
-            meta["result"] = "error"
+            meta["result"] = "error-miss-nodes"
             return None, meta
 
     # Verify application has finished on all nodes
     if "packets" not in dfs:
         print("No packets sent!")
-        meta["result"] = "error"
+        meta["result"] = "error-no-packets"
         return None, meta
 
     # Set app_started to 0 at end of all logs to remove e.g. packets in flight
@@ -734,9 +734,9 @@ def parse_logfile(file, app_warmup, has_spatial,
     num_non_root_nodes = dfs["energest"].node.nunique() - 1
     num_joined_nodes = dfs["dag_inits"].node.nunique()
     if num_joined_nodes != num_non_root_nodes:
-        print("Not all nodes joined DAO! " +
+        print("Not all nodes joined DAG! " +
               str(num_joined_nodes) + "/" + str(num_non_root_nodes))
-        meta["result"] = "error"
+        meta["result"] = "error-missing-rpl"
         return None, meta
 
     # Topology changes after app started
@@ -783,7 +783,7 @@ def parse_logfile(file, app_warmup, has_spatial,
     # Abort if there are almost no eligible packets sent
     if packets_sent < 100:
         print("Too few eligible app. packets! (" + str(packets_sent) + ")")
-        meta["result"] = "error"
+        meta["result"] = "error-app-packets"
         return None, meta
 
     # Abort if packets are sent too shallow
@@ -917,7 +917,7 @@ def parse_logfile(file, app_warmup, has_spatial,
         if timing_err_total_app > 10:
             print("Too many timing errors!")
             outputStats(dfs, "mac_stats", "timing_err", "max", "Missed TSCH timings")
-            meta["result"] = "error"
+            meta["result"] = "error-mac-timing"
             return None, meta
         #if hack_mismatch_total_app > 10:
         #    print("Too many hack mismatches!")
@@ -937,12 +937,12 @@ def parse_logfile(file, app_warmup, has_spatial,
         if missing_neighbor_total_app > 2:
             print("Missing neighbor!")
             outputStats(dfs, "mac_stats", "missing_neighbor", "max", "Missing neighbor")
-            meta["result"] = "error"
+            meta["result"] = "error-mac-neigh"
             return None, meta
         if layered_err_total_app > 2:
             print("Layered error!")
             outputStats(dfs, "mac_stats", "layered_err", "max", "Layered error")
-            meta["result"] = "error"
+            meta["result"] = "error-mac-layered"
             return None, meta
 
     if "mac_cell" in dfs:
@@ -957,7 +957,7 @@ def parse_logfile(file, app_warmup, has_spatial,
         meta["cell_tx_err_app"] = cell_tx_errors_total_app
         if cell_tx_errors_total_app > 10:
             print("Cell TX errors!", cell_tx_errors_total_app)
-            meta["result"] = "error"
+            meta["result"] = "error-mac-tx"
             return None, meta
 
     if "mac_tx" in dfs:
@@ -1058,14 +1058,15 @@ def parse_logs_dir(directory, app_warmup, has_spatial, num_nodes):
             run_metadata.update(meta)
             scenario_metadata.append(run_metadata)
 
-            if meta["result"] == "error":
-                print("Unexpected situation in " + name_of_run + "!")
-                continue
-            elif meta["result"] == "spatial":
+            if meta["result"] == "spatial":
                 print("Skipped " + name_of_run + ": Lacking spatial reuse!")
                 continue
             elif meta["result"] == "switch":
                 print("Skipped " + name_of_run + ": Parent switch during app!")
+                continue
+            elif meta["result"] != "ok":
+                print("Unexpected situation: " + meta["result"] +
+                      " in " + name_of_run + "!")
                 continue
 
             for df_name in run_dfs:
@@ -1087,7 +1088,8 @@ def parse_logs_dir(directory, app_warmup, has_spatial, num_nodes):
     skipped_runs_switch = \
         len(scenario_meta_df[scenario_meta_df["result"] == "switch"])
     skipped_runs_error = \
-        len(scenario_meta_df[scenario_meta_df["result"] == "error"])
+        len(scenario_meta_df[scenario_meta_df["result"] != "ok"]) - \
+            skipped_runs_spatial - skipped_runs_switch
     converged_runs = \
         len(parsed_runs_df[parsed_runs_df["parent_switch_app"] == 0])
 
