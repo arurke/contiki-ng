@@ -1351,8 +1351,8 @@ route_callback(int event,
     if(!(route_update &&
         previous_status.node_depth == current_status.node_depth)) {
 
-      // Ref. above. Do ad-hoc removal of RX of beacons from parent
-      if(!is_root()) {
+      // Ref. above. Do ad-hoc removal of RX of beacons from old parent
+      if(!is_root() && previous_status.node_depth != 0xffff) {
         schedule_downwards_rx_cell(&route_lladdr, previous_status.node_layer,
                                    previous_status.node_depth, true);
       }
