@@ -215,7 +215,7 @@ void layered_stats_update(struct tsch_neighbor *n, struct tsch_packet *p,
     if(layered_links[i].occupied &&
         layered_links[i].timeslot == link->timeslot &&
         layered_links[i].channel == channel_offset &&
-        layered_stats[i].options != LINK_OPTION_RX) {
+        layered_links[i].options != LINK_OPTION_RX) {
 
       layered_links[i].tx_attempts++;
 
