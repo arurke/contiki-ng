@@ -1249,18 +1249,18 @@ static void update_current_status(uint16_t node_new_depth) {
   }
 }
 #if LAYERED_STATEFUL
-static void remove_all_links(void) {
-  LOG_WARN("Removing all links\n");
-  for(int i = 0; i < MAX_NUM_LINKS; i++) {
-    if(layered_links[i].occupied &&
-        layered_links[i].options != COMMON_SLOT_OPTIONS &&
-        (layered_links[i].scheduled || layered_links[i].should_be_scheduled)) {
-      layered_links[i].should_be_scheduled = false;
-    }
-  }
-
-  sync_links_with_schedule();
-}
+//static void remove_all_links(void) {
+//  LOG_WARN("Removing all links\n");
+//  for(int i = 0; i < MAX_NUM_LINKS; i++) {
+//    if(layered_links[i].occupied &&
+//        layered_links[i].options != COMMON_SLOT_OPTIONS &&
+//        (layered_links[i].scheduled || layered_links[i].should_be_scheduled)) {
+//      layered_links[i].should_be_scheduled = false;
+//    }
+//  }
+//
+//  sync_links_with_schedule();
+//}
 #endif
 
 static void
