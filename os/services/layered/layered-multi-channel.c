@@ -1273,6 +1273,7 @@ route_callback(int event,
   bool route_added =
       (event == UIP_DS6_NOTIFICATION_DEFRT_ADD ||
           event == UIP_DS6_NOTIFICATION_ROUTE_ADD);
+  static linkaddr_t old_def_route = {{0}};
 
 #if LAYERED_STATEFUL
   // Utilize the periodic refreshing of routes to check our sync
@@ -1365,20 +1366,23 @@ route_callback(int event,
     LOG_INFO_6ADDR(next_hop);
     LOG_INFO_("\n");
     // Ignore refreshes of the default route where the depth is not changed
-    // TODO is this more correct:
-    // if(route_update && previous_status.node_depth != current_status.node_depth)
-    // Don't dare to change it in the middle of testing.
-    // Problem of the current implementation should be minimal
     if(!(route_update &&
         previous_status.node_depth == current_status.node_depth)) {
 
-      // Ref. above. Do ad-hoc removal of RX of beacons from old parent
-      if(!is_root() && previous_status.node_depth != 0xffff) {
+      // This is either a completely new parent, or update (or adding) on our
+      // existing parent which have moved to a new depth. Now we must handle
+      // the RX beacon (ref. discussion above).
+      // For the first case, the cell was removed by the remove-route callback
+      // For the second case, we remove the cell here
+      if(!is_root() &&
+          previous_status.node_depth != 0xffff &&
+          linkaddr_cmp(&old_def_route, &route_lladdr)) {
         schedule_downwards_rx_cell(&route_lladdr, previous_status.node_layer,
                                    previous_status.node_depth, true);
       }
 
       add_cells(&route_lladdr, &current_status, true);
+      linkaddr_copy(&old_def_route, &route_lladdr);
     }
   }
   else if(event == UIP_DS6_NOTIFICATION_DEFRT_RM) {
@@ -1389,6 +1393,7 @@ route_callback(int event,
     LOG_INFO_(" via ");
     LOG_INFO_6ADDR(next_hop);
     LOG_INFO_("\n");
+    linkaddr_copy(&old_def_route, &linkaddr_null);
 #if LAYERED_STATEFUL
 //    remove_all_links(); // TODO this changes behavior compared to non-stateful
     remove_cells(&route_lladdr, &previous_status, true);
