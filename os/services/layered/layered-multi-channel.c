@@ -1281,7 +1281,7 @@ route_callback(int event,
     // Our depth is invalid, probably we have lost all parents. Do not
     // add cells for new routes as we don't know the depth, but allow removal of old
 #if LAYERED_STATEFUL
-    remove_all_links();
+    //remove_all_links(); // TODO new behavior in stateful
 #endif
     if(route_added) {
       return;
@@ -1369,7 +1369,8 @@ route_callback(int event,
     LOG_INFO_6ADDR(next_hop);
     LOG_INFO_("\n");
 #if LAYERED_STATEFUL
-    remove_all_links(); // TODO this changes behavior compared to non-stateful
+//    remove_all_links(); // TODO this changes behavior compared to non-stateful
+    remove_cells(&route_lladdr, &previous_status, true);
 #else
     remove_cells(&route_lladdr, &previous_status, true);
 #endif
