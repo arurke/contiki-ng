@@ -361,7 +361,7 @@ def parse_arguments():
 
     # If fetching we force no running
     if fetch_from_remote:
-        no_run = False
+        no_run = True
 
     # If preparation or exection only we force remote
     if prepare_only or run_only:
