@@ -265,10 +265,11 @@ def copy_node_code(sim_dir, scenarios, folders_only=False):
             print("Copying code from", code_src_dir, "to", code_dst_dir)
             shutil.copytree(code_src_dir, code_dst_dir)
 
-        # Makefile
-        makefile_dst = scenario['path'] + MAKEFILE
-        print("Copying Makefile from", makefile_src, "to", makefile_dst)
-        shutil.copyfile(makefile_src, makefile_dst)
+        # Makefile (only used for simulation?)
+        if os.path.exists(makefile_src):
+            makefile_dst = scenario['path'] + MAKEFILE
+            print("Copying Makefile from", makefile_src, "to", makefile_dst)
+            shutil.copyfile(makefile_src, makefile_dst)
 
 def cleanup(scenarios):
     print("Removing build artifacts")
