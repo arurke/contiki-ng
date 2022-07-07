@@ -192,16 +192,24 @@ def calculate_metric(input_df, metric, measure, name, plots_dir):
         print("Metric not converged for " + name)
 
         # Make plot
-        triscale.analysis_metric(
-            df, {"measure":measure},
-            convergence={"expected": True},
-            showplot=False, verbose=False,
-            plot_out_name=plots_dir + name + ".pdf")
+        convergence_result, calculated_measure, figure = \
+            triscale.analysis_metric(
+                df, {"measure":measure},
+                convergence={"expected": True, "tolerance": 5},
+                showplot=False, verbose=False,
+                plot_out_name=plots_dir + name + ".pdf")
+
+        # Get non-converged value
+        convergence_result, calculated_measure, figure = \
+            triscale.analysis_metric(
+                df, {"measure":measure},
+                convergence={"expected": False},
+                showplot=False, verbose=False)
     #else:
         #print("Converged for " + name)
     return calculated_measure
 
-def add_metrics_for_spatial_comparison(metrics, has_spatial, app_cell_df):
+def add_metrics_for_spatial_comparison(metrics, has_spatial, app_cell_df, run_dfs):
 
     # 1. Create special DFs
     # If we are doing spatial comparison in this experiment we need
@@ -211,22 +219,25 @@ def add_metrics_for_spatial_comparison(metrics, has_spatial, app_cell_df):
         # Cell-DF with selected links (links who have had spatial reuse any time)
         cell_tx_selected_links_df = \
             generate_df_with_cell_tx_selected_links(app_cell_df)
+        run_dfs["cell_tx_selected_links_df"] = cell_tx_selected_links_df
 
     if has_spatial:
         # Cell-DF with only spatial reuse cells
         cell_spatial_reuse_df = \
             app_cell_df.groupby(["asn", "channel"]).filter(lambda x: len(x) >= 2)
+        run_dfs["cell_spatial_reuse_df"] = cell_spatial_reuse_df
 
         # Cell-DF with only non-spatial reuse cells
         # (could have done merge of spatial-reuse)
         cell_no_spatial_reuse_df = \
             app_cell_df.drop_duplicates(subset=["asn", "channel"], keep=False)
+        run_dfs["cell_no_spatial_reuse_df"] = cell_no_spatial_reuse_df
 
     # 2. Create metrics
     if has_spatial:
         # PRR for spatial cells only, used for spatial comparison
         metrics_prr_spatial = \
-            [{"df": cell_spatial_reuse_df,
+            [{"df": "cell_spatial_reuse_df",
              "metric": "prr",
              "measures":["mean"],
              "prefix": "spatial_cell_"}]
@@ -234,17 +245,17 @@ def add_metrics_for_spatial_comparison(metrics, has_spatial, app_cell_df):
         # ETX separated into spatial and no spatial, using the cell DF
         # Used for spatial comparison with ETX (deprecated)
         metrics_cell_etx = \
-            [{"df": app_cell_df, "metric": "app_cell_etx",
+            [{"df": "app_cell_df", "metric": "app_cell_etx",
              "measures":["absolute_spatial", "absolute_no_spatial"]}]
 
     if not has_spatial:
         # ETX, PRR calculated on selected links, used for spatial comparison
         # (links which had spatial in any scenario)
         metrics_on_selected_links = \
-            [{"df": cell_tx_selected_links_df,
+            [{"df": "cell_tx_selected_links_df",
               "metric": "app_selected_cell_etx",
               "measures":["absolute"]},
-              {"df": cell_tx_selected_links_df,
+              {"df": "cell_tx_selected_links_df",
                "metric": "prr",
                "measures":["mean"],
                "prefix": "selected_cell_"}]
@@ -256,23 +267,27 @@ def add_metrics_for_spatial_comparison(metrics, has_spatial, app_cell_df):
     if not has_spatial:
         metrics.extend(metrics_on_selected_links)
 
-def analyze_run(run_name, spatial_comparison, has_spatial,
-                plots_dir,
-                packets_df, energest_df, queue_df,
-                mac_tx_df, cell_df, switches_df, rpl_stats_df):
+def analyze_run(run_name, spatial_comparison, has_spatial, plots_dir, run_dfs):
     run_entry = {"name": run_name}
-    if len(switches_df) == 0:
+
+    # Check if RPL was totally converged for this run
+    if "switches_df" in run_dfs and len(run_dfs["switches_df"]) == 0:
         run_entry["rpl_converged"] = True
     else:
         run_entry["rpl_converged"] = False
 
-    # DF with app-mac-packets only
-    if mac_tx_df is not None:
-        app_mac_tx_df = mac_tx_df[mac_tx_df["app"] == 1].copy() # TODO unnecessary copy?
-    if cell_df is not None:
-        app_cell_df = cell_df[cell_df["app"] == 1].copy()
-    else:
-        app_cell_df = None
+    # Filter some DFs to only include application packets
+    app_mac_tx_df = None
+    if "mac_tx_df" in run_dfs:
+        mac_tx_df = run_dfs["mac_tx_df"]
+        app_mac_tx_df = mac_tx_df[mac_tx_df["app"] == 1]
+        run_dfs["app_mac_tx_df"] = app_mac_tx_df
+
+    app_mac_cell_df = None
+    if "mac_cell_df" in run_dfs:
+        mac_cell_df = run_dfs["mac_cell_df"]
+        app_mac_cell_df = mac_cell_df[mac_cell_df["app"] == 1]
+        run_dfs["app_mac_cell_df"] = app_mac_cell_df
 
     # Make queue DF per node
     #ss_queue_df_2 = ss_queue_df.copy()
@@ -290,23 +305,23 @@ def analyze_run(run_name, spatial_comparison, has_spatial,
     default_measures = ["mean", 50, 95, 99, "maximum"]
 
     metrics_basics = \
-        [{"df": packets_df, "metric": "latency", "measures": default_measures},
-         {"df": packets_df, "metric": "pdr", "measures": ["mean"]}]
+        [{"df": "packets_df", "metric": "latency", "measures": default_measures},
+         {"df": "packets_df", "metric": "pdr", "measures": ["mean"]}]
 
     metrics_prr = \
-        [{"df": app_cell_df, "metric": "prr", "measures":["mean"]}]
+        [{"df": "app_mac_cell_df", "metric": "prr", "measures":["mean"]}]
 
     metrics_energy = \
-        [{"df": energest_df, "metric": "duty_cycle", "measures": ["mean", 50]}]
+        [{"df": "energest_df", "metric": "duty_cycle", "measures": ["mean", 50]}]
          #{"df": energest_df, "metric": "duty_cycle_tx", "measures": default_measures},
          #{"df": energest_df, "metric": "duty_cycle_rx", "measures": default_measures}]
 
     metrics_rpl = \
         [#{"df": rpl_stats_df, "metric": "hop_count", "measures":["mean"]},
-         {"df": switches_df, "metric": "parent_switches", "measures":["count"]}]
+         {"df": "switches_df", "metric": "parent_switches", "measures":["count"]}]
 
     metrics_queue = \
-        [{"df": queue_df, "metric": "queue_fill", "measures": ["mean", 50, "maximum"]}]
+        [{"df": "queue_df", "metric": "queue_fill", "measures": ["mean", 50, "maximum"]}]
 
     # Update: We prefer PRR instead of ETX
     # ETX for all TXes, using the MAC TX DF
@@ -317,28 +332,30 @@ def analyze_run(run_name, spatial_comparison, has_spatial,
     # Add the metrics we want to calculate
     metrics = []
     metrics.extend(metrics_basics)
-    if app_cell_df is not None:
-        metrics.extend(metrics_prr)
+    metrics.extend(metrics_prr)
     metrics.extend(metrics_energy)
     metrics.extend(metrics_queue)
     metrics.extend(metrics_rpl)
-    #if mac_tx_df is not None:
     #    metrics.extend(metrics_etx)
 
     # Ad-hoc handling of spatial comparison metrics
     if spatial_comparison:
-        add_metrics_for_spatial_comparison(metrics, has_spatial, app_cell_df)
+        add_metrics_for_spatial_comparison(metrics, has_spatial,
+                                           run_dfs["app_mac_cell_df"], run_dfs)
 
     # Actually calculate metric
     for metric in metrics:
-        #for metric in df["metric"]:
+        # Check if we have data for this metric
+        if metric["df"] not in run_dfs:
+            #print("Skipping " + metric["df"])
+            continue
         for measure in metric["measures"]:
             prefix = ""
             if "prefix" in metric:
                 prefix = metric["prefix"]
             run_metric_name = prefix + metric["metric"] + "_" + str(measure)
             run_entry[run_metric_name] = \
-                calculate_metric(metric["df"], metric["metric"], measure,
+                calculate_metric(run_dfs[metric["df"]], metric["metric"], measure,
                                  run_name + "_" + run_metric_name, plots_dir)
 
     # Make DF out of the entry
@@ -346,48 +363,40 @@ def analyze_run(run_name, spatial_comparison, has_spatial,
     df = df.set_index("name")
     return df
 
+def get_df(raw_dfs, df_name):
+    if df_name in raw_dfs:
+        return raw_dfs[df_name]
+    else:
+        return None
+
+def get_run_dfs(raw_dfs, run):
+    run_dfs = {}
+    for raw_df_name in raw_dfs:
+        # Ignore app_parent_switch for now
+        if raw_df_name == "raw_app_parent_switch_dfs":
+            continue
+        run_df = raw_dfs[raw_df_name][run]
+        # Remove irrelevant data
+        run_df = run_df[run_df["app_started"] == 1]
+        # YOLO and make a more intuitive name with a lot of assumptions
+        run_dfs[raw_df_name[4:-1]] = run_df
+
+    return run_dfs
+
 def analyze_runs(raw_dfs, scenario_name,
                  spatial_comparison, has_spatial,
                  plots_dir):
-    raw_packets_dfs = raw_dfs["raw_packets_dfs"]
-    raw_energest_dfs = raw_dfs["raw_energest_dfs"]
-    raw_queue_dfs = raw_dfs["raw_queue_dfs"]
-    if "raw_mac_cell_dfs" in raw_dfs:
-        raw_cell_dfs = raw_dfs["raw_mac_cell_dfs"]
-    else:
-        raw_cell_dfs = None
-    raw_switches_dfs = raw_dfs["raw_switches_dfs"]
-    raw_rpl_stats_dfs = raw_dfs["raw_rpl_stats_dfs"]
-    if "raw_mac_tx_dfs" in raw_dfs:
-        raw_mac_tx_dfs = raw_dfs["raw_mac_tx_dfs"]
-    else:
-        raw_mac_tx_dfs = None
-
-    runs_df_dict = []
-    for run in raw_packets_dfs.keys():
-        if "raw_mac_tx_dfs" in raw_dfs:
-            raw_mac_tx_app_df = raw_mac_tx_dfs[run][raw_mac_tx_dfs[run]["app_started"] == 1]
-        else:
-            raw_mac_tx_app_df = None
-        if raw_cell_dfs is not None:
-            raw_cell_app_df = raw_cell_dfs[run][raw_cell_dfs[run]["app_started"] == 1]
-        else:
-            raw_cell_app_df = None
-        runs_df_dict.append(
+    analyzed_runs_dfs = []
+    # Fetch the DF from each run, filter a bit, and analyze it
+    # Assume we always have a packet DF and exploit to get a list of run-names
+    for run in raw_dfs["raw_packets_dfs"].keys():
+        run_dfs = get_run_dfs(raw_dfs, run)
+        analyzed_runs_dfs.append(
             analyze_run(scenario_name + "_" + run,
                         spatial_comparison, has_spatial,
-                        plots_dir,
-                        raw_packets_dfs[run][raw_packets_dfs[run]["app_started"] == 1],
-                        raw_energest_dfs[run][raw_energest_dfs[run]["app_started"] == 1],
-                        raw_queue_dfs[run][raw_queue_dfs[run]["app_started"] == 1],
-                        raw_mac_tx_app_df,
-                        raw_cell_app_df,
-                        raw_switches_dfs[run][raw_switches_dfs[run]["app_started"] == 1],
-                        raw_rpl_stats_dfs[run][raw_rpl_stats_dfs[run]["app_started"] == 1]))
+                        plots_dir, run_dfs))
 
-    #ad_hoc_etx_per_node(raw_mac_tx_dfs,raw_cell_dfs)
-
-    return pd.concat(runs_df_dict)
+    return pd.concat(analyzed_runs_dfs)
 
 def calculate_kpi(values, settings, metric, name, plots_dir):
     bounds_was_set = False
