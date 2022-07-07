@@ -150,7 +150,7 @@ def plot_compare_single_kpi_with_groups(scenarios_df, scenarios_info, kpi,
 
         # Skip plot if any values are invalid
         if np.isnan(value):
-            print("Invalid value (%s). Skipping plot %s" % \
+            print("Invalid value (%s). Skipping single-kpi plot %s" % \
                   (str(value), name))
             return
 
