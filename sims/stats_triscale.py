@@ -1054,7 +1054,8 @@ def print_meta_info(scenarios):
         skipped_runs_switch = \
             len(scenario_meta_df[scenario_meta_df["result"] == "switch"])
         skipped_runs_error = \
-            len(scenario_meta_df[scenario_meta_df["result"] == "error"])
+            len(scenario_meta_df[scenario_meta_df["result"] != "ok"]) - \
+                skipped_runs_spatial - skipped_runs_switch
         converged_runs = \
             len(parsed_runs_df[parsed_runs_df["parent_switch_app"] == 0])
 
