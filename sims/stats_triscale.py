@@ -979,6 +979,7 @@ def meta_channel_performance_per_node(
                 plt.rcParams['font.size'] = FONT_SIZE
 
 def meta_channel_performance(scenarios, plots_dir):
+    all_scenarios_channel_prrs = []
     for scenario in scenarios:
         if "raw_mac_cell_dfs" not in scenario['raw_dfs']:
             return
@@ -997,6 +998,7 @@ def meta_channel_performance(scenarios, plots_dir):
 
         # Create one large DF out of the list of run DFs
         scenario_channel_prr_df = pd.concat(scenario_channel_prr_dfs, ignore_index=True)
+        all_scenarios_channel_prrs.append(scenario_channel_prr_df)
 
         channels_prr = scenario_channel_prr_df.groupby("channel")["prr"].mean().reset_index()
 
@@ -1011,6 +1013,25 @@ def meta_channel_performance(scenarios, plots_dir):
         plt.savefig(plots_dir + "meta_" + scenario['name'] + \
                   "_channels_prr.pdf")
         plt.close()
+
+
+    # Make plot for all scenarios combined
+    all_scenarios_channel_prr_df = \
+        pd.concat(all_scenarios_channel_prrs, ignore_index=True)
+
+    channels_prr = \
+        all_scenarios_channel_prr_df.groupby("channel")["prr"].mean().reset_index()
+
+    # Remove box-frame at top and right
+    fig,ax = plt.subplots()
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    plt.bar(channels_prr["channel"], channels_prr["prr"])
+    plt.xticks(channels_prr["channel"])
+    plt.xlabel("Physical channel")
+    plt.ylabel("PRR for application packets (%)")
+    plt.savefig(plots_dir + "meta_all_scenarios_channels_prr.pdf")
+    plt.close()
 
 
     # Make plots with all nodes, per run
