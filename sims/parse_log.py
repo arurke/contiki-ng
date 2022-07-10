@@ -145,12 +145,12 @@ def parseApp(log):
     if res:
         type = res.group(1)
         packet_id = int(res.group(2))
-        tick = int(res.group(3))
+        origin_tick = int(res.group(3))
         dest = int(res.group(4), 16)
         depth = int(res.group(5))
         return {'event': 'send',
                 'type': type,
-                'tick':tick,
+                'origin_tick': origin_tick,
                 'packet_id': packet_id,
                 'dest': dest,
                 'depth': depth}
@@ -159,13 +159,13 @@ def parseApp(log):
     if res:
         type = res.group(1)
         packet_id = int(res.group(2))
-        oTick = int(res.group(3))
-        tick = int(res.group(4))
+        origin_tick = int(res.group(3))
+        rx_tick = int(res.group(4))
         src = int(res.group(5), 16)
         return {'event': 'recv',
                 'type': type,
-                'oTick': oTick,
-                'tick':tick,
+                'origin_tick': origin_tick,
+                'rx_tick': rx_tick,
                 'packet_id': packet_id,
                 'src': src }
 
@@ -335,18 +335,24 @@ def parseLine(line, testbed):
             if first_unixtime is None:
                 first_unixtime = time_abs
 
-            time = int((time_abs - first_unixtime) * 1000)
+            time_ms = int((time_abs - first_unixtime) * 1000)
         else:
-            time = int(res.group(1))
+            time_ms = int(res.group(1))
 
         nodeid = int(res.group(2))
         level = res.group(3).strip()
         module = res.group(4).strip()
         log = res.group(5).strip()
 
-        return time, nodeid, level, module, log
+        return time_ms, nodeid, level, module, log
 
     return None, None, None, None, None
+
+def calculate_testbed_latency_in_sec(tx_tick, rx_tick):
+    # 1 tick on FIT IoT-lab m3 is 10 ms
+    # + 10 ms below as that is the resolution and we want to
+    # be pessimistic, which avoids e.g. latency being zero.
+    return (((rx_tick - tx_tick) * 10) + 10) / 1000
 
 def doParse(file, app_warmup, testbed):
     global network_formation_time_ms
@@ -366,7 +372,9 @@ def doParse(file, app_warmup, testbed):
     for name in metrics:
         arrays[name] = []
 
-    mac_to_node_id_map = {}
+    # Node ID is the log-line identifier (typical m3-xxx)
+    # While mac-id is the node internal id (typical set by deployment module)
+    node_id_to_mac_id_map = {}
 
 #    print("\nProcessing %s" %(file))
     # Filter out non-printable chars from log file
@@ -377,9 +385,9 @@ def doParse(file, app_warmup, testbed):
             print("SIMULATION FAILED!")
             return None
 
-        time, nodeid, level, module, log = parseLine(line, testbed)
+        time_ms, nodeid, level, module, log = parseLine(line, testbed)
 
-        if time == None:
+        if time_ms == None:
             #print("Unknown line: " + line.rstrip())
             unknown_line_count += 1
             continue
@@ -387,13 +395,14 @@ def doParse(file, app_warmup, testbed):
         # app_warmup is given in minutes
         app_start_time_ms = app_warmup * 60 * 1000
 
-        # Final time will be used to invalidate end of log
-        final_time = timedelta(milliseconds=time)
+        # Final time will be used to filter end of log
+        time_ms_timedelta = timedelta(milliseconds=time_ms)
+        final_time = time_ms_timedelta
 
         entry = {
-            "timestamp": timedelta(milliseconds=time),
+            "timestamp": time_ms_timedelta,
             "node": nodeid,
-            "app_started": 0 if time < app_start_time_ms else 1
+            "app_started": 0 if time_ms < app_start_time_ms else 1
         }
 
         try:
@@ -404,127 +413,112 @@ def doParse(file, app_warmup, testbed):
                     continue
 
                 entry.update(ret)
-                if(ret['event'] == 'send' and ret['type'] == 'data'):
-                    # First check if this packet has already been RXed
-                    # Could happen if log is in wrong order
-                    order_error = False
-                    for packet in arrays["packets"]:
-                        if packet['packet_id'] == ret['packet_id'] and \
-                           packet['event'] == 'recv' and \
-                           mac_to_node_id_map[packet['src']] == entry['node']:
-                            #print("Found packet which is already RX")
-                            #print("TX packet:")
-                            #print(entry)
-                            #print("Rxed packet:")
-                            #print(packet)
-                            packet['event'] = 'send'
-                            packet['dest'] = ret['dest']
-                            packet['depth'] = ret['depth']
-                            packet['latency'] = 0.020 # we assume it was transmitted in previous timeslot
 
-                            # Do some heuristics on how long in front the log was
-                            # If it is never more than 20 ms it points towards the
-                            # log inaccuracy being less than 20 ms
-                            log_time_delta = \
-                                (entry['timestamp'] - packet['timestamp']).total_seconds()
-                            if log_time_delta > 0.020:
-                                print("Time difference in wrong ordered log was " + str(log_time_delta))
-                                return None
-                            print("Log order mismatch delta: " + str(log_time_delta))
+                if ret['event'] == 'app_parent_switch':
+                    arrays['app_parent_switch'].append(entry)
+                    continue
 
-                            # Do some heuristics on how large the latency of the packet was
-                            # if larger than 2 ticks it indicate that the log inaccuracy
-                            # is larger than 20 ms. (Disclaimer: Ticks are not 100 % accurate
-                            # as nodes boot with a bit of difference)
-                            tick_delta = ret['tick'] - packet['oTick']
-                            if tick_delta > 2:
-                                print("Tick difference in wrong ordered packets was " + str(tick_delta))
-                                return None
-                            order_error = True
+                if not testbed:
+                    print("Only testbed support ID- and latency-calculations")
+                    return None
 
-                    if order_error:
-                        continue
+                # Three corner cases must be covered:
+                # 1. TX event for a packet already RXed
+                # 2. RX event for a packet not TXed
+                # 3. RX twice due to missed ACK
 
-                    entry['pdr'] = 0.
-                    arrays["packets"].append(entry)
-                    if network_formation_time_ms == None:
-                        network_formation_time_ms = time
-                elif(ret['event'] == 'recv' and ret['type'] == 'data'):
-
-                    # Testbed uses MAC-nodeid instead of the node-id in the log
-                    if testbed:
-                        if ret['src'] in mac_to_node_id_map:
-                            #print("src changed from " + str(ret['src']) +
-                            #      " to " + str(mac_to_node_id_map[ret['src']]))
-                            ret['src'] = mac_to_node_id_map[ret['src']]
-                        else:
-                            print("Missing mapping for " + str(ret['src']))
-                            return None
-
-                    # Update sent request series with latency and PDR
-                    # First find the row
-                    txElement = None
-                    for packet in arrays["packets"]:
-                        if packet['packet_id'] == ret['packet_id'] and \
-                           packet['event'] == 'send' and \
-                           packet['node'] == ret['src']:
-                            txElement = packet
-
-                    if txElement == None:
-                        # This is because we either
-                        # 1) Already received it (missed ACK), or
-                        # 2) the log is in wrong order
-
-                        # 1. Check if already received (missed ACK)
-                        multiple_rx = False
-                        for packet in arrays["packets"]:
-                            if packet['packet_id'] == ret['packet_id'] and \
-                               packet['node'] == entry['node'] and \
-                               packet['event'] == 'send':
-                                #print("Packet already received")
-                                #print("Received now: " + str(ret))
-                                #print("Already received: " + str(packet))
-                                packet_multiple_rx += 1
-                                multiple_rx = True
-
-                        if multiple_rx:
-                            continue
-
-                        # 2. Assume this is because of wrong order of log
-                        # Add packet into array, the TX will be added later
-                        entry['pdr'] = 100.
-                        #print("Unable find the TX of the RXed packet! Looking for:")
-                        #print(entry)
-                        arrays["packets"].append(entry)
-                        log_order_error += 1
-                        continue
-                        #return None
-
-                    # Calculate and add latency
-                    txElement['latency'] = \
-                        (entry['timestamp'] - txElement['timestamp']).total_seconds()
-                    txElement['pdr'] = 100.
-
-                    # Sanity check tick at transmission matches the packet oTick
-                    if txElement['tick'] != ret['oTick']:
-                        print("Tick mismatch. Tick " + str(txElement['tick']) + " sent at " +
-                              str(txElement['timestamp']) + " vs. oTick " + str(ret['oTick']) +
-                              " received at " + str(entry['timestamp']))
+                # First find the packet source
+                # If it is a send-event we simply see who printed the log
+                if entry['event'] == 'send':
+                    # The log line id is different than the node mac IDs
+                    # so convert it first
+                    # TODO should we rather conver the "nodeid" to the
+                    # internal mac ids for everything?
+                    # Also, this could be avoided if the sending mac id was
+                    # included in the log content
+                    if entry['node'] in node_id_to_mac_id_map:
+                        #print("ID changed from " + str(entry['node']) +
+                        #      " to " + str(node_id_to_mac_id_map[entry['node']]))
+                        packet_src = node_id_to_mac_id_map[entry['node']]
+                    else:
+                        print("No ID-mapping for node " + str(entry['node']))
                         return None
 
-                    # We don't use ASN because
-                    # 1. We cannot guarantee it is correct
-                    #    (TSCH does not maintain "current_asn" all the time)
-                    # 2. Cannot be trusted on z1
-                    #    (most likely interrupts cause ASN to change between
-                    #     printing and writing in packet)
+                # If it is receive-event, we get it from the log content
+                elif entry['event'] == 'recv':
+                    packet_src = entry['src']
+                else:
+                    print("Unsupported event! " + str(entry['event']))
+                    return None
 
-                    # Add latency as ticks as well (we don't use it yet)
-                    txElement['rx_tick'] = ret['tick']
-                    txElement['latency_tick'] = ret['tick'] - txElement['tick']
+                entry['src'] = packet_src
 
-                elif ret['event'] == 'app_parent_switch':
-                    arrays['app_parent_switch'].append(entry)
+                # Check if this packet has an existing entry
+                existing_entry = False
+                for packet in arrays["packets"]:
+                    if packet['packet_id'] == entry['packet_id'] and \
+                        packet['src'] == entry['src']:
+
+                        existing_entry = True
+
+                        # If this was a TX it means it was a
+                        # TX event for a packet already RXed (corner-case 1)
+                        # If so, convert to a send event and
+                        # fill in missing info
+                        if entry['event'] == 'send':
+                            packet['event'] = 'send'
+                            packet['dest'] = entry['dest']
+                            packet['depth'] = entry['depth']
+                            break
+
+                        # If this was a RX it meant it was
+                        # 1. RX of a TX (normal), or
+                        # 2. RX of a TX already RXed (corner-case 2)
+                        if entry['event'] == 'recv':
+                            if "latency" not in packet:
+                                # 1. RX of a TX (normal). Fill in info.
+                                # Calculate latency. Only FIT IoT-lab testbed
+                                # supported, catched by earlier if.
+                                latency_sec = \
+                                    calculate_testbed_latency_in_sec(
+                                        entry["origin_tick"], entry["rx_tick"])
+                                packet["latency"] = latency_sec
+
+                                packet["pdr"] = 100.
+                                packet["rx_tick"] = entry["rx_tick"]
+                                break
+                            else:
+                                # 2. RX of a TX already RXed (ACK has been missed)
+                                # Simply do nothing
+                                packet_multiple_rx += 1
+                                break
+
+                if existing_entry:
+                    continue
+
+                # No existing entry
+
+                # If this was a TX we simply add it
+                if entry['event'] == 'send':
+                    entry['pdr'] = 0.
+                    arrays["packets"].append(entry)
+                    continue
+
+                # If this was a RX it means we got RX before TX (corner-case 3)
+                # Add what we have, it will completed when the TX comes,
+                # and if not corrected it will raise error
+                elif entry['event'] == 'recv':
+                    latency_sec = \
+                        calculate_testbed_latency_in_sec(
+                            entry["origin_tick"], entry["rx_tick"])
+                    entry["latency"] = latency_sec
+                    entry["pdr"] = 100.
+                    arrays["packets"].append(entry)
+                    log_order_error += 1
+                    continue
+                else:
+                    print("Unsupported new event!")
+                    return None
 
             if module == "Energest":
                 ret = parseEnergest(log)
@@ -578,9 +572,9 @@ def doParse(file, app_warmup, testbed):
                     arrays["queue"].append(entry)
 
             if module == "Main" and testbed:
-                mac = parseMain(log)
-                if mac != None:
-                    mac_to_node_id_map[mac] = nodeid;
+                mac_node_id = parseMain(log)
+                if mac_node_id != None:
+                    node_id_to_mac_id_map[nodeid] = mac_node_id
 
         except Exception as e:  # typical exception: failed str conversion to int, due to lossy logs
             print(traceback.format_exc())
@@ -621,7 +615,7 @@ def doParse(file, app_warmup, testbed):
             print("ERR! Too many log-lines out of order")
             return None
 
-    return arrays, len(mac_to_node_id_map)
+    return arrays, len(node_id_to_mac_id_map)
 
 def outputStats(dfs, key, metric, agg, name, metricLabel=None):
     if not key in dfs:
