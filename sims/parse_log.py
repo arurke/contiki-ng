@@ -30,7 +30,6 @@ TIME_TO_SKIP_AT_END = "1 Min"
 # Global variable to replace print for quiet mode
 print
 
-network_formation_time_ms = None
 parents = {}
 first_unixtime = None
 application_start = None
@@ -355,13 +354,11 @@ def calculate_testbed_latency_in_sec(tx_tick, rx_tick):
     return (((rx_tick - tx_tick) * 10) + 10) / 1000
 
 def doParse(file, app_warmup, testbed):
-    global network_formation_time_ms
     global application_start
     global parents
     global final_time
     global log_order_error
     parent = {}
-    network_formation_time_ms = None
     application_start = None
     unknown_line_count = 0
     log_order_error = 0
@@ -733,6 +730,9 @@ def parse_logfile(file, app_warmup, has_spatial,
         meta["result"] = "error-missing-rpl"
         return None, meta
 
+    # Last joining of the DAG
+    network_formation_time = dfs["dag_inits"].tail(1).index[0].total_seconds()
+
     # Topology changes after app started
     #if "app_parent_switch" in dfs:
     #    print("Parent switch during application!")
@@ -973,7 +973,7 @@ def parse_logfile(file, app_warmup, has_spatial,
     print("  duty-cycle: %.2f" % (dfs["energest"]["duty_cycle"].mean()))
     print("  duty-cycle tx: %.2f" % (dfs["energest"]["duty_cycle_tx"].mean()))
     print("  duty-cycle rx: %.2f" % (dfs["energest"]["duty_cycle_rx"].mean()))
-    print("  network-formation-time: %.3f" % (network_formation_time_ms / 1000))
+    print("  network-formation-time: %.2f" % (network_formation_time))
     if "mac_tx" in dfs:
         print("  application-cells ETX: " + str(app_tx_etx))
     print("  Max. hop count during app: " + str(app_max_hop_count))
