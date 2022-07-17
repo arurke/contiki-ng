@@ -56,6 +56,12 @@
 #define ROOT_NODE_ID      1
 #endif
 
+#ifdef APP_CONF_NUM_SOURCES
+#define APP_NUM_SOURCES   APP_CONF_NUM_SOURCES
+#else
+#define APP_NUM_SOURCES   0xffff
+#endif
+
 #if BUILD_WITH_DEPLOYMENT
 #include "services/deployment/deployment.h"
 // When changing num. nodes, remember to update scheduler configs
@@ -223,6 +229,38 @@ static uint32_t transmission_start_spread(void) {
   return random_rand() % SEND_INTERVAL;
 }
 
+static bool should_transmit(uint16_t our_node_id) {
+  if(APP_NUM_SOURCES == 0xffff) {
+    return true;
+  }
+
+#if BUILD_WITH_DEPLOYMENT
+  // Find our index
+  uint16_t our_index = 0;
+  for(int i = 0; i < deployment_node_count(); i++) {
+    if(our_node_id == deployment_id_from_index(i)) {
+      our_index = i;
+    }
+  }
+
+  // We want to start source at the end of the deployment mapping
+  // (assuming that is the deepest nodes and that root is at index 0). So that
+  // ((deployment_node_count() - 1) - APP_NUM_SOURCES) gives us the lowest
+  // index that we want to enable for transmission.
+  // E.g. 16 nodes in deployment and APP_NUM_SOURCES at 2:
+  // 16 - 2 = 14. Index 14 and upwards (15) should transmit.
+  uint16_t lowest_index_to_tx = deployment_node_count() - APP_NUM_SOURCES;
+  if(our_index >= lowest_index_to_tx) {
+    return true;
+  }
+  else {
+    return false;
+  }
+#else
+  return true;
+#endif
+}
+
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(app_process, ev, data)
 {
@@ -243,6 +281,9 @@ PROCESS_THREAD(app_process, ev, data)
     is_coordinator = true;
     is_transmitting_node = false;
   }
+  else {
+    is_transmitting_node = should_transmit(node_id);
+  }
 
   // Uncomment to make only the specified node send packets
   // 326, 328, 330, 332
@@ -252,6 +293,11 @@ PROCESS_THREAD(app_process, ev, data)
     is_transmitting_node = false;
   }
 #endif
+
+  LOG_INFO("Node ID 0x%02x is %s, and %s\n",
+           node_id,
+           is_coordinator ? "root" : "not root",
+           is_transmitting_node ? "transmitting" : "not transmitting");
 
   if(is_coordinator) {
     /* Initialize DAG root. This also sets this node as TSCH coordinator */
@@ -272,7 +318,7 @@ PROCESS_THREAD(app_process, ev, data)
 
     etimer_set(&periodic_timer, convergence_delay_ticks + spread_delay_ticks);
 
-    LOG_INFO("Node %u, ticks_in_sec %"PRIu32"," \
+    LOG_INFO("Node 0x%02x, ticks_in_sec %"PRIu32"," \
              " interval %"PRIu16", c-delay %"PRIu32", s-delay %"PRIu32"\n",
              node_id, (uint32_t)CLOCK_SECOND, SEND_INTERVAL,
              convergence_delay_ticks, spread_delay_ticks);
