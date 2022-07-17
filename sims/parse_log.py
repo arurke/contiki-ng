@@ -376,207 +376,211 @@ def doParse(file, app_warmup, testbed):
 #    print("\nProcessing %s" %(file))
     # Filter out non-printable chars from log file
     #os.system("cat %s | tr -dc '[:print:]\n\t' | sponge %s" %(file, file))
-    for line in open(file, 'r').readlines():
-        # match time, id, module, log; The common format for all log lines
-        if "TEST FAILED" in line:
-            print("SIMULATION FAILED!")
-            return None
+    with open(file, 'r') as f:
+        for line in f:
+   # for line in open(file, 'r').readlines():
+            # match time, id, module, log; The common format for all log lines
+            if "TEST FAILED" in line:
+                print("SIMULATION FAILED!")
+                return None
 
-        time_ms, nodeid, level, module, log = parseLine(line, testbed)
+            time_ms, nodeid, level, module, log = parseLine(line, testbed)
 
-        if time_ms == None:
-            #print("Unknown line: " + line.rstrip())
-            unknown_line_count += 1
-            continue
+            if time_ms == None:
+                #print("Unknown line: " + line.rstrip())
+                unknown_line_count += 1
+                continue
 
-        # app_warmup is given in minutes
-        app_start_time_ms = app_warmup * 60 * 1000
+            # app_warmup is given in minutes
+            app_start_time_ms = app_warmup * 60 * 1000
 
-        # Final time will be used to filter end of log
-        time_ms_timedelta = timedelta(milliseconds=time_ms)
-        final_time = time_ms_timedelta
+            # Final time will be used to filter end of log
+            time_ms_timedelta = timedelta(milliseconds=time_ms)
+            final_time = time_ms_timedelta
 
-        entry = {
-            "timestamp": time_ms_timedelta,
-            "node": nodeid,
-            "app_started": 0 if time_ms < app_start_time_ms else 1
-        }
+            entry = {
+                "timestamp": time_ms_timedelta,
+                "node": nodeid,
+                "app_started": 0 if time_ms < app_start_time_ms else 1
+            }
 
-        try:
-            if module == "App":
-                ret = parseApp(log)
+            try:
+                if module == "App":
+                    ret = parseApp(log)
 
-                if(ret == None):
-                    continue
+                    if(ret == None):
+                        continue
 
-                entry.update(ret)
+                    entry.update(ret)
 
-                if ret['event'] == 'app_parent_switch':
-                    arrays['app_parent_switch'].append(entry)
-                    continue
+                    if ret['event'] == 'app_parent_switch':
+                        arrays['app_parent_switch'].append(entry)
+                        continue
 
-                if not testbed:
-                    print("Only testbed support ID- and latency-calculations")
-                    return None
-
-                # Three corner cases must be covered:
-                # 1. TX event for a packet already RXed
-                # 2. RX event for a packet not TXed
-                # 3. RX twice due to missed ACK
-
-                # First find the packet source
-                # If it is a send-event we simply see who printed the log
-                if entry['event'] == 'send':
-                    # The log line id is different than the node mac IDs
-                    # so convert it first
-                    # TODO should we rather conver the "nodeid" to the
-                    # internal mac ids for everything?
-                    # Also, this could be avoided if the sending mac id was
-                    # included in the log content
-                    if entry['node'] in node_id_to_mac_id_map:
-                        #print("ID changed from " + str(entry['node']) +
-                        #      " to " + str(node_id_to_mac_id_map[entry['node']]))
-                        packet_src = node_id_to_mac_id_map[entry['node']]
-                    else:
-                        print("No ID-mapping for node " + str(entry['node']))
+                    if not testbed:
+                        print("Only testbed support ID- and latency-calculations")
                         return None
 
-                # If it is receive-event, we get it from the log content
-                elif entry['event'] == 'recv':
-                    packet_src = entry['src']
-                else:
-                    print("Unsupported event! " + str(entry['event']))
-                    return None
+                    # Three corner cases must be covered:
+                    # 1. TX event for a packet already RXed
+                    # 2. RX event for a packet not TXed
+                    # 3. RX twice due to missed ACK
 
-                entry['src'] = packet_src
+                    # First find the packet source
+                    # If it is a send-event we simply see who printed the log
+                    if entry['event'] == 'send':
+                        # The log line id is different than the node mac IDs
+                        # so convert it first
+                        # TODO should we rather conver the "nodeid" to the
+                        # internal mac ids for everything?
+                        # Also, this could be avoided if the sending mac id was
+                        # included in the log content
+                        if entry['node'] in node_id_to_mac_id_map:
+                            #print("ID changed from " + str(entry['node']) +
+                            #      " to " + str(node_id_to_mac_id_map[entry['node']]))
+                            packet_src = node_id_to_mac_id_map[entry['node']]
+                        else:
+                            print("No ID-mapping for node " + str(entry['node']))
+                            return None
 
-                # Check if this packet has an existing entry
-                existing_entry = False
-                for packet in arrays["packets"]:
-                    if packet['packet_id'] == entry['packet_id'] and \
-                        packet['src'] == entry['src']:
+                    # If it is receive-event, we get it from the log content
+                    elif entry['event'] == 'recv':
+                        packet_src = entry['src']
+                    else:
+                        print("Unsupported event! " + str(entry['event']))
+                        return None
 
-                        existing_entry = True
+                    entry['src'] = packet_src
 
-                        # If this was a TX it means it was a
-                        # TX event for a packet already RXed (corner-case 1)
-                        # If so, convert to a send event and
-                        # fill in missing info
-                        if entry['event'] == 'send':
-                            packet['event'] = 'send'
-                            packet['dest'] = entry['dest']
-                            packet['depth'] = entry['depth']
-                            break
+                    # Check if this packet has an existing entry
+                    existing_entry = False
+                    for packet in arrays["packets"]:
+                        if packet['packet_id'] == entry['packet_id'] and \
+                            packet['src'] == entry['src']:
 
-                        # If this was a RX it meant it was
-                        # 1. RX of a TX (normal), or
-                        # 2. RX of a TX already RXed (corner-case 2)
-                        if entry['event'] == 'recv':
-                            if "latency" not in packet:
-                                # 1. RX of a TX (normal). Fill in info.
-                                # Calculate latency. Only FIT IoT-lab testbed
-                                # supported, catched by earlier if.
-                                latency_sec = \
-                                    calculate_testbed_latency_in_sec(
-                                        entry["origin_tick"], entry["rx_tick"])
-                                packet["latency"] = latency_sec
+                            existing_entry = True
 
-                                packet["pdr"] = 100.
-                                packet["rx_tick"] = entry["rx_tick"]
+                            # If this was a TX it means it was a
+                            # TX event for a packet already RXed (corner-case 1)
+                            # If so, convert to a send event and
+                            # fill in missing info
+                            if entry['event'] == 'send':
+                                packet['event'] = 'send'
+                                packet['dest'] = entry['dest']
+                                packet['depth'] = entry['depth']
                                 break
-                            else:
-                                # 2. RX of a TX already RXed (ACK has been missed)
-                                # Simply do nothing
-                                packet_multiple_rx += 1
-                                break
 
-                if existing_entry:
-                    continue
+                            # If this was a RX it meant it was
+                            # 1. RX of a TX (normal), or
+                            # 2. RX of a TX already RXed (corner-case 2)
+                            if entry['event'] == 'recv':
+                                if "latency" not in packet:
+                                    # 1. RX of a TX (normal). Fill in info.
+                                    # Calculate latency. Only FIT IoT-lab testbed
+                                    # supported, catched by earlier if.
+                                    latency_sec = \
+                                        calculate_testbed_latency_in_sec(
+                                            entry["origin_tick"], entry["rx_tick"])
+                                    packet["latency"] = latency_sec
 
-                # No existing entry
+                                    packet["pdr"] = 100.
+                                    packet["rx_tick"] = entry["rx_tick"]
+                                    break
+                                else:
+                                    # 2. RX of a TX already RXed (ACK has been missed)
+                                    # Simply do nothing
+                                    #print("RX of already RX:")
+                                    #print(packet)
+                                    packet_multiple_rx += 1
+                                    break
 
-                # If this was a TX we simply add it
-                if entry['event'] == 'send':
-                    entry['pdr'] = 0.
-                    arrays["packets"].append(entry)
-                    continue
+                    if existing_entry:
+                        continue
 
-                # If this was a RX it means we got RX before TX (corner-case 3)
-                # Add what we have, it will completed when the TX comes,
-                # and if not corrected it will raise error
-                elif entry['event'] == 'recv':
-                    latency_sec = \
-                        calculate_testbed_latency_in_sec(
-                            entry["origin_tick"], entry["rx_tick"])
-                    entry["latency"] = latency_sec
-                    entry["pdr"] = 100.
-                    arrays["packets"].append(entry)
-                    log_order_error += 1
-                    continue
-                else:
-                    print("Unsupported new event!")
-                    return None
+                    # No existing entry
 
-            if module == "Energest":
-                ret = parseEnergest(log)
-                if(ret == None):
-                    continue
+                    # If this was a TX we simply add it
+                    if entry['event'] == 'send':
+                        entry['pdr'] = 0.
+                        arrays["packets"].append(entry)
+                        continue
 
-                entry.update(ret)
-                arrays["energest"].append(entry)
+                    # If this was a RX it means we got RX before TX (corner-case 3)
+                    # Add what we have, it will completed when the TX comes,
+                    # and if not corrected it will raise error
+                    elif entry['event'] == 'recv':
+                        latency_sec = \
+                            calculate_testbed_latency_in_sec(
+                                entry["origin_tick"], entry["rx_tick"])
+                        entry["latency"] = latency_sec
+                        entry["pdr"] = 100.
+                        arrays["packets"].append(entry)
+                        log_order_error += 1
+                        continue
+                    else:
+                        print("Unsupported new event!")
+                        return None
 
-            if module == "RPL":
-                ret = parseRPL(log)
-                if(ret == None):
-                    continue
+                if module == "Energest":
+                    ret = parseEnergest(log)
+                    if(ret == None):
+                        continue
 
-                entry.update(ret)
-                if(ret['event'] == 'rpl_stats'):
-                    arrays["rpl_stats"].append(entry)
-                elif(ret['event'] == 'switch'):
-                    arrays["switches"].append(entry)
-                elif(ret['event'] == 'DAGinit'):
-                    arrays["dag_inits"].append(entry)
-                elif(ret['event'] == 'sending'):
-                    if not ret['message'] in arrays:
-                        arrays[ret['message']] = []
-                    arrays[ret['message']].append(entry)
-                elif(ret['event'] == 'topology'):
-                    for n in parents.keys():
-                        nodeEntry = entry.copy()
-                        nodeEntry["node"] = n
-                        nodeEntry["hops"] = calculateHops(n)
-                        nodeEntry["children"] = calculateChildren(n)
-                        arrays["topology"].append(nodeEntry)
+                    entry.update(ret)
+                    arrays["energest"].append(entry)
 
-            if module == "TSCH" or module == "TSCH Queue" or module == "TSCH-LOG" or module == "TSCH Sched":
-                ret = parseTSCH(log)
-                if(ret == None):
-                    continue
-                entry.update(ret)
-                if ret['type'] == 'mac_tx':
-                    # Note that although only application use non-shared
-                    # normal cells, there are exceptions when cells are
-                    # removed/added after packet has been assigned ts/ch
-                    arrays['mac_tx'].append(entry)
-                elif ret['type'] == 'dl_miss_err':
-                    arrays['mac_err'].append(entry)
-                elif ret['type'] == 'stats':
-                    arrays['mac_stats'].append(entry)
-                elif ret['type'] == 'cell':
-                    arrays['mac_cell'].append(entry)
-                else:
-                    arrays["queue"].append(entry)
+                if module == "RPL":
+                    ret = parseRPL(log)
+                    if(ret == None):
+                        continue
 
-            if module == "Main" and testbed:
-                mac_node_id = parseMain(log)
-                if mac_node_id != None:
-                    node_id_to_mac_id_map[nodeid] = mac_node_id
+                    entry.update(ret)
+                    if(ret['event'] == 'rpl_stats'):
+                        arrays["rpl_stats"].append(entry)
+                    elif(ret['event'] == 'switch'):
+                        arrays["switches"].append(entry)
+                    elif(ret['event'] == 'DAGinit'):
+                        arrays["dag_inits"].append(entry)
+                    elif(ret['event'] == 'sending'):
+                        if not ret['message'] in arrays:
+                            arrays[ret['message']] = []
+                        arrays[ret['message']].append(entry)
+                    elif(ret['event'] == 'topology'):
+                        for n in parents.keys():
+                            nodeEntry = entry.copy()
+                            nodeEntry["node"] = n
+                            nodeEntry["hops"] = calculateHops(n)
+                            nodeEntry["children"] = calculateChildren(n)
+                            arrays["topology"].append(nodeEntry)
 
-        except Exception as e:  # typical exception: failed str conversion to int, due to lossy logs
-            print(traceback.format_exc())
-            #print(arrays["packets"])
-            continue
+                if module == "TSCH" or module == "TSCH Queue" or module == "TSCH-LOG" or module == "TSCH Sched":
+                    ret = parseTSCH(log)
+                    if(ret == None):
+                        continue
+                    entry.update(ret)
+                    if ret['type'] == 'mac_tx':
+                        # Note that although only application use non-shared
+                        # normal cells, there are exceptions when cells are
+                        # removed/added after packet has been assigned ts/ch
+                        arrays['mac_tx'].append(entry)
+                    elif ret['type'] == 'dl_miss_err':
+                        arrays['mac_err'].append(entry)
+                    elif ret['type'] == 'stats':
+                        arrays['mac_stats'].append(entry)
+                    elif ret['type'] == 'cell':
+                        arrays['mac_cell'].append(entry)
+                    else:
+                        arrays["queue"].append(entry)
+
+                if module == "Main" and testbed:
+                    mac_node_id = parseMain(log)
+                    if mac_node_id != None:
+                        node_id_to_mac_id_map[nodeid] = mac_node_id
+
+            except Exception as e:  # typical exception: failed str conversion to int, due to lossy logs
+                print(traceback.format_exc())
+                #print(arrays["packets"])
+                continue
 
     # Remove last few packets -- might be in-flight when test stopped
     # arrays["packets"] = arrays["packets"][0:-10]
