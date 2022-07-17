@@ -614,7 +614,11 @@ def doParse(file, app_warmup, testbed):
 
     if packet_multiple_rx > 0:
         print("Number of duplicate RXs: " + str(packet_multiple_rx))
-        if packet_multiple_rx > 20:
+        # A large amount of duplicate RX is possible with Layered
+        # because the L2 duplication detection mechanism does not work
+        # well when nodes are sending from different queues (with
+        # different sequence numbers).
+        if packet_multiple_rx > 10000:
             print("ERR! Too many duplicate RXes")
             return None
 
