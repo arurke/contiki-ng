@@ -160,6 +160,11 @@
 #define TSCH_SCHEDULE_CONF_MAX_SLOTFRAMES     1
 #endif
 
+// Improve chance of dodging other experiments in the testbed
+#if TESTBED
+#define IEEE802154_CONF_PANID                 0xa371
+#endif
+
 // TODO just for testing after queues got filled up. Number from Atis
 //#define TSCH_CONF_MAC_MAX_BE 3
 
