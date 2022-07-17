@@ -385,7 +385,7 @@ def doParse(file, app_warmup, testbed):
    # for line in open(file, 'r').readlines():
             # match time, id, module, log; The common format for all log lines
             if "TEST FAILED" in line:
-                print("SIMULATION FAILED!")
+                print("EXPERIMENT FAILED!")
                 return None
 
             time_ms, nodeid, level, module, log = parseLine(line, testbed)

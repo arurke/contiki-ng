@@ -373,7 +373,8 @@ def get_run_dfs(raw_dfs, run):
     run_dfs = {}
     for raw_df_name in raw_dfs:
         # Ignore app_parent_switch for now
-        if raw_df_name == "raw_app_parent_switch_dfs":
+        if raw_df_name == "raw_app_parent_switch_dfs" or \
+            raw_df_name == "raw_mac_err_dfs":
             continue
         run_df = raw_dfs[raw_df_name][run]
         # Remove irrelevant data

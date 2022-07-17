@@ -318,18 +318,18 @@ def parse_arguments():
                            '--fetch-remote',
                            action = 'store_true',
                            help = 'Fetches data from remote and analyses. Used after -r. Requires -i')
-    argparser.add_argument('-p',
-                           '--prepare',
-                           action = 'store_true',
-                           help = 'Only do preparations. Used in remote (automatically sets -r.). Requires -i')
-    argparser.add_argument('-e',
-                           '--run-only',
-                           action = 'store_true',
-                           help = 'Only execute runs. Used in remote (automatically sets -r.) Requires -i')
     argparser.add_argument('-c',
                            '--from-csv',
                            action = 'store_true',
                            help = 'Read data from CSVs instead of logs (requires --norun).')
+    argparser.add_argument('-p',
+                           '--prepare',
+                           action = 'store_true',
+                           help = 'Only do preparations. Used by remote (automatically sets -r.). Requires -i')
+    argparser.add_argument('-e',
+                           '--run-only',
+                           action = 'store_true',
+                           help = 'Only execute runs. Used by remote (automatically sets -r.) Requires -i')
     args = argparser.parse_args()
 
     type = args.Type

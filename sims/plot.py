@@ -151,7 +151,7 @@ def plot_compare_single_kpi_with_groups(scenarios_df, scenarios_info, kpi,
         # Skip plot if any values are invalid
         if np.isnan(value):
             print("Invalid value (%s). Skipping single-kpi plot %s" % \
-                  (str(value), name))
+                  (str(value), plot_name))
             return
 
         scenario["kpi_value"] = value
@@ -336,10 +336,43 @@ def plot_compare_kpis(scenarios_df, scenarios_info, kpis,
     # I can't be bothered to find something better here
     if len(scenarios) == 1:
         x_pos = [1]
-    if len(scenarios) == 2:
+    elif len(scenarios) == 2:
         x_pos = [x - width/2, x + width/2]
-    if len(scenarios) == 3:
+    elif len(scenarios) == 3:
         x_pos = [x - width, x, x + width]
+    elif len(scenarios) == 12:
+        x_pos = [x - (width*5.5),
+                 x - (width*4.5),
+                 x - (width*3.5),
+                 x - (width*2.5),
+                 x - (width*1.5),
+                 x - (width*0.5),
+                 x + (width*0.5),
+                 x + (width*1.5),
+                 x + (width*2.5),
+                 x + (width*3.5),
+                 x + (width*4.5),
+                 x + (width*5.5)] #TODO
+    elif len(scenarios) == 15:
+        x_pos = [x - (width*7.5),
+                 x - (width*6.5),
+                 x - (width*5.5),
+                 x - (width*4.5),
+                 x - (width*3.5),
+                 x - (width*2.5),
+                 x - (width*1.5),
+                 x - (width*0.5),
+                 x + (width*0.5),
+                 x + (width*1.5),
+                 x + (width*2.5),
+                 x + (width*3.5),
+                 x + (width*4.5),
+                 x + (width*5.5),
+                 x + (width*6.5)]
+        #print("values: " + str(scenario["values"]))
+    else:
+        print("Unsupported num scenarios. Skipping " + name)
+        return
 
     for idx, scenario in enumerate(scenarios):
         rect = ax.bar(x_pos[idx], scenario["values"], width, capsize=5,
@@ -366,7 +399,9 @@ def plot_compare_kpis(scenarios_df, scenarios_info, kpis,
     ax.set_xticklabels(kpi_list)
     ax.legend()
 
-    fig.tight_layout()
+    # Remove box-frame at top and right
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
 
     fig_name = ""
     if name:
