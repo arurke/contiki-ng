@@ -695,6 +695,7 @@ layered_calc_packet_cell(packet_type_t packet_type, uint16_t frame_type,
 static int
 select_packet(uint16_t *slotframe, uint16_t *timeslot, uint16_t *channel_offset)
 {
+  return 1;
   packet_type_t packet_type = packetbuf_attr(PACKETBUF_ATTR_PACKET_TYPE);
   if(!layered_calc_packet_cell(packet_type,
         packetbuf_attr(PACKETBUF_ATTR_FRAME_TYPE),

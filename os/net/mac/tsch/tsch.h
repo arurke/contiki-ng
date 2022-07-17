@@ -112,9 +112,9 @@ frequency hopping for enhanced reliability.
 #define TSCH_CALLBACK_NEW_TIME_SOURCE layered_callback_new_time_source
 #endif /* TSCH_CALLBACK_NEW_TIME_SOURCE */
 
-#ifndef TSCH_CALLBACK_PACKET_READY
-#define TSCH_CALLBACK_PACKET_READY layered_callback_packet_ready
-#endif /* TSCH_CALLBACK_PACKET_READY */
+//#ifndef TSCH_CALLBACK_PACKET_READY
+//#define TSCH_CALLBACK_PACKET_READY layered_callback_packet_ready
+//#endif /* TSCH_CALLBACK_PACKET_READY */
 
 #endif /* BUILD_WITH_LAYERED */
 

@@ -85,6 +85,7 @@ layered_callback_child_removed(const linkaddr_t *addr)
 int
 layered_callback_packet_ready(void)
 {
+  return 1;
   int i;
   /* By default, use any slotframe, any timeslot */
   uint16_t slotframe = 0xffff;
@@ -112,9 +113,12 @@ layered_callback_packet_ready(void)
 
 //#if TSCH_WITH_LINK_SELECTOR
   // Add attributes regardless because we use them for stats
-  packetbuf_set_attr(PACKETBUF_ATTR_TSCH_SLOTFRAME, slotframe);
-  packetbuf_set_attr(PACKETBUF_ATTR_TSCH_TIMESLOT, timeslot);
-  packetbuf_set_attr(PACKETBUF_ATTR_TSCH_CHANNEL_OFFSET, channel_offset);
+  // TODO we do not use them for stats anymore
+  // (and should not use as they are not guaranteed to be up-to-date
+  //  as this function is called only when adding packet to queue)
+//  packetbuf_set_attr(PACKETBUF_ATTR_TSCH_SLOTFRAME, slotframe);
+//  packetbuf_set_attr(PACKETBUF_ATTR_TSCH_TIMESLOT, timeslot);
+//  packetbuf_set_attr(PACKETBUF_ATTR_TSCH_CHANNEL_OFFSET, channel_offset);
 //#endif
 
   return matched_rule;
