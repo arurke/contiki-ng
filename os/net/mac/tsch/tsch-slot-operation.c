@@ -484,6 +484,10 @@ get_packet_and_neighbor_for_link(struct tsch_link *link, struct tsch_neighbor **
         if(tsch_schedule_link_is_flow_link(link)) {
           // The link is tied to a flow-neighbor
           // Get the neighbor, and the packet from its queue.
+          if(tsch_is_locked()) {
+            return NULL;
+          }
+
           struct tsch_neighbor* flow_neighbor = tsch_queue_get_nbr(&link->addr);
           if(flow_neighbor == NULL) {
             // This should not happen
