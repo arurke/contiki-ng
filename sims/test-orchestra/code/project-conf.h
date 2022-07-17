@@ -59,7 +59,11 @@
 
 // Buffer size (note that actual size is -1 due to ringbuf, see issue #1532)
 // 64 for grid
-#define PACKET_BUFFER_SIZE                128
+#if BUILD_WITH_LAYERED
+#define PACKET_BUFFER_SIZE                64
+#else
+#define PACKET_BUFFER_SIZE                32 // 2 x layered (unicast + other)
+#endif
 // 16 for 9-hop linear
 //#define PACKET_BUFFER_SIZE                16
 // 8 for 2-hop topology
@@ -70,7 +74,9 @@
 
 // Max queue size per neighbor. Must be power of two.
 // Note, must be increased if not using flows with Layered
-#define TSCH_QUEUE_CONF_NUM_PER_NEIGHBOR  32
+#if BUILD_WITH_LAYERED
+#define TSCH_QUEUE_CONF_NUM_PER_NEIGHBOR  16
+#endif
 
 // Increase incoming packets buffer (def. 4)
 #define TSCH_CONF_MAX_INCOMING_PACKETS    8
