@@ -39,7 +39,7 @@ log_order_error = 0
 
 metrics = ["packets", "energest", "rpl_stats", "app_parent_switch",
            "switches", "dag_inits", "topology", "queue", "mac_tx",
-           "mac_err", "mac_stats", "mac_cell"]
+           "mac_err", "mac_stats", "mac_cell", "skipped_app_packets"]
 
 def calculateHops(node):
     hops = 0
@@ -173,6 +173,10 @@ def parseApp(log):
     res = re.compile('Parent switch').match(log)
     if res:
         return {'event': 'app_parent_switch'}
+
+    res = re.compile('Lost conn! Skipping packet!').match(log)
+    if res:
+        return {'event': 'lost_conn_skip_packet'}
 
     res = re.compile('Done').match(log)
     if res:
@@ -413,6 +417,10 @@ def doParse(file, app_warmup, testbed):
 
                     entry.update(ret)
 
+                    if ret['event'] == 'lost_conn_skip_packet':
+                        arrays['skipped_app_packets'].append(entry)
+                        continue
+
                     if ret['event'] == 'app_parent_switch':
                         arrays['app_parent_switch'].append(entry)
                         continue
@@ -616,6 +624,14 @@ def doParse(file, app_warmup, testbed):
             print("ERR! Too many log-lines out of order")
             return None
 
+    skipped_app_packets = len(arrays["skipped_app_packets"])
+    if skipped_app_packets > 0:
+        print("App packets skipped due to lost connection: " +
+              str(skipped_app_packets))
+        if skipped_app_packets > 50:
+            print("ERR! Too many skipped app packets")
+            return None
+
     return arrays, len(node_id_to_mac_id_map)
 
 def outputStats(dfs, key, metric, agg, name, metricLabel=None):
@@ -789,7 +805,9 @@ def parse_logfile(file, app_warmup, has_spatial,
     #too_shallow_tx = len(app_packets_df[app_packets_df["depth"] < 6])
 
     # Max. hop count after app started
-    hop_count_df = dfs["rpl_stats"]
+    rpl_stats_df = dfs["rpl_stats"]
+    # Remove rows where not attached to network
+    hop_count_df = rpl_stats_df[rpl_stats_df["hop_count"] != 65535]
     app_max_hop_count = hop_count_df[hop_count_df["app_started"] == 1]["hop_count"].max()
 
     # ETX for application cells
