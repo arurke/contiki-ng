@@ -351,9 +351,8 @@ static void remove_link(uint16_t timeslot, uint16_t channel) {
     existing_link->should_be_scheduled = false;
     LOG_DBG("Link %u/%u removed\n", timeslot, channel);
   }
-#if LAYERED_STATEFUL
+
   sync_links_with_schedule();
-#endif
 }
 
 static void add_link(
