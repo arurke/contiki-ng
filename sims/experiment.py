@@ -51,19 +51,19 @@ class Config:
     csc_baseline_path: str
     sim_cfg_path: str
     num_runs: int
-    skip_post: bool
-    do_run: bool
+    prepare: bool
+    execute: bool
+    analyze: bool
     execution_id: str
     scenarios: dict
     duration: int
     app_warmup: int
     nodes: str
     remote_execution: bool
-    prepare_only: bool
-    run_only: bool
     fetch_from_remote: bool
     remote_log_file: str
     from_csv: bool
+    on_remote: bool
 
 def add_commands_run_sim(sim_name, scenarios, num_runs):
     scenario_run_cmds = []
@@ -205,7 +205,7 @@ def prepare_datastructures(scenarios, execution_dir):
 
 # Make executions/[execution-id]/[scenario-name] directories
 def prepare_filesystem(exp_name, sim_dir, scenarios,
-                       executions_dir, execution_dir, remote=False):
+                       executions_dir, execution_dir, on_remote=False):
     print("\nPreparing filesystem")
 
     if not os.path.exists(executions_dir):
@@ -221,7 +221,7 @@ def prepare_filesystem(exp_name, sim_dir, scenarios,
             print("Generating scenario dir", scenario['path'])
             os.mkdir(scenario['path'])
 
-    copy_node_code(sim_dir, scenarios, remote)
+    copy_node_code(sim_dir, scenarios, on_remote)
     copy_experiment_config_file(sim_dir, exp_name, execution_dir)
 
     print("Filesystem prepared")
@@ -298,18 +298,14 @@ def parse_arguments():
                            metavar = 'config',
                            type = str,
                            help = 'name of config file')
-    argparser.add_argument('-s',
-                           '--skipp',
+    argparser.add_argument('-a',
+                           '--analyze',
                            action='store_true',
-                           help = 'skip post-processing')
-    argparser.add_argument('-n',
-                           '--norun',
-                           action = 'store_true',
-                           help = 'Dont run experiment (require -i)')
+                           help = 'Analyze results')
     argparser.add_argument('-r',
-                           '--remote',
+                           '--remote-execution',
                            action = 'store_true',
-                           help = 'Execute experiment run via remote host')
+                           help = 'Execute experiment run via remote host. Sets -e')
     argparser.add_argument('-i',
                            '--id-execution',
                            type = str,
@@ -317,66 +313,61 @@ def parse_arguments():
     argparser.add_argument('-f',
                            '--fetch-remote',
                            action = 'store_true',
-                           help = 'Fetches data from remote and analyses. Used after -r. Requires -i')
+                           help = 'Fetches data from remote. Requires -i')
     argparser.add_argument('-c',
                            '--from-csv',
                            action = 'store_true',
-                           help = 'Read data from CSVs instead of logs (requires --norun).')
+                           help = 'Read data from CSVs instead of logs')
     argparser.add_argument('-p',
                            '--prepare',
                            action = 'store_true',
-                           help = 'Only do preparations. Used by remote (automatically sets -r.). Requires -i')
+                           help = 'Do preparations. Typically implicit and only used by remote. Requires -i')
     argparser.add_argument('-e',
-                           '--run-only',
+                           '--execute',
                            action = 'store_true',
-                           help = 'Only execute runs. Used by remote (automatically sets -r.) Requires -i')
+                           help = 'Execute experiment')
+    argparser.add_argument('-o',
+                           '--on-remote',
+                           action = 'store_true',
+                           help = 'Used by remote to signal we are on remote')
     args = argparser.parse_args()
 
     type = args.Type
     sim_dir = args.Path
     sim_cfg_filename = args.Config
-    skip_post = args.skipp
-    no_run = args.norun
-    remote_execution = args.remote
-    prepare_only = args.prepare
-    run_only = args.run_only
+    analyze = args.analyze
+    remote_execution = args.remote_execution
+    prepare = args.prepare
+    execute = args.execute
     execution_id = args.id_execution
     fetch_from_remote = args.fetch_remote
     from_csv = args.from_csv
+    on_remote = args.on_remote
 
-    if prepare_only and execution_id is None:
-        print("Execution id (-i) must be set when only preparing")
-        exit()
-    if run_only and execution_id is None:
-        print("Execution id (-i) must be set when only doing runs ")
-        exit()
-    if no_run and execution_id is None:
-        print("Execution id (-i) must be set when not running experiment")
+    # If remote execution we force execution
+    if remote_execution:
+        execute = True
+
+    # If executing we force prepare unless on remote
+    if execute and not on_remote:
+        prepare = True
+
+    if not execute and execution_id is None:
+        print("Need execution ID as long as not executing")
         exit()
     if fetch_from_remote and execution_id is None:
         print("Execution id (-i) must be set fetching data from remote")
         exit()
-    if from_csv and not no_run:
-        print("Cannot do run (must set --norun) when reading data from CSV")
-        exit()
 
-    # If fetching we force no running
-    if fetch_from_remote:
-        no_run = True
-
-    # If preparation or exection only we force remote
-    if prepare_only or run_only:
-        remote_execution = True
-
-    return type, sim_dir, sim_cfg_filename, skip_post, no_run, \
-        remote_execution, prepare_only, run_only, execution_id, \
-        fetch_from_remote, from_csv
+    return type, sim_dir, sim_cfg_filename, analyze, execute, \
+        remote_execution, prepare, execution_id, \
+        fetch_from_remote, from_csv, on_remote
 
 def parse_config():
     # Get config from command line
-    type, sim_dir, sim_cfg_filename, skip_post, no_run, \
-        remote_execution, prepare_only, run_only, execution_id, \
-        fetch_from_remote, from_csv = parse_arguments()
+    type, sim_dir, sim_cfg_filename, analyze, execute, \
+        remote_execution, prepare, execution_id, fetch_from_remote, \
+        from_csv, on_remote = parse_arguments()
 
     # Add '/'
     os.path.join(sim_dir)
@@ -384,13 +375,16 @@ def parse_config():
     # Folder to hold all executions
     executions_dir = sim_dir + EXECUTIONS_FOLDER_NAME + "/"
 
-    if not no_run:
-        do_run = True
-        sim_cfg_path = sim_dir + sim_cfg_filename
-    else:
-        do_run = False
+    # Set path to config file
+    if execution_id is not None:
         sim_cfg_path = executions_dir + \
             execution_id + "/" +  sim_cfg_filename
+    else:
+        sim_cfg_path = sim_dir + sim_cfg_filename
+
+    # Except the prepare on remote which is special
+    if on_remote and prepare:
+        sim_cfg_path = sim_dir + sim_cfg_filename
 
     # Parse config-file
     parsedconfig, experiment_config, scenarios = \
@@ -415,29 +409,32 @@ def parse_config():
 
     config = Config(type, exp_name, sim_dir, executions_dir, execution_dir,
                     csc_baseline_path, sim_cfg_path,
-                    experiment_config["num_runs"], skip_post,
-                    do_run, execution_id, scenarios,
+                    experiment_config["num_runs"], prepare,
+                    execute, analyze, execution_id, scenarios,
                     experiment_config["duration"],
                     experiment_config["app_warmup"],
                     experiment_config["nodes"],
-                    remote_execution, prepare_only, run_only,
-                    fetch_from_remote, remote_log_file, from_csv)
+                    remote_execution, fetch_from_remote,
+                    remote_log_file, from_csv, on_remote)
 
     print_config(config)
 
     return parsedconfig, config
 
 def print_config(config):
-    if config.do_run is False:
-        print("\nNo execution! Analyzing: ", config.execution_id)
+    #if config.execution is False:
+    #    print("\nNo execution! Analyzing: ", config.execution_id)
     print("\nExperiment config:")
     print("\tType:          ", config.type)
     print("\tName:          ", config.exp_name)
     print("\tDirectory:     ", config.sim_dir)
     print("\tConfig:        ", config.sim_cfg_path)
+    print("\tPrepare:       ", config.prepare)
+    print("\tExecute:       ", config.execute)
     print("\tRemote execut.:", config.remote_execution)
-    print("\tPrepare only:  ", config.prepare_only)
+    print("\tAnalyze:       ", config.analyze)
     print("\tFetch remote:  ", config.fetch_from_remote)
+    print("\tData from CSV: ", str(config.from_csv))
     print("\tCSC Baseline:  ", config.csc_baseline_path)
     print("\tApp. warmup:   ", config.app_warmup)
     print("\t# scenarios:   ", len(config.scenarios))
@@ -446,9 +443,6 @@ def print_config(config):
         print("\tDuration:      ", config.duration)
     if config.nodes is not None:
         print("\tNodes:         ", config.nodes)
-    print("\tSkip post:     ", str(config.skip_post))
-    print("\tDo execution:  ", str(config.do_run))
-    print("\tData from CSV: ", str(config.from_csv))
     print("\tExecution id:  ", config.execution_id)
     print("\tExecution dir: ", config.execution_dir)
     if config.remote_execution:
@@ -573,6 +567,7 @@ def run_testbed_remote(exp_name, sim_dir, execution_id, execution_dir, scenarios
         " testbed " + \
         sim_dir + " " + \
         config_file_name + \
+        " -o" + \
         " -p" + \
         " -i " + execution_id
     #print(prepare_remote)
@@ -603,6 +598,7 @@ def run_testbed_remote(exp_name, sim_dir, execution_id, execution_dir, scenarios
         " testbed " + \
         sim_dir + " " + \
         config_file_name + \
+        " -o" + \
         " -e" + \
         " -i " + execution_id + \
         " 2>&1 | tee " + log_file + "'"
@@ -680,6 +676,7 @@ def print_finished_message(config, start_time):
     print("Duration:", end_time - start_time)
 
 # Typical usage:
+# TODO outdated
 # With local execution of testbed:
 # `python3 experiment.py testbed test-orchestra/ spatial_test.ini`
 #
@@ -710,88 +707,15 @@ def main():
 
     prepare_datastructures(config.scenarios, config.execution_dir)
 
-    # Only do preparations. Used at remote to ready for receiving firmware++
-    if config.prepare_only:
+    if config.prepare:
         prepare_filesystem(config.exp_name,
              config.sim_dir,
              config.scenarios,
              config.executions_dir,
              config.execution_dir,
-             config.remote_execution)
-        exit()
+             config.on_remote)
 
-    # Run testbed only. Used at remote after firmware++ has been received.
-    if config.run_only:
-        add_commands_build_firmware(config.scenarios)
-        add_commands_run_testbed(
-            config.exp_name, config.scenarios,
-            config.num_runs, config.duration,
-            config.nodes)
-        if not run_testbed(config.scenarios, config.num_runs):
-            print("\nError in executions. Exiting.")
-            exit()
-
-        print_finished_message(config, start_time)
-        exit()
-
-    # Start execution on remote. Used at local as first step (fetch is 2nd).
-    if config.remote_execution:
-        if config.type != "testbed":
-            print("Only remote testbed supported!")
-            exit()
-
-        prepare_filesystem(config.exp_name,
-                     config.sim_dir,
-                     config.scenarios,
-                     config.executions_dir,
-                     config.execution_dir)
-
-        print("Making testbed-run commands")
-        add_commands_build_firmware(config.scenarios)
-        add_commands_run_testbed(
-            config.exp_name, config.scenarios,
-            config.num_runs, config.duration,
-            config.nodes)
-
-        print("Adding firmwares")
-        if not add_firmware(config.scenarios):
-            exit()
-
-        print("\nStarting testbed remotely!")
-        if not run_testbed_remote(config.exp_name,
-                           config.sim_dir,
-                           config.execution_id,
-                           config.execution_dir,
-                           config.scenarios,
-                           config.remote_log_file):
-            print("Remote execution failed!")
-
-        cleanup(config.scenarios)
-        exit()
-
-    # Fetch data from remote and analyse
-    if config.fetch_from_remote:
-        if not is_remote_execution_done(
-            config.execution_dir, config.execution_id, config.remote_log_file):
-            exit()
-
-        if not fetch_data_from_remote(config.execution_dir, config.scenarios, config.num_runs):
-            print("Fetching data from remote failed")
-            exit()
-
-        # Process results
-        if not config.skip_post:
-            process_results(config.scenarios, config.execution_dir, False)
-        exit()
-
-    # No special cases. Continue running (if not disabled) and analyze.
-    if config.do_run: 
-        prepare_filesystem(config.exp_name,
-                             config.sim_dir,
-                             config.scenarios,
-                             config.executions_dir,
-                             config.execution_dir)
-
+    if config.execute:
         if config.type == "simulation":
             print("Making XML for all scenarios")
             simxml_make_xml_for_all_scenarios(config.exp_name,
@@ -810,28 +734,51 @@ def main():
 
         if config.type == "testbed":
             print("Making testbed-run commands")
-            add_commands_build_firmware(config.scenarios)
+            add_commands_build_firmware(config.scenarios) # TODO these needed when on remote?
             add_commands_run_testbed(
                 config.exp_name, config.scenarios,
                 config.num_runs, config.duration,
                 config.nodes)
 
-            print("Adding firmwares")
-            if not add_firmware(config.scenarios):
-                exit()
+            if not config.on_remote:
+                print("Adding firmwares")
+                if not add_firmware(config.scenarios):
+                    exit()
 
-            print("\nStarting testbed!")
-            if not run_testbed(config.scenarios, config.num_runs):
-                print("\nError in executions. Exiting.")
-                exit()
+            if config.remote_execution:
+                print("\nStarting testbed remotely!")
+                if not run_testbed_remote(config.exp_name,
+                                   config.sim_dir,
+                                   config.execution_id,
+                                   config.execution_dir,
+                                   config.scenarios,
+                                   config.remote_log_file):
+                    print("Remote execution failed!")
 
-        cleanup(config.scenarios)
+            else:
+                print("\nStarting testbed!")
+                if not run_testbed(config.scenarios, config.num_runs):
+                    print("\nError in executions. Exiting.")
+                    exit()
 
-    # Process results
-    if not config.skip_post:
+            cleanup(config.scenarios)
+
+        print_finished_message(config, start_time)
+
+    if config.fetch_from_remote:
+        if not is_remote_execution_done(
+            config.execution_dir, config.execution_id, config.remote_log_file):
+            exit()
+
+        if not fetch_data_from_remote(config.execution_dir, config.scenarios, config.num_runs):
+            print("Fetching data from remote failed")
+            exit()
+
+    if config.analyze:
         process_results(config.scenarios, config.execution_dir, config.from_csv)
 
-    print_finished_message(config, start_time)
+    if not config.on_remote:
+        print_finished_message(config, start_time)
 
 main()
 
