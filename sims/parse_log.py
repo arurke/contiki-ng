@@ -632,7 +632,7 @@ def doParse(file, app_warmup, testbed):
     if skipped_app_packets > 0:
         print("App packets skipped due to lost connection: " +
               str(skipped_app_packets))
-        if skipped_app_packets > 50:
+        if skipped_app_packets > 200:
             print("ERR! Too many skipped app packets")
             return None
 
