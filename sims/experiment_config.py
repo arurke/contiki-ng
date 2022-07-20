@@ -3,6 +3,7 @@ import configparser
 # Constants
 GLOBAL_SECTION = "global"
 GLOBAL_NUM_RUNS = "num_runs"
+GLOBAL_SITE = "site"
 
 SIMULATION_SECTION = "simulation"
 SIMULATION_CSC_BASELINE = "csc_baseline"
@@ -39,6 +40,9 @@ def experiment_config_parse(filename):
                 config[GLOBAL_SECTION].getboolean(TESTBED_SPATIAL_COMPARISON)
             experiment_config[TESTBED_CONVERGENCE_COMPARISON] = \
                 config[GLOBAL_SECTION].getboolean(TESTBED_CONVERGENCE_COMPARISON)
+            if GLOBAL_SITE in config[GLOBAL_SECTION]:
+                experiment_config[GLOBAL_SITE] = \
+                    config[GLOBAL_SECTION][GLOBAL_SITE]
             continue
 
         if section_name == SIMULATION_SECTION:

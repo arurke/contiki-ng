@@ -37,6 +37,7 @@ IOTLAB_TARGET="iotlab"
 IOTLAB_ARCH_PATH="../../../../../../iot-lab-contiki-ng/arch" # TODO improve?
 IOTLAB_BINARY_NAME="node.iotlab"
 IOTLAB_BUILD_ARGUMENTS="TESTBED=1 BOARD=m3 -j8"
+IOTLAB_DEFAULT_SITE = "grenoble"
 REMOTE_EXPERIMENT_PATH = "~/experiments/"
 REMOTE_CONNECT = "arurke@phd.netwurke.com"
 REMOTE_LOG_FILE = "remote_execution.log"
@@ -58,6 +59,7 @@ class Config:
     scenarios: dict
     duration: int
     app_warmup: int
+    site: str
     nodes: str
     remote_execution: bool
     fetch_from_remote: bool
@@ -108,7 +110,8 @@ def add_commands_build_firmware(scenarios):
         scenario['firmware'] = src_path + "/" + IOTLAB_BINARY_NAME
 
 # Must be called after adding build-firmare-commands since firmware-path is needed
-def add_commands_run_testbed(exp_name, scenarios, num_runs, duration, nodes):
+def add_commands_run_testbed(
+        exp_name, scenarios, num_runs, duration, site, nodes):
     for scenario in scenarios:
         # For testbed we add an array of run-cmds (to run testbed), one for each run
         # (with simulator, multiple runs are handled in the simulator-running-script)
@@ -120,7 +123,7 @@ def add_commands_run_testbed(exp_name, scenarios, num_runs, duration, nodes):
             logs_path = scenario['path'] + run_str + "/"
             run_cmd = "./run-testbed.sh " + run_name + "-" + run_str + " " + \
                 scenario['firmware'] + " " + logs_path + " " + \
-                str(duration) + " grenoble,m3," + nodes
+                str(duration) + " " + site + " " + site + ",m3," + nodes
 
             # Add finished command to the scenario run-cmd array
             scenario_run_cmds.append(run_cmd.split(' '))
@@ -407,12 +410,19 @@ def parse_config():
     remote_execution_dir = REMOTE_EXPERIMENT_PATH + execution_dir
     remote_log_file = remote_execution_dir + REMOTE_LOG_FILE
 
+    # Site
+    if "site" in experiment_config:
+        iotlab_site = experiment_config["site"]
+    else:
+        iotlab_site = IOTLAB_DEFAULT_SITE
+
     config = Config(type, exp_name, sim_dir, executions_dir, execution_dir,
                     csc_baseline_path, sim_cfg_path,
                     experiment_config["num_runs"], prepare,
                     execute, analyze, execution_id, scenarios,
                     experiment_config["duration"],
                     experiment_config["app_warmup"],
+                    iotlab_site,
                     experiment_config["nodes"],
                     remote_execution, fetch_from_remote,
                     remote_log_file, from_csv, on_remote)
@@ -441,6 +451,7 @@ def print_config(config):
     print("\t# runs pr sc.: ", config.num_runs)
     if config.duration is not None:
         print("\tDuration:      ", config.duration)
+    print("\tSite:          ", config.site)
     if config.nodes is not None:
         print("\tNodes:         ", config.nodes)
     print("\tExecution id:  ", config.execution_id)
@@ -738,7 +749,7 @@ def main():
             add_commands_run_testbed(
                 config.exp_name, config.scenarios,
                 config.num_runs, config.duration,
-                config.nodes)
+                config.site, config.nodes)
 
             if not config.on_remote:
                 print("Adding firmwares")

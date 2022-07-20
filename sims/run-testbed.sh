@@ -6,8 +6,8 @@
 #set -e
 
 #---------------------- TEST ARGUMENTS ----------------------#
-if [ "$#" -ne 5 ]; then
-  echo "Usage: $0 <exp name> <firmware path> <logs dir> <exp duration (m)> <list of nodes>"
+if [ "$#" -ne 6 ]; then
+  echo "Usage: $0 <exp name> <firmware path> <logs dir> <exp duration (m)> <site> <list of nodes>"
   exit
 fi
 #---------------------- TEST ARGUMENTS ----------------------#
@@ -18,8 +18,9 @@ EXPNAME=$1
 FIRMWARE=$2
 LOGDIR=$3
 DURATION=$4
-NODES=$5
-SITE="grenoble"
+SITE=$5
+NODES=$6
+
 IOTLAB="$LOGIN@$SITE.iot-lab.info"
 NGDIR="${HOME}/vizaworkspace/contiki-ng-arurke"
 
