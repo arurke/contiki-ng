@@ -828,7 +828,7 @@ def parse_logfile(file, app_warmup, has_spatial,
         app_tx_etx = app_tx["transmissions"].sum() / \
             len(app_tx["transmissions"][app_tx["result"] == "ok"])
 
-    if "mac_cell" in dfs:
+    if "mac_cell" in dfs and False:
         # Find ETX for spatial reused cells. Only supported when running Layered! (due to app field)
         mac_cell_df = dfs["mac_cell"]
         # Note that there might be slightly more TX here than with the "mac_tx"
