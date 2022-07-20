@@ -628,14 +628,6 @@ def doParse(file, app_warmup, testbed):
             print("ERR! Too many log-lines out of order")
             return None
 
-    skipped_app_packets = len(arrays["skipped_app_packets"])
-    if skipped_app_packets > 0:
-        print("App packets skipped due to lost connection: " +
-              str(skipped_app_packets))
-        if skipped_app_packets > 200:
-            print("ERR! Too many skipped app packets")
-            return None
-
     return arrays, len(node_id_to_mac_id_map)
 
 def outputStats(dfs, key, metric, agg, name, metricLabel=None):
@@ -803,6 +795,20 @@ def parse_logfile(file, app_warmup, has_spatial,
         print("Too few eligible app. packets! (" + str(packets_sent) + ")")
         meta["result"] = "error-app-packets"
         return None, meta
+
+    # Check how many app packets were skipped
+    if "skipped_app_packets" in dfs:
+        skipped_app_packets_df = dfs["skipped_app_packets"]
+        skipped_app_packets = len(
+            skipped_app_packets_df[skipped_app_packets_df["app_started"] == 1])
+        if skipped_app_packets > 0:
+            print("App packets skipped due to lost connection: " +
+                  str(skipped_app_packets))
+            if skipped_app_packets > (packets_sent / 2):
+                print("ERR! Too many skipped app packets")
+                meta["result"] = "error-skip-app-packets"
+                return None, meta
+
 
     # Abort if packets are sent too shallow
     # This test is redundant as the problem is catched by the spatial reuse test
