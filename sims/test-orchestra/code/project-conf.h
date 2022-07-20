@@ -53,7 +53,9 @@
 #endif
 
 // TX power in iotlab
+#ifndef RF2XX_TX_POWER
 #define RF2XX_TX_POWER                    PHY_POWER_m17dBm
+#endif
 //#define RF2XX_RX_RSSI_THRESHOLD           RF2XX_PHY_RX_THRESHOLD__m84dBm
 #define RF2XX_RX_RSSI_THRESHOLD           RF2XX_PHY_RX_THRESHOLD__m78dBm
 
