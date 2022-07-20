@@ -147,10 +147,12 @@ link_stats_packet_sent(const linkaddr_t *lladdr, int status, int numtx)
 //  LOG_WARN_LLADDR(lladdr);
 //  LOG_WARN_("\n");
 
+//#if BUILD_WITH_LAYERED
 //  if(packetbuf_attr(PACKETBUF_ATTR_PACKET_TYPE) == PACKET_TYPE_APP) {
-//    LOG_WARN("Skipping app packet %u\n", packetbuf_attr(PACKETBUF_ATTR_PACKET_TYPE));
+////    LOG_WARN("Skipping app packet %u\n", packetbuf_attr(PACKETBUF_ATTR_PACKET_TYPE));
 //    return;
 //  }
+//#endif
 
   stats = nbr_table_get_from_lladdr(link_stats, lladdr);
   if(stats == NULL) {
