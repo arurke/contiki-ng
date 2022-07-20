@@ -86,7 +86,11 @@
 // Num nodes * num layers + any common slots
 #define COMMON_SLOT_SPACING     LAYERED_COMMON_SLOT_SPACING
 #define LAYERED_RAW_SF_LEN      (LAYERED_MAX_NUM_NODES * LAYERED_NUM_LAYERS)
+#if LAYERED_MAX_NUM_NODES == 17
+#define NUM_COMMON_SLOTS        (LAYERED_RAW_SF_LEN / COMMON_SLOT_SPACING)// + 1 //TODO
+#else
 #define NUM_COMMON_SLOTS        (LAYERED_RAW_SF_LEN / COMMON_SLOT_SPACING) + 1 //TODO
+#endif
 #define LAYERED_SF_LEN          (LAYERED_RAW_SF_LEN + NUM_COMMON_SLOTS)
 
 /* The hash function used to assign timeslot to a given node (based on its link-layer address).
