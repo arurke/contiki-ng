@@ -757,10 +757,11 @@ def parse_logfile(file, app_warmup, has_spatial,
 
     # Topology changes after app started
     parent_switch_df = dfs["switches"]
-    parent_switch_count = len(parent_switch_df[parent_switch_df["app_started"] == 1])
+    parent_switch_count = \
+        len(parent_switch_df[parent_switch_df["app_started"] == 1])
     meta["parent_switch_app"] = parent_switch_count
     if parent_switch_count > 0:
-        print("Parent switches during application: " + parent_switch_count)
+        print("Parent switches during application: " + str(parent_switch_count))
         #meta["result"] = "switch"
         #return None, meta
         #outputStats(dfs, "switches", "pswitch", "count", "RPL parent switches (#)")
