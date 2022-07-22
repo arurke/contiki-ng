@@ -128,6 +128,9 @@ guess_etx_from_rssi(const struct link_stats *stats)
 #endif /* LINK_STATS_INIT_ETX_FROM_RSSI */
 /*---------------------------------------------------------------------------*/
 /* Packet sent callback. Updates stats for transmissions to lladdr */
+//#if BUILD_WITH_LAYERED
+//#include "packet-type.h"
+//#endif
 void
 link_stats_packet_sent(const linkaddr_t *lladdr, int status, int numtx)
 {
