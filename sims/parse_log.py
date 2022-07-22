@@ -804,8 +804,8 @@ def parse_logfile(file, app_warmup, has_spatial,
             skipped_app_packets_df[skipped_app_packets_df["app_started"] == 1])
         if skipped_app_packets > 0:
             print("App packets skipped due to lost connection: " +
-                  str(skipped_app_packets))
-            if skipped_app_packets > (packets_sent / 2):
+                  str(skipped_app_packets) + ", sent: " + str(packets_sent))
+            if skipped_app_packets > (packets_sent):
                 print("ERR! Too many skipped app packets")
                 meta["result"] = "error-skip-app-packets"
                 return None, meta
