@@ -56,8 +56,9 @@
 #ifndef RF2XX_TX_POWER
 #define RF2XX_TX_POWER                    PHY_POWER_m17dBm
 #endif
-//#define RF2XX_RX_RSSI_THRESHOLD           RF2XX_PHY_RX_THRESHOLD__m84dBm
+#ifndef RF2XX_RX_RSSI_THRESHOLD
 #define RF2XX_RX_RSSI_THRESHOLD           RF2XX_PHY_RX_THRESHOLD__m78dBm
+#endif
 
 // Buffer size (note that actual size is -1 due to ringbuf, see issue #1532)
 // 64 for grid
@@ -125,7 +126,11 @@
 #define ORCHESTRA_CONF_COMMON_SHARED_PERIOD   31
 
 // Length of unicast SF (def. 17)
+#if LARGER_TOPOLOGY
+#define ORCHESTRA_CONF_UNICAST_PERIOD         29
+#else
 #define ORCHESTRA_CONF_UNICAST_PERIOD         17
+#endif
 
 // Is hash collision free? (def.  0)
 #define ORCHESTRA_CONF_COLLISION_FREE_HASH    1
@@ -149,10 +154,13 @@
 
 // Num nodes supported for layers (including sink)
 //#define LAYERED_CONF_MAX_NUM_NODES            49
+#if LARGER_TOPOLOGY
+#define LAYERED_CONF_MAX_NUM_NODES            26 // Also removed the ad-hoc fix in layered-conf.h
+#else
 #define LAYERED_CONF_MAX_NUM_NODES            17 // Also removed the ad-hoc fix in layered-conf.h
+#endif
 #define LAYERED_CONF_NUM_LAYERS               2
 #define LAYERED_CONF_COMMON_SLOT_SPACING      11
-//#define LAYERED_CONF_CHANNELS                 (uint8_t[]){1,2}
 
 // Convenience variable for no spatial reuse.
 // 4 channels give no spatial reuse up to 8 hops
@@ -161,7 +169,7 @@
 #if TEST_NO_SPATIAL_REUSE
 #define LAYERED_CONF_CHANNELS                 ((uint8_t[]){1,2,3,4})
 #else
-#define LAYERED_CONF_CHANNELS                 ((uint8_t[]){1,2,3}) // TODO for special testing
+#define LAYERED_CONF_CHANNELS                 ((uint8_t[]){1,2}) // TODO for special testing
 #endif
 
 #if BUILD_WITH_LAYERED
