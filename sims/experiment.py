@@ -66,6 +66,7 @@ class Config:
     remote_log_file: str
     from_csv: bool
     on_remote: bool
+    cflagsextra: str
 
 def add_commands_run_sim(sim_name, scenarios, num_runs):
     scenario_run_cmds = []
@@ -82,7 +83,7 @@ def add_commands_run_sim(sim_name, scenarios, num_runs):
 
     return scenario_run_cmds
 
-def add_commands_build_firmware(scenarios):
+def add_commands_build_firmware(scenarios, global_cflagsextra):
     for scenario in scenarios:
         src_path = scenario['path'] + CODE_FOLDER_NAME
 
@@ -101,7 +102,9 @@ def add_commands_build_firmware(scenarios):
         build_command = make_baseline + " " + IOTLAB_BUILD_ARGUMENTS
         build_command = build_command.split(' ')
         # Add cflagsextra now because they may contain spaces
-        build_command.append("CFLAGSEXTRA=" + scenario['cflagsextra'])
+        build_command.append("CFLAGSEXTRA=" + \
+                             scenario['cflagsextra'] + " " + \
+                             global_cflagsextra)
         if scenario["makeflags"] != "":
             build_command.append(scenario['makeflags'])
         scenario['build_cmd'] = build_command
@@ -425,7 +428,8 @@ def parse_config():
                     iotlab_site,
                     experiment_config["nodes"],
                     remote_execution, fetch_from_remote,
-                    remote_log_file, from_csv, on_remote)
+                    remote_log_file, from_csv, on_remote,
+                    experiment_config["cflagsextra"])
 
     print_config(config)
 
@@ -745,7 +749,7 @@ def main():
 
         if config.type == "testbed":
             print("Making testbed-run commands")
-            add_commands_build_firmware(config.scenarios) # TODO these needed when on remote?
+            add_commands_build_firmware(config.scenarios, config.cflagsextra) # TODO these needed when on remote?
             add_commands_run_testbed(
                 config.exp_name, config.scenarios,
                 config.num_runs, config.duration,

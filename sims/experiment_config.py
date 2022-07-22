@@ -4,6 +4,7 @@ import configparser
 GLOBAL_SECTION = "global"
 GLOBAL_NUM_RUNS = "num_runs"
 GLOBAL_SITE = "site"
+GLOBAL_CFLAGSEXTRA= "cflagsextra"
 
 SIMULATION_SECTION = "simulation"
 SIMULATION_CSC_BASELINE = "csc_baseline"
@@ -43,6 +44,11 @@ def experiment_config_parse(filename):
             if GLOBAL_SITE in config[GLOBAL_SECTION]:
                 experiment_config[GLOBAL_SITE] = \
                     config[GLOBAL_SECTION][GLOBAL_SITE]
+            if GLOBAL_CFLAGSEXTRA in config[GLOBAL_SECTION]:
+                experiment_config[GLOBAL_CFLAGSEXTRA] = \
+                    config[GLOBAL_SECTION][GLOBAL_CFLAGSEXTRA]
+            else:
+                experiment_config[GLOBAL_CFLAGSEXTRA] = ""
             continue
 
         if section_name == SIMULATION_SECTION:
