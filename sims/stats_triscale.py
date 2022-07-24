@@ -760,12 +760,18 @@ def meta_timeline_all_runs(scenarios, dfs_name, field_name,
 
             line, = ax.plot(run_df)
 
+            # Add legend if this is an experiment with few runs
+            if len(all_runs_df.keys()) < 10:
+                line.set_label(run)
+                plt.legend()
+
             if run_df[field_name].max() > warn_limit:
                 print("High " + name + " (" + str(run_df[field_name].max()) +
                       ") in " + scenario['name'] + " " + run)
-                # Add legend only for the violating runs
+                # Add legend for violating runs
                 line.set_label(run)
                 plt.legend()
+
 
         plt.xlabel("Experiment timeline (minutes)")
         plt.ylabel("Mean " + name)
