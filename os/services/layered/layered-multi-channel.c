@@ -459,7 +459,9 @@ static uint16_t
 get_node_timeslot(const linkaddr_t *addr)
 {
   if(addr != NULL && LAYERED_MAX_NUM_NODES > 0) {
-    return LAYERED_LINKADDR_HASH(addr) % LAYERED_MAX_NUM_NODES;
+    // +1 as we assume the last node will ID equal to the max num nodes
+    // see also 0-index comment in calculate_layered_timeslot()
+    return LAYERED_LINKADDR_HASH(addr) % (LAYERED_MAX_NUM_NODES + 1);
   } else {
     return 0xffff;
   }
@@ -803,7 +805,9 @@ static void remove_other_cells_in_timeslot(uint16_t timeslot, uint16_t channel) 
 
       if(existing_link != NULL) {
         tsch_schedule_remove_link(sf_layered, existing_link);
+#if LAYERED_STATS
         stats_deactivate_link(timeslot, channels[i]);
+#endif
         LOG_INFO("Removed existing cell %u/%u\n", timeslot, channels[i]);
       }
     }
