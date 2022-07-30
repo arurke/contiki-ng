@@ -53,8 +53,9 @@
 
 // TX power in iotlab
 #define RF2XX_TX_POWER                    PHY_POWER_m17dBm
-//#define RF2XX_RX_RSSI_THRESHOLD           RF2XX_PHY_RX_THRESHOLD__m84dBm
+#ifndef RF2XX_RX_RSSI_THRESHOLD
 #define RF2XX_RX_RSSI_THRESHOLD           RF2XX_PHY_RX_THRESHOLD__m78dBm
+#endif
 
 // Buffer size (note that actual size is -1 due to ringbuf, see issue #1532)
 // 64 for grid
