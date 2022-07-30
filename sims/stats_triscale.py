@@ -377,7 +377,13 @@ def get_run_dfs(raw_dfs, run):
             raw_df_name == "raw_mac_err_dfs" or \
             raw_df_name == "raw_skipped_app_packets_dfs":
             continue
-        run_df = raw_dfs[raw_df_name][run]
+
+        if run in raw_dfs[raw_df_name]:
+            run_df = raw_dfs[raw_df_name][run]
+        else:
+            print("Skipping " + raw_df_name + " " + run)
+            continue
+
         # Remove irrelevant data
         run_df = run_df[run_df["app_started"] == 1]
         # YOLO and make a more intuitive name with a lot of assumptions
@@ -634,6 +640,8 @@ def meta_last_events(
     last_events = []
     last_events_per_scenario = []
     for scenario in scenarios:
+        if event_dfs_name not in scenario['raw_dfs']:
+            return
         event_all_runs_df = scenario['raw_dfs'][event_dfs_name]
         last_events_in_scenario = []
         for run in event_all_runs_df.keys():
@@ -688,6 +696,8 @@ def meta_all_parent_switches(scenarios, plots_dir):
     for scenario in scenarios:
         switches = []
         switches_in_scenario = np.empty(0)
+        if "raw_switches_dfs" not in scenario['raw_dfs']:
+            return
         switch_all_runs_df = scenario['raw_dfs']["raw_switches_dfs"]
         for run in switch_all_runs_df.keys():
             switch_df = switch_all_runs_df[run]
@@ -920,7 +930,7 @@ def meta_channel_performance_per_node(
             make_plot = False
             nodes_data = []
             for node in channel_prr_df[node_field].unique():
-                high_prr = False
+                low_prr = False
 
                 node_channel_prr_df = \
                     channel_prr_df[channel_prr_df[node_field] == node]
@@ -935,18 +945,18 @@ def meta_channel_performance_per_node(
                     continue
 
                 if any(prr < 0.6 for prr in channels_prr["prr"]):
-                    high_prr = True
+                    low_prr = True
                     # Make plot for this run only if anyone has low prr
                     make_plot = True
 
                 # If plot_only_problems, add node only if high PRR
-                if plot_only_problems and not high_prr:
+                if plot_only_problems and not low_prr:
                     continue
                 else:
                     nodes_data.append({"node": node,
                                        "prrs": channels_prr["prr"],
                                        "channels": channels_prr["channel"],
-                                       "high_prr": high_prr})
+                                       "low_prr": low_prr})
 
             if nodes_data and make_plot:
                 # Define and calculate subplot positions
@@ -973,7 +983,7 @@ def meta_channel_performance_per_node(
                     ax.label_outer()
                     #ax.spines['top'].set_visible(False)
                     #ax.spines['right'].set_visible(False)
-                    if node_data["high_prr"]:
+                    if node_data["low_prr"]:
                         ax.set_facecolor('#FF6666')
 
                 fig.supylabel("PRR for application packets (%)")
