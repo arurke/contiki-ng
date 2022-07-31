@@ -99,11 +99,12 @@
 #define RPL_CONF_WITH_PROBING             1
 
 // Channels (min. 4 available to allow for orchestra multi-channel)
-#define CUSTOM_TSCH_HOPPING_SEQUENCE_16_16 (uint8_t[]){ 16, 17, 23, 18, 26, 15, 25, 22, 19, 11, 12, 13, 24, 14, 20, 21 }
-#define CUSTOM_TSCH_HOPPING_SEQUENCE_4_4 (uint8_t[]){ 18, 22, 24, 17 }
-#define CUSTOM_TSCH_HOPPING_SEQUENCE_4_4_HIGH (uint8_t[]){ 22, 24, 25, 26 }
-#define CUSTOM_TSCH_HOPPING_SEQUENCE_4_4_MED (uint8_t[]){ 18, 19, 20, 21 }
-#define CUSTOM_TSCH_HOPPING_SEQUENCE_6_6_MED (uint8_t[]){ 16, 17, 18, 19, 20, 21 }
+#define CUSTOM_TSCH_HOPPING_SEQUENCE_16_16 (uint8_t[]){16, 17, 23, 18, 26, 15, 25, 22, 19, 11, 12, 13, 24, 14, 20, 21}
+#define CUSTOM_TSCH_HOPPING_SEQUENCE_4_4 (uint8_t[]){18, 22, 24, 17}
+#define CUSTOM_TSCH_HOPPING_SEQUENCE_4_4_HIGH (uint8_t[]){22, 24, 25, 26}
+#define CUSTOM_TSCH_HOPPING_SEQUENCE_4_4_MED (uint8_t[]){18, 19, 20, 21}
+#define CUSTOM_TSCH_HOPPING_SEQUENCE_4_4_BEST_STRASBOURG (uint8_t[]){14, 15, 16, 17}
+#define CUSTOM_TSCH_HOPPING_SEQUENCE_6_6_MED (uint8_t[]){16, 17, 18, 19, 20, 21}
 // The TSCH_HOPPING_SEQUENCE_4_4 defined in TSCH avoid Wi-Fi channels
 #ifndef TSCH_CONF_DEFAULT_HOPPING_SEQUENCE
 #define TSCH_CONF_DEFAULT_HOPPING_SEQUENCE    CUSTOM_TSCH_HOPPING_SEQUENCE_4_4_MED
@@ -136,7 +137,11 @@
 #define ORCHESTRA_CONF_COLLISION_FREE_HASH    1
 
 // Max hash output size (def. 0x7fff). Set to number of nodes.
+#if LARGER_TOPOLOGY
+#define ORCHESTRA_CONF_MAX_HASH               26
+#else
 #define ORCHESTRA_CONF_MAX_HASH               16
+#endif
 
 // Sender or receiver based (def. receiver)
 #define ORCHESTRA_CONF_UNICAST_SENDER_BASED   1
@@ -155,12 +160,16 @@
 // Num nodes supported for layers (including sink)
 //#define LAYERED_CONF_MAX_NUM_NODES            49
 #if LARGER_TOPOLOGY
-#define LAYERED_CONF_MAX_NUM_NODES            26 // Also removed the ad-hoc fix in layered-conf.h
+#define LAYERED_CONF_MAX_NUM_NODES            29 // Also removed the ad-hoc fix in layered-conf.h
 #else
 #define LAYERED_CONF_MAX_NUM_NODES            17 // Also removed the ad-hoc fix in layered-conf.h
 #endif
 #define LAYERED_CONF_NUM_LAYERS               2
+#if LARGER_TOPOLOGY
+#define LAYERED_CONF_COMMON_SLOT_SPACING      9
+#else
 #define LAYERED_CONF_COMMON_SLOT_SPACING      11
+#endif
 
 // Convenience variable for no spatial reuse.
 // 4 channels give no spatial reuse up to 8 hops
