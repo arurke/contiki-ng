@@ -728,7 +728,7 @@ def parse_logfile(file, app_warmup, has_spatial,
         df = dfs[df_name]
         df.loc[df.index > last_valid_time, "app_started"] = 0
 
-    num_tx_nodes = dfs["packets"].node.nunique()
+    #num_tx_nodes = dfs["packets"].node.nunique()
     #if application_done_count != num_tx_nodes:
     #    print("Application not finished! " +
     #          str(application_done_count) + "/" + str(num_tx_nodes))
@@ -999,7 +999,8 @@ def parse_logfile(file, app_warmup, has_spatial,
     print("  packets-sent: %u" % (packets_sent))
     print("  packets-received: %u" % (packets_received))
     print("  packets-lost: %u" % (packets_sent - packets_received))
-    print("  overflows app/all %u/%u" % (app_overflows,overflows))
+    if "queue" in dfs:
+        print("  overflows app/all %u/%u" % (app_overflows, overflows))
 
     print("  latency mean: %.4f" % (app_packets_df["latency"].mean()))
     print("  latency max: %.4f" % (app_packets_df["latency"].max()))
