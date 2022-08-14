@@ -504,6 +504,9 @@ def analyze_scenario(runs_df, scenario_name,
     add_kpi(kpis, "duty_cycle",
             percentile=adhoc_percentile_high, confidence=adhoc_confidence,
             bounds=[0.001,100])
+    add_kpi(kpis, "parent_switches",
+        percentile=adhoc_percentile_high, confidence=adhoc_confidence,
+        bounds=[0, 10000])
     if spatial_comparison:
         if has_spatial:
             add_kpi(kpis, "spatial_cell_prr",
