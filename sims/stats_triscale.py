@@ -561,7 +561,7 @@ def analyze_scenario(runs_df, scenario_name,
     #metrics_for_converged = ["mac_app_tx_etx", "app_cell_etx", "pdr", "latency", "prr"]
     if rpl_convergence_comparison:
         print("runs_df: " + str(runs_df))
-        metrics_for_converged = ["pdr", "latency", "prr"]
+        metrics_for_converged = ["pdr", "latency", "prr", "duty_cycle"]
         runs_converged_df = runs_df[runs_df["rpl_converged"] == True]
         for metric in runs_converged_df.columns:
             for kpi in kpis:
