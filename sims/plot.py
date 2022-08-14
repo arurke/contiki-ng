@@ -160,19 +160,22 @@ def plot_compare_single_kpi_with_groups(scenarios_df, scenarios_info, kpi,
 
     # Make a DF from the scenarios dict (contains a lot of stuff)
     df = pd.DataFrame.from_dict(scenarios)
-
-    # Make DF look like this (x-ihdex is index):
+    # Make DF look like this (x-index is index):
     #        Layered  Minimal  Orchestra
     # x-index
     # 0.5 s    4.5520   0.0660    11.5490
     # 1 s      1.0440  21.8610    22.7400
     # 2 s      0.8785  34.2565    17.6330
-    df = df.pivot_table(values="kpi_value", index=["x-index"], columns="grouping")
+    df = df.pivot_table(values="kpi_value", index=["x-index"],
+                        columns="grouping", sort=False)
+
     # pivot_table makes multi-level index, undo this
     df = df.rename_axis(None, axis=1)
 
-    # reverse order and fix decimals
-    df = df.reindex(index=df.index[::-1])
+    # reverse order (not needed after sort=False)
+    #df = df.reindex(index=df.index[::-1])
+
+    # Fix decimals
     df = df.round(decimals = 1)
 
     # Make plot wider
