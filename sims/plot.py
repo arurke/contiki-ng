@@ -895,6 +895,14 @@ def plot_comparison_single_kpi_grouped(scenarios, scenarios_df, plot_dir, title=
         "Transmission interval", "Duty cycle (%)",
         plot_dir)
 
+    kpi = {"desc": "Median num. parent switch",
+           "name": "parent_switches_count",
+           "bound": "upper"}
+    plot_compare_single_kpi_with_groups_both_percentiles(
+        scenarios_df, scenarios_to_plot, kpi,
+        "Transmission interval", "Num. parent switches",
+        plot_dir)
+
 
 def plot_comparison(scenarios, scenarios_df, plot_dir, title=False):
     rpl_convergence_comparison = False
