@@ -418,7 +418,7 @@ def calculate_kpi(values, settings, metric, name, plots_dir):
                         # Only "vertical" and "horizontal" prints to file.
                         # Note that they overwrite each other!
                         plots=["vertical"],
-                        plot_out_name=(plots_dir + name + ".pdf"),
+                        plot_out_name=(plots_dir + "/" + name + ".pdf"),
                         verbose=False)
     if np.isnan(kpi):
         print("KPI Nan, too few values(" +
