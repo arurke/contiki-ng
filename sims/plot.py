@@ -989,11 +989,11 @@ def plot_comparison(scenarios, scenarios_df, plot_dir, title=False):
                       str(ADHOC_PERC) + "p_duty_cycle_mean",
                       plot_dir)
 
-    kpis = [{"desc": "Median queue utilization", "name": "queue_fill_50",
-             "percentile": "default", "bound": "upper"}]
-    plot_compare_kpis(scenarios_df, scenarios_to_plot, kpis,
-                      str(DEFAULT_PERC) + "p_queue_utilization_50",
-                      plot_dir)
+    #kpis = [{"desc": "Median queue utilization", "name": "queue_fill_50",
+    #         "percentile": "default", "bound": "upper"}]
+    #plot_compare_kpis(scenarios_df, scenarios_to_plot, kpis,
+    #                  str(DEFAULT_PERC) + "p_queue_utilization_50",
+    #                  plot_dir)
 
     kpis = [{"desc": "RPL parent switches", "name": "parent_switches_count",
              "percentile": "default", "bound": "upper"}]

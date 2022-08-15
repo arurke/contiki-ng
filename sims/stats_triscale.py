@@ -320,8 +320,8 @@ def analyze_run(run_name, spatial_comparison, has_spatial, plots_dir, run_dfs):
         [#{"df": rpl_stats_df, "metric": "hop_count", "measures":["mean"]},
          {"df": "switches_df", "metric": "parent_switches", "measures":["count"]}]
 
-    metrics_queue = \
-        [{"df": "queue_df", "metric": "queue_fill", "measures": ["mean", 50, "maximum"]}]
+    #metrics_queue = \
+    #    [{"df": "queue_df", "metric": "queue_fill", "measures": ["mean", 50, "maximum"]}]
 
     # Update: We prefer PRR instead of ETX
     # ETX for all TXes, using the MAC TX DF
@@ -334,7 +334,7 @@ def analyze_run(run_name, spatial_comparison, has_spatial, plots_dir, run_dfs):
     metrics.extend(metrics_basics)
     metrics.extend(metrics_prr)
     metrics.extend(metrics_energy)
-    metrics.extend(metrics_queue)
+    #metrics.extend(metrics_queue)
     metrics.extend(metrics_rpl)
     #    metrics.extend(metrics_etx)
 
@@ -483,7 +483,7 @@ def analyze_scenario(runs_df, scenario_name,
     add_kpi(kpis, "duty_cycle", bounds=[0.001,100])
     #add_kpi(kpis, "duty_cycle_tx", bounds=[0.001,100])
     #add_kpi(kpis, "duty_cycle_rx", bounds=[0.001,100])
-    add_kpi(kpis, "queue_fill", bounds=[0.001,100])
+    #add_kpi(kpis, "queue_fill", bounds=[0.001,100])
     # Setting bounds here just to avoid bug #6 in TriScale
     add_kpi(kpis, "parent_switches", bounds=[0,10000])
 
