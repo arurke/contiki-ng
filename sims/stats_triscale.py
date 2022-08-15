@@ -735,6 +735,7 @@ def meta_all_parent_switches(scenarios, plots_dir):
     plt.ylabel("Number of parent switches")
     plt.locator_params(axis='y', integer=True)
     plt.legend(scenario_names)
+    plt.tight_layout()
     plt.savefig(plots_dir + "meta_per_scenario_parent_switch.pdf")
     plt.close()
 
@@ -743,6 +744,7 @@ def meta_all_parent_switches(scenarios, plots_dir):
     plt.xlabel("Experiment timeline (minutes)")
     plt.ylabel("Number of parent switches")
     plt.locator_params(axis='y', integer=True)
+    plt.tight_layout()
     plt.savefig(plots_dir + "meta_all_parent_switch.pdf")
     plt.close()
 
