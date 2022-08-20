@@ -1418,7 +1418,8 @@ rpl_process_parent_event(rpl_instance_t *instance, rpl_parent_t *p)
   if(RPL_IS_STORING(instance)
       && uip_ds6_route_is_nexthop(rpl_parent_get_ipaddr(p))
       && !rpl_parent_is_reachable(p) && instance->mop > RPL_MOP_NON_STORING) {
-    LOG_WARN("Unacceptable link %u, removing routes via: ", rpl_get_parent_link_metric(p));
+    LOG_WARN("Unacceptable link %u, removing routes via: ",
+        rpl_get_parent_link_metric(p));
     LOG_WARN_6ADDR(rpl_parent_get_ipaddr(p));
     LOG_WARN_("\n");
     rpl_remove_routes_by_nexthop(rpl_parent_get_ipaddr(p), p->dag);
@@ -1427,8 +1428,9 @@ rpl_process_parent_event(rpl_instance_t *instance, rpl_parent_t *p)
   if(!acceptable_rank(p->dag, rpl_rank_via_parent(p))) {
     /* The candidate parent is no longer valid: the rank increase resulting
        from the choice of it as a parent would be too high. */
-    LOG_WARN("Unacceptable rank %u (Current min %u, MaxRankInc %u)\n", (unsigned)p->rank,
-        p->dag->min_rank, p->dag->instance->max_rankinc);
+    LOG_WARN("Unacceptable rank %u (Current min %u, MaxRankInc %u)\n",
+        rpl_rank_via_parent(p), p->dag->min_rank,
+        p->dag->instance->max_rankinc);
     rpl_nullify_parent(p);
     if(p != instance->current_dag->preferred_parent) {
       return 0;
