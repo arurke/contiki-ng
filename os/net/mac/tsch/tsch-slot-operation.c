@@ -488,7 +488,7 @@ get_packet_and_neighbor_for_link(struct tsch_link *link, struct tsch_neighbor **
             // This should not happen
             TSCH_LOG_ADD(tsch_log_message,
                           snprintf(log->message, sizeof(log->message),
-                                   "!asdERR no flow neighbor"));
+                                   "Lay!: no flow neighbor"));
             tsch_flow_missing_neighbor++;
             return NULL; // TODO delete packet? tricky. Do not return?
           }
@@ -513,7 +513,7 @@ get_packet_and_neighbor_for_link(struct tsch_link *link, struct tsch_neighbor **
               // rare cases (if we left the network). Delete the packet.
               TSCH_LOG_ADD(tsch_log_message,
                             snprintf(log->message, sizeof(log->message),
-                                     "!asdERR no next-hop neighbor."));
+                                     "Lay!: no next-hop neighbor."));
               tsch_flow_missing_neighbor++;
 
               // Delete packet
@@ -523,7 +523,7 @@ get_packet_and_neighbor_for_link(struct tsch_link *link, struct tsch_neighbor **
                 tsch_flow_missing_neighbor++;
                 TSCH_LOG_ADD(tsch_log_message,
                               snprintf(log->message, sizeof(log->message),
-                                       "!asdERR ERR deleting packet"));
+                                       "Lay!: ERR deleting packet"));
               }
               else {
                   tsch_queue_free_packet(deleted_packet);
@@ -548,14 +548,14 @@ get_packet_and_neighbor_for_link(struct tsch_link *link, struct tsch_neighbor **
 //              tsch_flow_missing_neighbor++;
 //              TSCH_LOG_ADD(tsch_log_message,
 //                            snprintf(log->message, sizeof(log->message),
-//                                     "!asdERR deleting packet"));
+//                                     "Lay!: deleting packet"));
 //              // Delete packet
 //              struct tsch_packet* deleted_packet = tsch_queue_remove_packet_from_queue(flow_neighbor);
 //              if(deleted_packet == NULL) {
 //                tsch_flow_missing_neighbor++;
 //                TSCH_LOG_ADD(tsch_log_message,
 //                              snprintf(log->message, sizeof(log->message),
-//                                       "!asdERR ERR deleting packet"));
+//                                       "Lay!: ERR deleting packet"));
 //                return NULL;
 //              }
 //              else {
@@ -584,7 +584,7 @@ get_packet_and_neighbor_for_link(struct tsch_link *link, struct tsch_neighbor **
               queuebuf_addr(p->qb, PACKETBUF_ADDR_RECEIVER);
 //          TSCH_LOG_ADD(tsch_log_message,
 //                            snprintf(log->message, sizeof(log->message),
-//                            "asd ERR packet-addr 0x%02x%02x%02x%02x%02x%02x%02x%02x",
+//                            "Lay!: ERR packet-addr 0x%02x%02x%02x%02x%02x%02x%02x%02x",
 //                            packet_dest->u8[0], packet_dest->u8[1],
 //                            packet_dest->u8[2], packet_dest->u8[3],
 //                            packet_dest->u8[4], packet_dest->u8[5],
@@ -603,13 +603,13 @@ get_packet_and_neighbor_for_link(struct tsch_link *link, struct tsch_neighbor **
             if(packet_dest_neighbor == NULL) {
 //              TSCH_LOG_ADD(tsch_log_message,
 //                  snprintf(log->message, sizeof(log->message),
-//                  "asd ERR is NULL")); TODO log?
+//                  "Lay!: ERR is NULL")); TODO log?
             }
             // Set packet neighbor as neighbor if mismatch
             else if(packet_dest_neighbor != n) {
 //                TSCH_LOG_ADD(tsch_log_message,
 //                    snprintf(log->message, sizeof(log->message),
-//                    "asd ERR addr fixing to 0x%02x%02x", packet_dest->u8[6], packet_dest->u8[7]));
+//                    "Lay!: ERR addr fixing to 0x%02x%02x", packet_dest->u8[6], packet_dest->u8[7]));
               n = packet_dest_neighbor;
             }
           }
@@ -1319,7 +1319,7 @@ PT_THREAD(tsch_slot_operation(struct rtimer *t, void *ptr))
 //      if(current_packet == NULL) {
 //        TSCH_LOG_ADD(tsch_log_message,
 //                        snprintf(log->message, sizeof(log->message),
-//                            "!asd no packet for %u/%u",
+//                            "Lay!: no packet for %u/%u",
 //                              current_link->timeslot,
 //                              current_link->channel_offset));
 //      }
@@ -1343,7 +1343,7 @@ PT_THREAD(tsch_slot_operation(struct rtimer *t, void *ptr))
 
 //        TSCH_LOG_ADD(tsch_log_message,
 //                        snprintf(log->message, sizeof(log->message),
-//                            "!asd packet for %u/%u %s",
+//                            "Lay!: packet for %u/%u %s",
 //                              current_link->timeslot,
 //                              current_link->channel_offset, address));
 //      }
