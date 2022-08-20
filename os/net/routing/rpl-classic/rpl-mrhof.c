@@ -327,7 +327,7 @@ update_metric_container(rpl_instance_t *instance)
   }
 
   if(depth_changed) {
-    LOG_WARN("DAG-depth is %u\n", dag->depth);
+    LOG_DBG("DAG-depth is %u\n", dag->depth);
   }
 }
 #endif /* RPL_WITH_MC */
