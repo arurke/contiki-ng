@@ -11,20 +11,23 @@
 #include "packet-type.h"
 #include <inttypes.h>
 
+/*---------------------------------------------------------------------------*/
+
 #include "sys/log.h"
 #define LOG_MODULE "Layered"
 #define LOG_LEVEL   LOG_LEVEL_LAYERED
+
+/*---------------------------------------------------------------------------*/
 
 #ifndef BUILD_WITH_PACKET_TYPE
 #error Layered requires BUILD_WITH_PACKET_TYPE
 #endif
 
-/*
- * The body of this rule should be compiled only when "nbr_routes" is available,
- * otherwise a link error causes build failure. "nbr_routes" is compiled if
- * UIP_MAX_ROUTES != 0. See uip-ds6-route.c.
- */
-#if UIP_MAX_ROUTES != 0
+#if ROUTING_CONF_RPL_LITE
+#error Layered supports only RPL CLASSIC
+#endif
+
+/*---------------------------------------------------------------------------*/
 
 typedef struct {
   uint16_t node_depth;
@@ -32,7 +35,6 @@ typedef struct {
   uint16_t child_depth;
   uint8_t child_layer;
 } layered_status_t;
-
 
 static layered_status_t current_status = {
     .node_depth = 0xffff,
@@ -47,15 +49,8 @@ static struct tsch_slotframe *sf_layered;
 #define COMMON_CELL_CHANNEL   1
 #define NUM_CHANNELS          LAYERED_NUM_CHANNELS
 #define CHANNELS              LAYERED_CHANNELS
-// Avoid channel 0 due to stats not supporting it.
+// Avoid channel offset 0 due to stats not supporting it.
 static uint8_t channels[NUM_CHANNELS] = CHANNELS;
-
-// For gruesome RPL heuristics
-#define SIXLO_NEXT_HEADER_OFFSET  2
-#define SIXLO_NEXT_HEADER_LEN     3
-#define ICMP_TYPE_OFFSET          0
-#define ICMP_CODE_OFFSET          1
-#define RPL_INSTANCE_ID_OFFSET    4
 
 // For gruesome source addr heuristics
 #define HOP_LIMIT_MASK            0x03
@@ -65,8 +60,6 @@ static uint8_t channels[NUM_CHANNELS] = CHANNELS;
 
 #define FIRST_COMMON_SLOT         (COMMON_SLOT_SPACING - 1)
 #define COMMON_SLOT_OPTIONS       (LINK_OPTION_RX | LINK_OPTION_TX | LINK_OPTION_SHARED)
-
-#define LAYERED_STATEFUL 1
 
 #if LAYERED_STATS && !LAYERED_STATEFUL
 #define STATS_NUM_LINKS   50
@@ -86,7 +79,6 @@ void layered_stats_update(struct tsch_neighbor *n, struct tsch_packet *p,
                           struct tsch_link *link, uint8_t channel_offset,
                           uint8_t mac_tx_status) {
 
-  // (channel offset in link cannot be trusted when TSCH_WITH_LINK_SELECTOR)
   for(int i = 0; i < STATS_NUM_LINKS; i++) {
     if(layered_stats[i].timeslot == link->timeslot &&
         layered_stats[i].channel == channel_offset) {
@@ -177,9 +169,6 @@ static void stats_deactivate_link(
 static bool schedule_in_sync(void);
 static void sync_links_with_schedule(void);
 
-// This also includes RX links now
-#define MAX_NUM_LINKS   100
-
 typedef struct {
   bool occupied;
   uint16_t timeslot;
@@ -196,10 +185,13 @@ typedef struct {
 #endif
 } layered_link_t;
 
+// This also includes RX links
+#define MAX_NUM_LINKS   100
+
 static layered_link_t layered_links[MAX_NUM_LINKS] = {{0}};
 
+#if LAYERED_STATS
 static uint32_t unknown_stats = 0;
-
 void layered_stats_update(struct tsch_neighbor *n, struct tsch_packet *p,
                           struct tsch_link *link, uint8_t channel_offset,
                           uint8_t mac_tx_status) {
@@ -270,7 +262,7 @@ void layered_print_stats() {
 #endif
 
 }
-
+#endif /* LAYERED_STATS */
 
 // Returns link matching the timeslot/channel
 static layered_link_t* get_link(uint16_t timeslot, uint16_t channel) {
@@ -448,7 +440,7 @@ static void sync_links_with_schedule(void) {
 
 #endif /* LAYERED_STATEFUL */
 
-
+/*---------------------------------------------------------------------------*/
 static uint16_t
 get_node_timeslot(const linkaddr_t *addr)
 {
@@ -459,28 +451,6 @@ get_node_timeslot(const linkaddr_t *addr)
   } else {
     return 0xffff;
   }
-}
-
-static uint16_t calculate_next_common_slot(void) {
-  // Select common slot at random to ensure uniform distribution
-  // Experience shows ASN method below produced too much grouping
-  uint8_t random_common = random_rand() % NUM_COMMON_SLOTS;
-  uint8_t common = (random_common * COMMON_SLOT_SPACING) + FIRST_COMMON_SLOT;
-  //LOG_DBG("Common %u\n", common);
-  return common;
-
-//  // TODO No guarantee that ASN is updated at this point, but this is
-//  // just RPL traffic so any delays should be fine
-//  uint16_t current_ts = (tsch_current_asn.ls4b % LAYERED_SF_LEN);
-//
-//  for(uint16_t i = FIRST_COMMON_SLOT;
-//      i<LAYERED_SF_LEN;
-//      i+=COMMON_SLOT_SPACING) {
-//    if(current_ts < i) {
-//      return i;
-//    }
-//  }
-//  return FIRST_COMMON_SLOT;
 }
 
 /*---------------------------------------------------------------------------*/
@@ -498,7 +468,6 @@ calculate_channel(uint8_t depth)
   // Fetch actual channel from
   channel = channels[channel];
 
-//  LOG_INFO("Channel %u at depth %u\n", channel, depth++);
   return channel;
 }
 /*---------------------------------------------------------------------------*/
@@ -508,9 +477,8 @@ calculate_layered_timeslot(const linkaddr_t *linkaddr, uint16_t layer) {
   uint16_t timeslot = get_node_timeslot(linkaddr);
 
   if(timeslot == 0xffff) {
-    LOG_ERR("TEST FAILED invalid timeslot\n");
-    // Return a common slot
-    return calculate_next_common_slot();
+    LOG_ERR("Lay!: Panic! Unable to calculate timeslot! TEST FAILED\n");
+    return 0xffff;
   }
 
   // TODO Because timeslots are 0-indexed
@@ -529,9 +497,7 @@ calculate_layered_timeslot(const linkaddr_t *linkaddr, uint16_t layer) {
 static bool
 find_source_address(
     const uint8_t* data, uint16_t data_len, linkaddr_t* source_lladdr) {
-  // Use a really bad way to figure out if the originating node address
-  // For some reason PACKETBUF_ADDR_SENDER contain our own address
-  //uint8_t* data = packetbuf_dataptr();
+  // Hack to figure out the originating node address
 
   if(data_len < 12) {
     LOG_ERR("Too short for source address!\n");
@@ -547,10 +513,6 @@ find_source_address(
   // Is source address compressed? If yes, we are transmitting
   if(((*(data + SIXLO_HEADER_PART2_OFFSET)) & SRC_ADDR_MODE_MASK) == 0x30) {
     memcpy(source_lladdr, &linkaddr_node_addr, sizeof(linkaddr_t));
-//    memcpy(source_lladdr,
-//           packetbuf_addr(PACKETBUF_ADDR_SENDER),
-//           sizeof(linkaddr_t));
-//    LOG_INFO("We are sending, header: 0x%02x\n", (*(data + 1)));
     return true;
   }
 
@@ -559,7 +521,7 @@ find_source_address(
   // Has inline hop limit? This moves the source addr one byte
   if(((*data) & HOP_LIMIT_MASK) == 0) {
     src_addr_offset++;
-//    LOG_INFO("inline hoplimit\n");
+//    LOG_DBG("inline hoplimit\n");
   }
 
   linkaddr_t* fetched_source_address = (linkaddr_t*)(data + src_addr_offset);
@@ -585,9 +547,7 @@ layered_get_flow_address_for_packet(uint16_t frame_type, const uint8_t* data,
                                     uint16_t data_len,
                                     linkaddr_t* flow_address) {
 
-  // TODO the packet type is actually in PACKETBUF_ATTR_PACKET_TYPE since select_packet()
-  // added it there. So this is kind of unnecessary. But keeping it for now in
-  // case we change select_packet().
+  // TODO might be that this can always be found in PACKETBUF_ATTR_PACKET_TYPE
   packet_type_t packet_type = packet_type_get(frame_type, data, data_len);
 
   switch(packet_type) {
@@ -610,154 +570,7 @@ layered_get_flow_address_for_packet(uint16_t frame_type, const uint8_t* data,
   }
 }
 
-bool
-layered_calc_packet_cell(packet_type_t packet_type, uint16_t frame_type,
-    const uint8_t* data, uint16_t data_len,
-    uint16_t *slotframe, uint16_t *timeslot, uint16_t *channel_offset)
-{
-  switch(packet_type) {
-    case PACKET_TYPE_BEACON:
-      // Use the downward TX slot for beacons
-      if(slotframe != NULL) {
-        *slotframe = slotframe_handle;
-      }
-      if(timeslot != NULL) {
-        // Our own address, but for layer below us
-        *timeslot = calculate_layered_timeslot(&linkaddr_node_addr,
-                                               current_status.child_layer);
-      }
-      if(channel_offset != NULL) {
-        // For depth below us
-        *channel_offset = calculate_channel(current_status.child_depth);
-      }
-      return true;
-
-    case PACKET_TYPE_RPL:
-      // If a RPL packet, send in common
-      if(slotframe != NULL) {
-        *slotframe = slotframe_handle;
-      }
-      if(timeslot != NULL) {
-        *timeslot = calculate_next_common_slot();
-      }
-      if(channel_offset != NULL) {
-        *channel_offset = COMMON_CELL_CHANNEL;
-      }
-      return true;
-
-    case PACKET_TYPE_KEEPALIVE:
-      // If a TSCH keepalive, send it in the common slot
-      if(slotframe != NULL) {
-        *slotframe = slotframe_handle;
-      }
-      if(timeslot != NULL) {
-        *timeslot = calculate_next_common_slot();
-      }
-      if(channel_offset != NULL) {
-        *channel_offset = COMMON_CELL_CHANNEL;
-      }
-      return true;
-
-    case PACKET_TYPE_APP:
-    {
-      // Find the originating node such that we can assign it to its
-      // correct cell
-      linkaddr_t source_lladdr = {{0}};
-      if(!find_source_address(data, data_len, &source_lladdr)) {
-        // Unable to find the source address, this should not happen
-        return false;
-      }
-
-      if(slotframe != NULL) {
-        *slotframe = slotframe_handle;
-      }
-      if(timeslot != NULL) {
-        *timeslot = calculate_layered_timeslot(&source_lladdr,
-                                               current_status.node_layer);
-      }
-      if(channel_offset != NULL) {
-        *channel_offset = calculate_channel(current_status.node_depth);
-      }
-      return true;
-    }
-    default:
-      LOG_ERR("Unknown packet type %d\n", packet_type);
-      return false;
-  }
-}
-
-static int
-select_packet(uint16_t *slotframe, uint16_t *timeslot, uint16_t *channel_offset)
-{
-  return 1;
-  packet_type_t packet_type = packetbuf_attr(PACKETBUF_ATTR_PACKET_TYPE);
-  if(!layered_calc_packet_cell(packet_type,
-        packetbuf_attr(PACKETBUF_ATTR_FRAME_TYPE),
-        packetbuf_dataptr(), packetbuf_datalen(),
-        slotframe, timeslot, channel_offset)) {
-    LOG_ERR("TEST FAILED %u %d\n", packetbuf_datalen(), packet_type);
-    return -1;
-  }
-
-  // TODO we do not set the packet-type into packetbuf anymore.
-  // Assume it is already done by TSCH
-
-  // Debug print
-  char type_str[] = "beacon";
-  switch(packet_type) {
-    case PACKET_TYPE_BEACON:
-      strcpy(type_str, "beacon");
-      break;
-    case PACKET_TYPE_RPL:
-      strcpy(type_str, "RPL");
-      break;
-    case PACKET_TYPE_KEEPALIVE:
-      strcpy(type_str, "KA");
-      break;
-    case PACKET_TYPE_APP:
-      strcpy(type_str, "App");
-      break;
-    default:
-      LOG_ERR("TEST FAILED unknown packet type %d\n", packet_type);
-      break;
-  }
-
-  if(packet_type == PACKET_TYPE_APP) {
-    linkaddr_t source_lladdr = {{0}};
-    find_source_address(
-        packetbuf_dataptr(), packetbuf_datalen(), &source_lladdr);
-    LOG_DBG("Selected %u/%u for %s packet originating from ",
-             *timeslot, *channel_offset, type_str);
-    LOG_DBG_LLADDR(&source_lladdr);
-    LOG_DBG_("\n");
-  }
-  else {
-    LOG_DBG("Selected %u/%u for %s packet\n",
-            *timeslot, *channel_offset, type_str);
-  }
-
-  struct tsch_link* link =
-      tsch_schedule_get_link_by_timeslot(sf_layered, *timeslot, *channel_offset);
-  if(link == NULL) {
-    LOG_ERR("Link %u/%u for %s not existing or TSCH locked\n",
-            *timeslot, *channel_offset, type_str);
-    // We may have moved in layer, but have not moved the cells yet
-    return 1;
-  }
-
-  return 1;
-}
 /*---------------------------------------------------------------------------*/
-static void
-new_time_source(const struct tsch_neighbor *old, const struct tsch_neighbor *new)
-{
-  LOG_INFO("New time source ");
-  LOG_INFO_LLADDR(tsch_queue_get_nbr_address(new));
-  LOG_INFO_("\n");
-//  LOG_INFO("ASN now is %"PRIu32" so TS should be %lu\n",
-//           tsch_current_asn.ls4b, (tsch_current_asn.ls4b % LAYERED_SF_LEN));
-//  LOG_INFO("asn-%x.%lx\n", tsch_current_asn.ms1b, tsch_current_asn.ls4b);
-}
 
 static bool
 is_root(void) {
@@ -781,10 +594,7 @@ static bool cell_already_there(uint16_t timeslot, uint16_t channel,
   return false;
 }
 
-// TODO There have been situation where we have two cells in same timeslot
-// This is not supported (see comment in TSCH). This is a hard-coded workaround.
-// Probably need an overhaul of the entire adding-cells-mechanism to handle
-// all RPL operations.
+// Workaround to remove any existing cells
 static void remove_other_cells_in_timeslot(uint16_t timeslot, uint16_t channel) {
   for(uint16_t i = 0; i < NUM_CHANNELS; i++) {
     if(channels[i] != channel) {
@@ -810,7 +620,10 @@ schedule_upwards_tx_cell(
   uint16_t timeslot = calculate_layered_timeslot(linkaddr, layer);
   uint16_t channel = calculate_channel(depth);
 
-  // TODO this stopped DAO from propagating, so currently broadcast is set
+  if(timeslot == 0xffff) {
+    return;
+  }
+
   rpl_dag_t* rpl_dag = rpl_get_any_dag();
   const linkaddr_t* parent_linkaddr =
       rpl_get_parent_lladdr(rpl_dag->preferred_parent);
@@ -859,10 +672,7 @@ schedule_upwards_tx_cell(
       LOG_INFO_LLADDR(linkaddr);
       LOG_INFO_("\n");
 
-      // TODO There have been situation where we have two cells in same timeslot
-      // This is not supported. This is a workaround.
-      // Probably need an overhaul of the entire adding-cells-mechanism to handle
-      // all RPL operations.
+      // Workaround to remove any existing cells
       remove_other_cells_in_timeslot(timeslot, channel);
       if(!tsch_schedule_add_link(sf_layered, link_options, LINK_TYPE_NORMAL,
                                  linkaddr, timeslot, channel, 1, true)) {
@@ -947,10 +757,7 @@ schedule_downwards_tx_cell(
   }
 #endif
 
-  // Allow all kinds of destinations (including broadcast)
-  // TODO we limit these to beacons to avoid it being selected by the
-  // application data. Proper solution is to implement select_packet()
-  // How does orchestra avoid RPL packet going into the "application-cells"?
+  // Currently limit to beacons
   if(remove) {
     LOG_INFO("Removing downwards TX cell %u/%u\n", timeslot, channel);
 #if LAYERED_STATEFUL
@@ -997,9 +804,8 @@ schedule_downwards_rx_cell(
 //  stats_add_link(timeslot, channel);
 //#endif
 
-  // Allow all kinds of destinations (including broadcast)
-  // TODO we limit these to beacons to avoid it being selected by the
-  // application data. Proper solution is to implement select_packet()
+
+  // Currently limited to beacons
   if(remove) {
     LOG_INFO("Removing downwards RX cell %u/%u\n", timeslot, channel);
 #if LAYERED_STATEFUL
@@ -1216,7 +1022,9 @@ static void update_current_status(uint16_t node_new_depth) {
     current_status.child_layer = child_new_layer;
   }
 }
-#if LAYERED_STATEFUL
+
+// If exploring power optimizations
+//#if LAYERED_STATEFUL
 //static void remove_all_links(void) {
 //  LOG_WARN("Removing all links\n");
 //  for(int i = 0; i < MAX_NUM_LINKS; i++) {
@@ -1229,7 +1037,7 @@ static void update_current_status(uint16_t node_new_depth) {
 //
 //  sync_links_with_schedule();
 //}
-#endif
+//#endif
 
 static void
 route_callback(int event,
@@ -1245,7 +1053,7 @@ route_callback(int event,
 
 #if LAYERED_STATEFUL
   // Utilize the periodic refreshing of routes to check our sync
-  // TODO is it fast enough?
+  // TODO evaluate if frequent enough
   if(!schedule_in_sync()) {
     LOG_WARN("Schedule not in sync\n");
     sync_links_with_schedule();
@@ -1271,7 +1079,7 @@ route_callback(int event,
     // Our depth is invalid, probably we have lost all parents. Do not
     // add cells for new routes as we don't know the depth, but allow removal of old
 #if LAYERED_STATEFUL
-    //remove_all_links(); // TODO new behavior in stateful
+    //remove_all_links(); // TODO investigate for power optimization
 #endif
     if(route_added) {
       return;
@@ -1363,7 +1171,7 @@ route_callback(int event,
     LOG_INFO_("\n");
     linkaddr_copy(&old_def_route, &linkaddr_null);
 #if LAYERED_STATEFUL
-//    remove_all_links(); // TODO this changes behavior compared to non-stateful
+//    remove_all_links(); // TODO investigate for power optimization
     remove_cells(&route_lladdr, &previous_status, true);
 #else
     remove_cells(&route_lladdr, &previous_status, true);
@@ -1422,11 +1230,9 @@ init(uint16_t sf_handle)
 /*---------------------------------------------------------------------------*/
 struct layered_rule layered_multi_channel = {
   init,
-  new_time_source,
-  select_packet,
+  NULL,
+  NULL,
   NULL,
   NULL,
   "layered multi-channel",
 };
-
-#endif /* UIP_MAX_ROUTES */
