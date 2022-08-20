@@ -320,7 +320,7 @@ tsch_queue_add_packet(const linkaddr_t *addr, uint8_t max_transmissions,
     n = tsch_queue_add_nbr(&queue_addr);
 #else
   if(!tsch_is_locked()) {
-    n = tsch_queue_add_nbr(&addr);
+    n = tsch_queue_add_nbr(addr);
 #endif
     if(n != NULL) {
       put_index = ringbufindex_peek_put(&n->tx_ringbuf);

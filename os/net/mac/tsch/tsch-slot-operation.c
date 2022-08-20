@@ -257,7 +257,7 @@ tsch_release_lock(void)
 static uint8_t
 tsch_get_channel_offset(struct tsch_link *link, struct tsch_packet *p)
 {
-#if TSCH_WITH_LINK_SELECTOR && !BUILD_WITH_LAYERED
+#if TSCH_WITH_LINK_SELECTOR
   if(p != NULL) {
     uint16_t packet_channel_offset = queuebuf_attr(p->qb, PACKETBUF_ATTR_TSCH_CHANNEL_OFFSET);
     if(packet_channel_offset != 0xffff) {
