@@ -588,46 +588,6 @@ tsch_queue_get_unicast_packet_for_any(struct tsch_neighbor **n, struct tsch_link
           if(n != NULL) {
             *n = curr_nbr;
           }
-
-//          char address[10] = {0};
-//          linkaddr_t *lladdr = &(link->addr);
-//          if(lladdr == NULL || linkaddr_cmp(lladdr, &linkaddr_null)) {
-//              sprintf(address, "LL-NULL");
-//          }
-//          else {
-//            #if BUILD_WITH_DEPLOYMENT
-//            sprintf(address, "LL-%04x", deployment_id_from_lladdr(lladdr));
-//            #else /* BUILD_WITH_DEPLOYMENT */
-//            #if LINKADDR_SIZE == 8
-//            sprintf(address, "LL-%04x", UIP_HTONS(lladdr->u16[LINKADDR_SIZE/2-1]));
-//            #elif LINKADDR_SIZE == 2
-//            sprintf(address, "LL-%04x", UIP_HTONS(lladdr->u16));
-//            #endif
-//            #endif /* BUILD_WITH_DEPLOYMENT */
-//          }
-//
-//          char address2[10] = {0};
-//          lladdr = tsch_queue_get_nbr_address(*n);
-//          if(lladdr == NULL || linkaddr_cmp(lladdr, &linkaddr_null)) {
-//              sprintf(address2, "LL-NULL");
-//          }
-//          else {
-//#if BUILD_WITH_DEPLOYMENT
-//sprintf(address2, "LL-%04x", deployment_id_from_lladdr(lladdr));
-//#else /* BUILD_WITH_DEPLOYMENT */
-//#if LINKADDR_SIZE == 8
-//sprintf(address2, "LL-%04x", UIP_HTONS(lladdr->u16[LINKADDR_SIZE/2-1]));
-//#elif LINKADDR_SIZE == 2
-//sprintf(address2, "LL-%04x", UIP_HTONS(lladdr->u16));
-//#endif
-//#endif /* BUILD_WITH_DEPLOYMENT */
-//          }
-//
-//          TSCH_LOG_ADD(tsch_log_message,
-//                        snprintf(log->message, sizeof(log->message),
-//                            "asd! for any: %u/%u, a-l: %s, a-n: %s",
-//                              link->timeslot,
-//                              link->channel_offset, address, address2));
           return p;
         }
       }
