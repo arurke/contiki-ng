@@ -580,11 +580,6 @@ tsch_schedule_slotframe_next(struct tsch_slotframe *sf)
 }
 /*---------------------------------------------------------------------------*/
 /* Prints out the current schedule (all slotframes and links) */
-#if BUILD_WITH_LAYERED_HACK
-extern volatile uint32_t tsch_hack_errors;
-extern volatile uint32_t tsch_hack_deleted_packets;
-extern volatile uint32_t tsch_hack_mismatch;
-#endif
 #if BUILD_WITH_LAYERED_FLOW
 extern volatile uint32_t tsch_flow_missing_neighbor;
 extern volatile uint32_t tsch_flow_error;
@@ -620,11 +615,6 @@ tsch_schedule_print(void)
     }
 
     LOG_PRINT("----- end slotframe list -----\n");
-#if BUILD_WITH_LAYERED_HACK
-    LOG_PRINT("Timing err: %lu, hack mism: %lu, hack err: %lu, hack del: %lu\n",
-             tsch_slot_timing_missed, tsch_hack_mismatch,
-             tsch_hack_errors, tsch_hack_deleted_packets);
-#endif
 #if BUILD_WITH_LAYERED_FLOW
     LOG_PRINT("Timing err: %lu, miss nei: %lu, lay err: %lu\n",
              tsch_slot_timing_missed, tsch_flow_missing_neighbor, tsch_flow_error);

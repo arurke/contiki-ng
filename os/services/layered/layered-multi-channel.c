@@ -16,8 +16,7 @@
 #define LOG_LEVEL   LOG_LEVEL_LAYERED
 
 #ifndef BUILD_WITH_LAYERED_FLOW
-#ifndef BUILD_WITH_LAYERED_HACK
-#error Either BUILD_WITH_LAYERED_HACK or BUILD_WITH_LAYERED_FLOW must be set
+#error BUILD_WITH_LAYERED_FLOW must be set
 #endif
 #endif
 

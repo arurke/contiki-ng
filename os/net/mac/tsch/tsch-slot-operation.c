@@ -196,9 +196,6 @@ volatile uint32_t tsch_slot_timing_missed = 0;
 #if BUILD_WITH_LAYERED_FLOW
 volatile uint32_t tsch_flow_missing_neighbor = 0;
 #endif
-#if BUILD_WITH_LAYERED_HACK
-volatile uint32_t tsch_hack_mismatch = 0;
-#endif
 /*---------------------------------------------------------------------------*/
 /* TSCH locking system. TSCH is locked during slot operations */
 
@@ -799,22 +796,6 @@ PT_THREAD(tsch_tx_slot(struct pt *pt, struct rtimer *t))
       packet_len = queuebuf_datalen(current_packet->qb);
       /* if is this a broadcast packet, don't wait for ack */
       do_wait_for_ack = !current_neighbor->is_broadcast;
-
-#if BUILD_WITH_LAYERED_HACK
-      // Check if there is mismatch between current_neighbor and packet dest
-      // Only necessary if packet destination is not broadcast
-      linkaddr_t* packet_dest =
-          queuebuf_addr(current_packet->qb, PACKETBUF_ADDR_RECEIVER);
-      if(!linkaddr_cmp(packet_dest, &linkaddr_null) &&
-          !linkaddr_cmp(packet_dest, tsch_queue_get_nbr_address(current_neighbor))) {
-        TSCH_LOG_ADD(tsch_log_message,
-            snprintf(log->message, sizeof(log->message),
-            "!asdERR addr mm %02x/%02x",
-            packet_dest->u8[7],
-            tsch_queue_get_nbr_address(current_neighbor)->u8[7]));
-        tsch_hack_mismatch++;
-      }
-#endif
 
       /* Unicast. More packets in queue for the neighbor? */
       burst_link_requested = 0;
