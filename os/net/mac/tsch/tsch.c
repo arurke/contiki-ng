@@ -699,7 +699,7 @@ tsch_associate(const struct input_packet *input_eb, rtimer_clock_t timestamp)
           ies.ie_tsch_slotframe_and_link.slotframe_handle,
           ies.ie_tsch_slotframe_and_link.slotframe_size);
       for(i = 0; i < num_links; i++) {
-#if BUILD_WITH_LAYERED_FLOW
+#if BUILD_WITH_LAYERED
         tsch_schedule_add_link(sf,
             ies.ie_tsch_slotframe_and_link.links[i].link_options,
             LINK_TYPE_ADVERTISING, &tsch_broadcast_address,
@@ -1091,7 +1091,6 @@ print_packetbuf_queue_address(void) {
     return;
   }
 
-#if BUILD_WITH_LAYERED_FLOW
   linkaddr_t flow_address = {0};
   bool packet_belongs_to_a_flow =
       layered_get_flow_address_for_packet(
@@ -1112,7 +1111,6 @@ print_packetbuf_queue_address(void) {
     LOG_WARN_LLADDR(&flow_address);
     return;
   }
-#endif /* BUILD_WITH_LAYERED_FLOW */
 }
 #endif /* BUILD_WITH_LAYERED */
 

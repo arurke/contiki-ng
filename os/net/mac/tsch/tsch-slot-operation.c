@@ -192,8 +192,6 @@ static PT_THREAD(tsch_rx_slot(struct pt *pt, struct rtimer *t));
 
 #if BUILD_WITH_LAYERED
 volatile uint32_t tsch_slot_timing_missed = 0;
-#endif
-#if BUILD_WITH_LAYERED_FLOW
 volatile uint32_t tsch_flow_missing_neighbor = 0;
 #endif
 /*---------------------------------------------------------------------------*/
@@ -443,7 +441,7 @@ get_packet_and_neighbor_for_link(struct tsch_link *link, struct tsch_neighbor **
       if(p == NULL) {
         /* Get neighbor queue associated to the link and get packet from it */
 
-#if BUILD_WITH_LAYERED_FLOW
+#if BUILD_WITH_LAYERED
         // We need to get the next-hop neighbor into `n`, but we need a packet
         // from the flow-queue into `p`.
         // TODO The best would be to get a new neighbor right now? In case
@@ -571,7 +569,7 @@ get_packet_and_neighbor_for_link(struct tsch_link *link, struct tsch_neighbor **
 #endif
           n = tsch_queue_get_nbr(&link->addr);
           p = tsch_queue_get_packet_for_nbr(n, link);
-#if BUILD_WITH_LAYERED_FLOW
+#if BUILD_WITH_LAYERED
         }
 #endif
 

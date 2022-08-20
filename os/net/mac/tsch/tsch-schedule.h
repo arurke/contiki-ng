@@ -101,7 +101,7 @@ int tsch_schedule_remove_all_slotframes(void);
  * \param do_remove Whether to remove an old link at this timeslot and channel offset
  * \return A pointer to the new link, NULL if failure
  */
-#if BUILD_WITH_LAYERED_FLOW
+#if BUILD_WITH_LAYERED
 bool tsch_schedule_addr_is_for_flow(const linkaddr_t* addr);
 void tsch_schedule_convert_to_flow_address(linkaddr_t* addr);
 bool tsch_schedule_link_is_flow_link(const struct tsch_link* link);

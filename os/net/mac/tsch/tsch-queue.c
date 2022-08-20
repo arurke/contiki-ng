@@ -82,7 +82,7 @@ struct tsch_neighbor *n_eb;
 
 static void tsch_queue_flush_nbr_queue(struct tsch_neighbor *n);
 
-#if BUILD_WITH_LAYERED_FLOW
+#if BUILD_WITH_LAYERED
 volatile uint32_t tsch_flow_error = 0;
 #endif
 
@@ -252,7 +252,6 @@ void tsch_queue_get_actual_queue(linkaddr_t* neighbor_queue_addr) {
     linkaddr_copy(neighbor_queue_addr, &tsch_broadcast_address);
     //LOG_DBG("asd Added TSCH KA packet to broadcast queue\n");
   }
-#if BUILD_WITH_LAYERED_FLOW
   else {
     // If this packet is going in a flow, put it in a flow-neighbor queue
     // instead of the next-hop neighbor
@@ -270,7 +269,6 @@ void tsch_queue_get_actual_queue(linkaddr_t* neighbor_queue_addr) {
       linkaddr_copy(neighbor_queue_addr, &flow_address);
     }
   }
-#endif
 }
 #endif
 
@@ -414,8 +412,7 @@ tsch_queue_packet_sent(struct tsch_neighbor *n, struct tsch_packet *p,
       packet_attr_type == PACKET_TYPE_KEEPALIVE) {
     n = n_broadcast;
   }
-#endif
-#if BUILD_WITH_LAYERED_FLOW
+
   // If this packet was in a flow, we should remove the packet from the
   // flow-neighbor queue
   struct tsch_neighbor* flow_neighbor = NULL;
@@ -528,7 +525,7 @@ tsch_queue_get_packet_for_nbr(const struct tsch_neighbor *n, struct tsch_link *l
       if(get_index != -1 &&
           !(is_shared_link && !tsch_queue_backoff_expired(n))) {    /* If this is a shared link,
                                                                     make sure the backoff has expired */
-#if TSCH_WITH_LINK_SELECTOR && !BUILD_WITH_LAYERED_FLOW
+#if TSCH_WITH_LINK_SELECTOR
         int packet_attr_slotframe = queuebuf_attr(n->tx_array[get_index]->qb, PACKETBUF_ATTR_TSCH_SLOTFRAME);
         int packet_attr_timeslot = queuebuf_attr(n->tx_array[get_index]->qb, PACKETBUF_ATTR_TSCH_TIMESLOT);
         if(packet_attr_slotframe != 0xffff && packet_attr_slotframe != link->slotframe_handle) {
@@ -556,7 +553,7 @@ tsch_queue_get_packet_for_dest_addr(const linkaddr_t *addr, struct tsch_link *li
   return NULL;
 }
 
-#if BUILD_WITH_LAYERED_FLOW
+#if BUILD_WITH_LAYERED
 static bool
 neighbor_is_flow_neighbor(const struct tsch_neighbor *n) {
   return tsch_schedule_addr_is_for_flow(tsch_queue_get_nbr_address(n));
@@ -574,7 +571,7 @@ tsch_queue_get_unicast_packet_for_any(struct tsch_neighbor **n, struct tsch_link
     struct tsch_packet *p = NULL;
 
     while(curr_nbr != NULL) {
-#if BUILD_WITH_LAYERED_FLOW
+#if BUILD_WITH_LAYERED
       // Do not pick a flow-neighbor - we do not want flow-packets
       // on any other cells than the dedicated ones
       if(!curr_nbr->is_broadcast &&

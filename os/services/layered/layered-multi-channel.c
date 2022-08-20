@@ -15,11 +15,6 @@
 #define LOG_MODULE "Layered"
 #define LOG_LEVEL   LOG_LEVEL_LAYERED
 
-#ifndef BUILD_WITH_LAYERED_FLOW
-#error BUILD_WITH_LAYERED_FLOW must be set
-#endif
-#endif
-
 #ifndef BUILD_WITH_PACKET_TYPE
 #error Layered requires BUILD_WITH_PACKET_TYPE
 #endif
@@ -585,7 +580,6 @@ find_source_address(
 }
 
 /*---------------------------------------------------------------------------*/
-#if BUILD_WITH_LAYERED_FLOW
 bool
 layered_get_flow_address_for_packet(uint16_t frame_type, const uint8_t* data,
                                     uint16_t data_len,
@@ -615,7 +609,6 @@ layered_get_flow_address_for_packet(uint16_t frame_type, const uint8_t* data,
       return false;
   }
 }
-#endif
 
 bool
 layered_calc_packet_cell(packet_type_t packet_type, uint16_t frame_type,
@@ -748,12 +741,8 @@ select_packet(uint16_t *slotframe, uint16_t *timeslot, uint16_t *channel_offset)
   if(link == NULL) {
     LOG_ERR("Link %u/%u for %s not existing or TSCH locked\n",
             *timeslot, *channel_offset, type_str);
-#if BUILD_WITH_LAYERED_FLOW
     // We may have moved in layer, but have not moved the cells yet
     return 1;
-#else
-    return 0;
-#endif
   }
 
   return 1;
@@ -875,15 +864,10 @@ schedule_upwards_tx_cell(
       // Probably need an overhaul of the entire adding-cells-mechanism to handle
       // all RPL operations.
       remove_other_cells_in_timeslot(timeslot, channel);
-#if BUILD_WITH_LAYERED_FLOW
       if(!tsch_schedule_add_link(sf_layered, link_options, LINK_TYPE_NORMAL,
                                  linkaddr, timeslot, channel, 1, true)) {
         LOG_WARN("Add link failed\n");
       }
-#else
-      tsch_schedule_add_link(sf_layered, link_options, LINK_TYPE_NORMAL,
-                             &tsch_broadcast_address, timeslot, channel, 1);
-#endif
     }
 #endif /* LAYERED_STATEFUL */
   }
@@ -935,17 +919,13 @@ schedule_upwards_rx_cell(
       LOG_INFO_("\n");
 
       remove_other_cells_in_timeslot(timeslot, channel);
-#if BUILD_WITH_LAYERED_FLOW
+
       // We do not care about RX cells being connected to flow
       if(!tsch_schedule_add_link(sf_layered, link_options, LINK_TYPE_NORMAL,
                                  &tsch_broadcast_address, timeslot, channel,
                                  1, false)) {
         LOG_WARN("Add link failed\n");
       }
-#else
-      tsch_schedule_add_link(sf_layered, link_options, LINK_TYPE_NORMAL,
-                             &tsch_broadcast_address, timeslot, channel, 1);
-#endif
     }
 #endif /* LAYERED_STATEFUL */
   }
@@ -993,18 +973,13 @@ schedule_downwards_tx_cell(
       LOG_INFO("Adding downwards TX cell %u/%u\n", timeslot, channel);
 
       remove_other_cells_in_timeslot(timeslot, channel);
-#if BUILD_WITH_LAYERED_FLOW
+
       if(!tsch_schedule_add_link(sf_layered, link_options,
                                  LINK_TYPE_ADVERTISING_ONLY,
                                  &tsch_broadcast_address, timeslot, channel,
                                  1, false)) {
         LOG_WARN("Add link failed\n");
       }
-#else
-      tsch_schedule_add_link(sf_layered, link_options,
-                             LINK_TYPE_ADVERTISING_ONLY,
-                             &tsch_broadcast_address, timeslot, channel, 1);
-#endif
     }
 #endif /* LAYERED_STATEFUL */
   }
@@ -1047,18 +1022,13 @@ schedule_downwards_rx_cell(
       LOG_INFO("Adding downwards RX cell %u/%u\n", timeslot, channel);
 
       remove_other_cells_in_timeslot(timeslot, channel);
-#if BUILD_WITH_LAYERED_FLOW
+
       if(!tsch_schedule_add_link(sf_layered, link_options,
                                  LINK_TYPE_ADVERTISING_ONLY,
                                  &tsch_broadcast_address, timeslot, channel,
                                  1, false)) {
         LOG_WARN("Add link failed\n");
       }
-#else
-      tsch_schedule_add_link(sf_layered, link_options,
-                             LINK_TYPE_ADVERTISING_ONLY,
-                             &tsch_broadcast_address, timeslot, channel, 1);
-#endif
     }
 #endif /* LAYERED_STATEFUL */
   }
@@ -1083,15 +1053,10 @@ static void schedule_common_cells(void) {
 #if LAYERED_STATS
     stats_add_link(timeslot, channel, options);
 #endif
-#if BUILD_WITH_LAYERED_FLOW
     if(!tsch_schedule_add_link(sf_layered, options, LINK_TYPE_NORMAL,
                            &tsch_broadcast_address, i, channel, 1, false)) {
       LOG_ERR("Add common cells failed!\n");
     }
-#else
-    tsch_schedule_add_link(sf_layered, options, LINK_TYPE_NORMAL,
-                           &tsch_broadcast_address, i, channel, 1);
-#endif
 #endif /* LAYERED_STATEFUL */
   }
 #if LAYERED_STATEFUL

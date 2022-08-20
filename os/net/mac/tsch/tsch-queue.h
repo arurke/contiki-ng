@@ -184,7 +184,7 @@ void tsch_queue_update_all_backoff_windows(const linkaddr_t *dest_addr);
  */
 void tsch_queue_init(void);
 
-#if BUILD_WITH_LAYERED_FLOW
+#if BUILD_WITH_LAYERED
 /**
  * \brief Returns the actual neighbor-queue the packet in the packetbuf
  * will be in.

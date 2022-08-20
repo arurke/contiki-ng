@@ -28,8 +28,6 @@ endif
 # Use Layered
 ifdef LAYERED
 MODULES += os/services/layered
-CFLAGS += -DBUILD_WITH_LAYERED_HACK=0
-CFLAGS += -DBUILD_WITH_LAYERED_FLOW=1
 endif
 
 # Use packet-types, needed for misc. stats (and required by Layered)

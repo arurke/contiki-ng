@@ -210,7 +210,7 @@ print_link_type(uint16_t link_type)
     return "?";
   }
 }
-#if BUILD_WITH_LAYERED_FLOW
+#if BUILD_WITH_LAYERED
 // We use special prefix 0xff0f in addr. to indicate this is a flow
 // This adds two constraints:
 // 1. Flow-addresses are limited to the 6 LSB
@@ -285,12 +285,11 @@ tsch_schedule_add_link(struct tsch_slotframe *slotframe,
           address = &linkaddr_null;
         }
         linkaddr_copy(&l->addr, address);
-#if BUILD_WITH_LAYERED_FLOW
+#if BUILD_WITH_LAYERED
         if(is_flow) {
           tsch_schedule_convert_to_flow_address(&l->addr);
         }
-#endif
-#if BUILD_WITH_LAYERED_FLOW
+
         LOG_INFO("add_link sf=%u opt=%s type=%s ts=%u ch=%u flow=%d addr=",
                  slotframe->handle,
                  print_link_options(link_options),
@@ -554,7 +553,7 @@ tsch_schedule_create_minimal(void)
    * We set the link type to advertising, which is not compliant with 6TiSCH minimal schedule
    * but is required according to 802.15.4e if also used for EB transmission.
    * Timeslot: 0, channel offset: 0. */
-#if BUILD_WITH_LAYERED_FLOW
+#if BUILD_WITH_LAYERED
   tsch_schedule_add_link(sf_min,
       (LINK_OPTION_RX | LINK_OPTION_TX | LINK_OPTION_SHARED | LINK_OPTION_TIME_KEEPING),
       LINK_TYPE_ADVERTISING, &tsch_broadcast_address,
@@ -580,11 +579,9 @@ tsch_schedule_slotframe_next(struct tsch_slotframe *sf)
 }
 /*---------------------------------------------------------------------------*/
 /* Prints out the current schedule (all slotframes and links) */
-#if BUILD_WITH_LAYERED_FLOW
+#if BUILD_WITH_LAYERED
 extern volatile uint32_t tsch_flow_missing_neighbor;
 extern volatile uint32_t tsch_flow_error;
-#endif
-#if BUILD_WITH_LAYERED
 extern volatile uint32_t tsch_slot_timing_missed;
 #endif
 
@@ -615,7 +612,7 @@ tsch_schedule_print(void)
     }
 
     LOG_PRINT("----- end slotframe list -----\n");
-#if BUILD_WITH_LAYERED_FLOW
+#if BUILD_WITH_LAYERED
     LOG_PRINT("Timing err: %lu, miss nei: %lu, lay err: %lu\n",
              tsch_slot_timing_missed, tsch_flow_missing_neighbor, tsch_flow_error);
 #endif
