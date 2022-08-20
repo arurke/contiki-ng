@@ -290,11 +290,12 @@ tsch_queue_add_packet(const linkaddr_t *addr, uint8_t max_transmissions,
   /* The scheduler provides a callback which sets the timeslot and other attributes */
   if(TSCH_CALLBACK_PACKET_READY() < 0) {
     /* No scheduled slots for the packet available; drop it early to save queue space. */
-    LOG_ERR("tsch_queue_add_packet(): rejected by the scheduler\n");
+    LOG_DBG("tsch_queue_add_packet(): rejected by the scheduler\n");
     return NULL;
   }
 #endif
 
+#if BUILD_WITH_LAYERED
   // queue_addr is the queue where the packet will actually go
   // In some cases this might be different than the next-hop given in addr
   // Note that this does not change the actual address in the packet
@@ -302,8 +303,6 @@ tsch_queue_add_packet(const linkaddr_t *addr, uint8_t max_transmissions,
   linkaddr_copy(&queue_addr, addr);
 
   if(!tsch_is_locked()) {
-
-#if BUILD_WITH_LAYERED
     tsch_queue_get_actual_queue(&queue_addr);
 
     // Always add neighbor to the original destination
@@ -318,9 +317,12 @@ tsch_queue_add_packet(const linkaddr_t *addr, uint8_t max_transmissions,
       LOG_ERR("!asdERR Add next-hop neighbor failed!\n");
       return NULL;
     }
-#endif
 
     n = tsch_queue_add_nbr(&queue_addr);
+#else
+  if(!tsch_is_locked()) {
+    n = tsch_queue_add_nbr(&addr);
+#endif
     if(n != NULL) {
       put_index = ringbufindex_peek_put(&n->tx_ringbuf);
       if(put_index != -1) {
