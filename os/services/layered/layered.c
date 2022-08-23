@@ -31,9 +31,9 @@ layered_init(void)
     }
   }
 
-  LOG_INFO("Max nodes %u, layers %u, channels %lu, common slots %d, SF len %u\n",
+  LOG_INFO("Max. nodes %u, lay. %u, #ch. %lu, CS %d, SF len %u, stateful %d\n",
            LAYERED_MAX_NUM_NODES, LAYERED_NUM_LAYERS,
            (unsigned long) LAYERED_NUM_CHANNELS,
-           NUM_COMMON_SLOTS, LAYERED_SF_LEN);
+           NUM_COMMON_SLOTS, LAYERED_SF_LEN, LAYERED_STATEFUL);
 }
 /*---------------------------------------------------------------------------*/
