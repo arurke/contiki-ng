@@ -861,38 +861,45 @@ def plot_comparison_single_kpi_grouped(scenarios, scenarios_df, plot_dir, title=
             {"name": scenario['name'], "desc": scenario['description'],
              "x-index": scenario['group2'], "grouping": scenario["group1"]})
 
+    if "nodes" in scenarios_to_plot[0]["x-index"]:
+        x_label = "Num. transmitting nodes"
+    elif "dBm" in scenarios_to_plot[0]["x-index"]:
+        x_label = "Receiver sensitivity"
+    else:
+        x_label = "Transmission interval"
+
     kpi = {"desc": "99-percentile latency", "name": "latency_99",
            "bound": "upper"}
     plot_compare_single_kpi_with_groups_both_percentiles(
         scenarios_df, scenarios_to_plot, kpi,
-        "Transmission interval", "Latency (s)",
+        x_label, "Latency (s)",
         plot_dir)
 
     kpi = {"desc": "maximum latency", "name": "latency_maximum",
            "bound": "upper"}
     plot_compare_single_kpi_with_groups_both_percentiles(
         scenarios_df, scenarios_to_plot, kpi,
-        "Transmission interval", "Latency (s)",
+        x_label, "Latency (s)",
         plot_dir)
 
     kpi = {"desc": "Mean PDR", "name": "pdr_mean", "bound": "lower"}
     plot_compare_single_kpi_with_groups_both_percentiles(
         scenarios_df, scenarios_to_plot, kpi,
-        "Transmission interval", "PDR (%)",
+        x_label, "PDR (%)",
         plot_dir)
 
     kpi = {"desc": "Median duty cycle", "name": "duty_cycle_50",
            "bound": "upper"}
     plot_compare_single_kpi_with_groups_both_percentiles(
         scenarios_df, scenarios_to_plot, kpi,
-        "Transmission interval", "Duty cycle (%)",
+        x_label, "Duty cycle (%)",
         plot_dir)
 
     kpi = {"desc": "Mean duty cycle", "name": "duty_cycle_mean",
            "bound": "upper"}
     plot_compare_single_kpi_with_groups_both_percentiles(
         scenarios_df, scenarios_to_plot, kpi,
-        "Transmission interval", "Duty cycle (%)",
+        x_label, "Duty cycle (%)",
         plot_dir)
 
     kpi = {"desc": "Median num. parent switch",
@@ -900,7 +907,7 @@ def plot_comparison_single_kpi_grouped(scenarios, scenarios_df, plot_dir, title=
            "bound": "upper"}
     plot_compare_single_kpi_with_groups_both_percentiles(
         scenarios_df, scenarios_to_plot, kpi,
-        "Transmission interval", "Num. parent switches",
+        x_label, "Num. parent switches",
         plot_dir)
 
 
