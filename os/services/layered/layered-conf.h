@@ -10,7 +10,7 @@
 #ifdef LAYERED_CONF_STATEFUL
 #define LAYERED_STATEFUL              LAYERED_CONF_STATEFUL
 #else
-#define LAYERED_STATEFUL              1
+#define LAYERED_STATEFUL              0
 #endif
 
 #ifdef LOG_CONF_LEVEL_LAYERED
