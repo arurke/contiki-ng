@@ -178,6 +178,16 @@ def parseApp(log):
     if res:
         return {'event': 'lost_conn_skip_packet'}
 
+    res = re.compile('Lost conn! Skipping (.+?) num (\d+) tick (\d+)').match(log)
+    if res:
+        type = res.group(1)
+        packet_id = int(res.group(2))
+        origin_tick = int(res.group(3))
+        return {'event': 'skip',
+                'type' : type,
+                'origin_tick': origin_tick,
+                'packet_id': packet_id}
+
     res = re.compile('Done').match(log)
     if res:
         application_done_count += 1
@@ -416,6 +426,12 @@ def doParse(file, app_warmup, testbed):
                         continue
 
                     entry.update(ret)
+
+                    # Add skipped packets as a loss
+                    if ret['event'] == 'skip':
+                        entry['pdr'] = 0.
+                        arrays["packets"].append(entry)
+                        continue
 
                     if ret['event'] == 'lost_conn_skip_packet':
                         arrays['skipped_app_packets'].append(entry)
