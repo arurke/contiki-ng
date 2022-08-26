@@ -480,6 +480,7 @@ def doParse(file, app_warmup, testbed):
                     existing_entry = False
                     for packet in arrays["packets"]:
                         if packet['packet_id'] == entry['packet_id'] and \
+                            packet['event'] != 'skip' and \
                             packet['src'] == entry['src']:
 
                             existing_entry = True
