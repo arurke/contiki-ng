@@ -11,7 +11,7 @@
 #define LOG_CONF_WITH_COMPACT_ADDR    1
 // Logging for every TSCH slot
 #define TSCH_LOG_CONF_PER_SLOT        1
-
+#define TSCH_PRINT_QUEUE_UTIL         0
 
 // Abort application run if topology change during operation
 #define APP_CONF_ABORT_ON_TOPOLOGY_CHANGE   0

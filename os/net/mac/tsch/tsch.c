@@ -1209,6 +1209,7 @@ send_packet(mac_callback_t sent, void *ptr)
       ret = MAC_TX_QUEUE_FULL;
     } else {
       p->header_len = hdr_len;
+#if TSCH_PRINT_QUEUE_UTIL
       LOG_WARN("TX to ");
       LOG_WARN_LLADDR(addr);
 #if BUILD_WITH_LAYERED
@@ -1218,6 +1219,7 @@ send_packet(mac_callback_t sent, void *ptr)
              tsch_packet_seqno, tsch_queue_nbr_packet_count(n),
              TSCH_QUEUE_NUM_PER_NEIGHBOR - 1, tsch_queue_global_packet_count(),
              QUEUEBUF_NUM, queuebuf_datalen(p->qb));
+#endif
     }
   }
 
