@@ -175,18 +175,15 @@ def calculate_metric(input_df, metric, measure, name, plots_dir):
     # would call mean(), median() etc. ourselves
     # TODO test with configured bounds?
 
-    # transmitters_hop data is so different from other data
-    # we ad-hoc remove it from here for now. TODO
-    #if "transmitters_hop" in name:
-    #    return np.nan
-
-    #print(df)
     convergence_result, calculated_measure, figure = \
         triscale.analysis_metric(
             df, {"measure":measure},
-            convergence={"expected": True},
+            #convergence={"expected": True},
+            convergence={"expected": False},
+            #convergence={"expected": True, "tolerance": 20},
             #showplot=False, verbose=False, plot_out_name=plots_dir + name + ".pdf")
             showplot=False, verbose=False)
+    #return calculated_measure
 
     if not convergence_result:
         print("Metric not converged for " + name)
@@ -195,16 +192,16 @@ def calculate_metric(input_df, metric, measure, name, plots_dir):
         convergence_result, calculated_measure, figure = \
             triscale.analysis_metric(
                 df, {"measure":measure},
-                convergence={"expected": True, "tolerance": 5},
+                convergence={"expected": True, "tolerance": 20},
                 showplot=False, verbose=False,
                 plot_out_name=plots_dir + name + ".pdf")
 
         # Get non-converged value
-        convergence_result, calculated_measure, figure = \
-            triscale.analysis_metric(
-                df, {"measure":measure},
-                convergence={"expected": False},
-                showplot=False, verbose=False)
+        #convergence_result, calculated_measure, figure = \
+        #    triscale.analysis_metric(
+        #        df, {"measure":measure},
+        #        convergence={"expected": False},
+        #        showplot=False, verbose=False)
     #else:
         #print("Converged for " + name)
     return calculated_measure
