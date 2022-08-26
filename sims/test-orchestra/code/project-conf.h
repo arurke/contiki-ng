@@ -66,7 +66,8 @@
 #if BUILD_WITH_LAYERED
 #define PACKET_BUFFER_SIZE                64
 #else
-#define PACKET_BUFFER_SIZE                32 // 2 x layered (unicast + other)
+//#define PACKET_BUFFER_SIZE                32 // 2 x layered (unicast + other)
+#define PACKET_BUFFER_SIZE                64 // 2 x layered (unicast + other)
 #endif
 // 16 for 9-hop linear
 //#define PACKET_BUFFER_SIZE                16
@@ -79,6 +80,9 @@
 // Max queue size per neighbor. Must be power of two.
 // Note, must be increased if not using flows with Layered
 #if BUILD_WITH_LAYERED
+//#define TSCH_QUEUE_CONF_NUM_PER_NEIGHBOR  16
+#define TSCH_QUEUE_CONF_NUM_PER_NEIGHBOR  8
+#else
 #define TSCH_QUEUE_CONF_NUM_PER_NEIGHBOR  16
 #endif
 
