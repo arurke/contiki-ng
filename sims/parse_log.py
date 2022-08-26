@@ -736,7 +736,7 @@ def parse_logfile(file, app_warmup, has_spatial,
     if "packets" not in dfs:
         print("No packets sent!")
         meta["result"] = "error-no-packets"
-        return None, meta
+        #return None, meta
 
     # Set app_started to 0 at end of all logs to remove e.g. packets in flight
     last_valid_time = final_time - pd.Timedelta(TIME_TO_SKIP_AT_END)
@@ -760,7 +760,7 @@ def parse_logfile(file, app_warmup, has_spatial,
         print("Not all nodes joined DAG! " +
               str(num_joined_nodes) + "/" + str(num_non_root_nodes))
         meta["result"] = "error-missing-rpl"
-        return None, meta
+        #return None, meta
 
     # Last joining of the DAG
     network_formation_time = dfs["dag_inits"].tail(1).index[0].total_seconds()
@@ -824,8 +824,7 @@ def parse_logfile(file, app_warmup, has_spatial,
             if skipped_app_packets > (packets_sent):
                 print("ERR! Too many skipped app packets")
                 meta["result"] = "error-skip-app-packets"
-                return None, meta
-
+                #return None, meta
 
     # Abort if packets are sent too shallow
     # This test is redundant as the problem is catched by the spatial reuse test
