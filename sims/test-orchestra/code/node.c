@@ -370,12 +370,21 @@ PROCESS_THREAD(app_process, ev, data)
   }
 
   // Uncomment to make only the specified node send packets
-  // 326, 328, 330, 332
+//#if TESTBED
+//    // 326, 328, 330, 332
+//  if(node_id != 0x0d && node_id != 0x0e &&
+//      node_id != 0x0f && node_id != 0x10) {
+//    is_transmitting_node = false;
+//  }
+//#endif
+
 #if TESTBED
-  if(node_id != 0x0d && node_id != 0x0e &&
-      node_id != 0x0f && node_id != 0x10) {
-    is_transmitting_node = false;
-  }
+//  if(node_id != 0x19 && node_id != 0x18 &&
+//      node_id != 0x17 && node_id != 0x16 &&
+//      node_id != 0x15 && node_id != 0x14 &&
+//      node_id != 0x13 && node_id != 0x12) {
+//    is_transmitting_node = false;
+//  }
 #endif
 
   LOG_INFO("Node ID 0x%02x is %s, and %s, RF %d\n",
