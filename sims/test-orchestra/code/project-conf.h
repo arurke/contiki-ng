@@ -202,9 +202,6 @@
 #define IEEE802154_CONF_PANID                 0xa371
 #endif
 
-// TODO just for testing after queues got filled up. Number from Atis
-//#define TSCH_CONF_MAC_MAX_BE 3
-
 // Enable cell duty-cycle statistics
 // TODO this assumes cooja mote
 #define CELL_DUTY_CYCLE_STATS                 0
@@ -227,5 +224,8 @@
 
 // Disable stack checker? (not available on native and iotlab)
 #define STACK_CHECK_CONF_ENABLED              0
+
+// Do as Atis and reduce the max backoff from 5 to 3
+#define TSCH_CONF_MAC_MAX_BE                  3
 
 #endif /* PROJECT_CONF_H_ */
