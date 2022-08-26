@@ -132,7 +132,11 @@
 #define ORCHESTRA_CONF_EBSF_PERIOD            397
 
 // Length of common SF (def. 31)
+#if LARGER_TOPOLOGY
 #define ORCHESTRA_CONF_COMMON_SHARED_PERIOD   31
+#else
+#define ORCHESTRA_CONF_COMMON_SHARED_PERIOD   31
+#endif
 
 // Length of unicast SF (def. 17)
 #if LARGER_TOPOLOGY
@@ -174,9 +178,9 @@
 #endif
 #define LAYERED_CONF_NUM_LAYERS               2
 #if LARGER_TOPOLOGY
-#define LAYERED_CONF_COMMON_SLOT_SPACING      9
+#define LAYERED_CONF_COMMON_SLOT_SPACING      7 // was 9
 #else
-#define LAYERED_CONF_COMMON_SLOT_SPACING      11
+#define LAYERED_CONF_COMMON_SLOT_SPACING      9 // was 11
 #endif
 
 // Convenience variable for no spatial reuse.
