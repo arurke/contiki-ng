@@ -433,6 +433,7 @@ def doParse(file, app_warmup, testbed):
                         arrays["packets"].append(entry)
                         continue
 
+                    # Legacy way of handling losses
                     if ret['event'] == 'lost_conn_skip_packet':
                         arrays['skipped_app_packets'].append(entry)
                         continue
@@ -815,18 +816,22 @@ def parse_logfile(file, app_warmup, has_spatial,
         return None, meta
 
     # Check how many app packets were skipped
+    # Old way of counting skipped packets used a separate DF
     if "skipped_app_packets" in dfs:
         skipped_app_packets_df = dfs["skipped_app_packets"]
         skipped_app_packets = len(
             skipped_app_packets_df[skipped_app_packets_df["app_started"] == 1])
-        if skipped_app_packets > 0:
-            print("App packets skipped due to lost connection: " +
-                  str(skipped_app_packets) + ", sent: " + str(packets_sent))
-            if skipped_app_packets > (packets_sent):
-                print("ERR! Too many skipped app packets")
-                meta["result"] = "error-skip-app-packets"
-                #return None, meta
+    # New way of counting uses packets_df with event "skip"
+    else:
+       skipped_app_packets = len(app_packets_df[app_packets_df["event"] == 'skip'])
 
+    if skipped_app_packets > 0:
+        print("App packets skipped due to lost connection: " +
+              str(skipped_app_packets) + ", sent: " + str(packets_sent))
+        if skipped_app_packets > (packets_sent):
+            print("ERR! Too many skipped app packets")
+            meta["result"] = "error-skip-app-packets"
+            #return None, meta
 
     # Max. hop count after app started
     rpl_stats_df = dfs["rpl_stats"]
