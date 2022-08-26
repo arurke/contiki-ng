@@ -461,7 +461,9 @@ PROCESS_THREAD(app_process, ev, data)
 #endif
       }
       else {
-        LOG_ERR("Lost conn! Skipping packet!\n");
+        uint64_t network_uptime = tsch_get_network_uptime_ticks();
+        LOG_ERR("Lost conn! Skipping data num %lu tick %"PRIu64"\n",
+                packet_count, network_uptime);
         packet_skipped++;
         packet_count++;
       }
