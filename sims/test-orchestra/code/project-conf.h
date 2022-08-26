@@ -10,7 +10,8 @@
 #define LOG_CONF_LEVEL_LAYERED        LOG_LEVEL_INFO
 #define LOG_CONF_WITH_COMPACT_ADDR    1
 // Logging for every TSCH slot
-#define TSCH_LOG_CONF_PER_SLOT        1
+#define TSCH_LOG_CONF_PER_SLOT        0
+#define LAYERED_CONF_STATS            0
 #define TSCH_PRINT_QUEUE_UTIL         0
 
 // Abort application run if topology change during operation
