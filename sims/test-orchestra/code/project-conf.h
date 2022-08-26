@@ -93,7 +93,7 @@
 #define TSCH_CONF_BURST_MAX_LEN           0
 
 // Allow very deep networks (default 32) TODO use for depth?
-#define TSCH_CONF_MAX_JOIN_PRIORITY       64
+//#define TSCH_CONF_MAX_JOIN_PRIORITY       64
 
 // Increase number of links for grid-setup
 #define TSCH_SCHEDULE_CONF_MAX_LINKS      64
@@ -101,7 +101,7 @@
 #define TSCH_STATS_CONF_ON                0
 
 // Disable RPL probing which takes up space in queues
-#define RPL_CONF_WITH_PROBING             1
+//#define RPL_CONF_WITH_PROBING             0
 
 // Channels (min. 4 available to allow for orchestra multi-channel)
 #define CUSTOM_TSCH_HOPPING_SEQUENCE_16_16 (uint8_t[]){16, 17, 23, 18, 26, 15, 25, 22, 19, 11, 12, 13, 24, 14, 20, 21}
