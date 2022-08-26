@@ -826,9 +826,6 @@ def parse_logfile(file, app_warmup, has_spatial,
                 meta["result"] = "error-skip-app-packets"
                 #return None, meta
 
-    # Abort if packets are sent too shallow
-    # This test is redundant as the problem is catched by the spatial reuse test
-    #too_shallow_tx = len(app_packets_df[app_packets_df["depth"] < 6])
 
     # Max. hop count after app started
     rpl_stats_df = dfs["rpl_stats"]
