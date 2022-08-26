@@ -13,6 +13,7 @@
 #define TSCH_LOG_CONF_PER_SLOT        0
 #define LAYERED_CONF_STATS            0
 #define TSCH_PRINT_QUEUE_UTIL         0
+#define RPL_PRINT_TABLE               0
 
 // Abort application run if topology change during operation
 #define APP_CONF_ABORT_ON_TOPOLOGY_CHANGE   0

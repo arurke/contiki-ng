@@ -98,12 +98,13 @@ rpl_print_neighbor_list(void)
       default_instance->of != NULL) {
     int curr_dio_interval = default_instance->dio_intcurrent;
     int curr_rank = default_instance->current_dag->rank;
-    rpl_parent_t *p = nbr_table_head(rpl_parents);
-    clock_time_t clock_now = clock_time();
 
     LOG_INFO("MOP %u OCP %u rank %u dioint %u, nbr count %u, depth %u\n",
         default_instance->mop, default_instance->of->ocp, curr_rank,
         curr_dio_interval, uip_ds6_nbr_num(), default_instance->current_dag->depth);
+#if RPL_PRINT_TABLE
+    rpl_parent_t *p = nbr_table_head(rpl_parents);
+    clock_time_t clock_now = clock_time();
     while(p != NULL) {
       const struct link_stats *stats = rpl_get_parent_link_stats(p);
       uip_ipaddr_t *parent_addr = rpl_parent_get_ipaddr(p);
@@ -126,6 +127,7 @@ rpl_print_neighbor_list(void)
       p = nbr_table_next(rpl_parents, p);
     }
     LOG_INFO("end of list\n");
+#endif
   }
 }
 /*---------------------------------------------------------------------------*/
