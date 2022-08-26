@@ -265,6 +265,17 @@ void layered_print_stats() {
 #endif /* LAYERED_STATS */
 
 // Returns link matching the timeslot/channel
+static layered_link_t* get_link_in_timeslot(uint16_t timeslot) {
+  for(int i = 0; i < MAX_NUM_LINKS; i++) {
+    if(layered_links[i].occupied &&
+        layered_links[i].timeslot == timeslot) {
+      return &layered_links[i];
+    }
+  }
+  return NULL;
+}
+
+// Returns link matching the timeslot/channel
 static layered_link_t* get_link(uint16_t timeslot, uint16_t channel) {
   for(int i = 0; i < MAX_NUM_LINKS; i++) {
     if(layered_links[i].occupied &&
@@ -358,6 +369,12 @@ static void add_link(
       LOG_DBG("Link %u/%u already in place and enabled\n", timeslot, channel);
     }
     return;
+  }
+
+  // Remove any existing cell in the same timeslot (should only be one TODO)
+  layered_link_t* existing_link_in_ts = get_link_in_timeslot(timeslot);
+  if(existing_link_in_ts != NULL && link_is_enabled(existing_link_in_ts)) {
+    remove_link(existing_link_in_ts->timeslot, existing_link_in_ts->channel);
   }
 
   // Add new link
