@@ -218,6 +218,236 @@ def plot_compare_single_kpi_with_groups(scenarios_df, scenarios_info, kpi,
 #
 #kpis = [{"field": "prr_mean", "name": "PRR", "bound": "lower"},
 #        {"field": "pdr_mean", "name": "PDR", "bound": "lower"}]
+def plot_compare_kpis_no_bounds(scenarios_df, scenarios_info, kpis,
+                                name, plot_dir, title=False, special=False):
+
+    @dataclass
+    class DataPoint:
+        lower: float
+        upper: float
+
+        @classmethod
+        def from_row(cls, row, name, percentile, bound):
+            lower = row[make_kpi_field(name, 'lower', percentile, bound)]
+            upper = row[make_kpi_field(name, 'upper', percentile, bound)]
+            return cls(lower, upper)
+
+    scenarios = copy.deepcopy(scenarios_info)
+
+    for scenario in scenarios:
+        row = scenarios_df.loc[scenario["name"]]
+        kpis_data = []
+        for kpi in kpis:
+
+            datapoint = DataPoint.from_row(row, kpi["name"],
+                                           kpi['percentile'], kpi["bound"])
+
+            # A stupid ad-hoc handling for spatial reuse comparison
+            # Needed because it requires comparing two different metrics
+            # For spatial scenario, the prr_spatial_mean is used (prr of all spatial links)
+            # While non-spatial uses the app_selected_cell_prr_mean
+            # (prr of all links which had spatial traffic in earlier scenario).
+            # TODO long-term solution is to change the input into this function
+            if special:
+                if scenario["name"] == "no_spatial_reuse":
+                    if kpi["name"] == "spatial_cell_prr_mean":
+                        datapoint = \
+                            DataPoint.from_row(row, "selected_cell_prr_mean",
+                                               kpi["percentile"], kpi["bound"])
+                    if kpi["name"] == "converged_spatial_cell_prr_mean":
+                        datapoint = \
+                            DataPoint.from_row(row,
+                                               "converged_selected_cell_prr_mean",
+                                               kpi["percentile"], kpi["bound"])
+
+            if kpi["bound"] == "upper":
+                value = datapoint.upper
+                error_lower = datapoint.upper - datapoint.lower
+                error_upper = 0
+            else:
+                value = datapoint.lower
+                error_lower = 0
+                error_upper = datapoint.upper - datapoint.lower
+
+            #print("Values (%s/%s/%s) for plot %s" % \
+            #       (str(value), str(error_lower), str(error_upper), name))
+
+            # Skip plot if any values are invalid
+            if np.isnan(value) or np.isnan(error_lower) or np.isnan(error_upper):
+                print("Invalid values (%s / %s / %s). Skipping plot %s" % \
+                      (str(value), str(error_lower), str(error_upper), name))
+                return
+
+            kpis_data.append({"name": kpi["name"],
+                              "datapoint": datapoint,
+                              "value": value,
+                              "error_lower": error_lower,
+                              "error_upper": error_upper})
+
+        scenario["kpis_data"] = kpis_data
+
+    #print(scenarios)
+
+    # Make arrays of all lower and all upper KPIs per scenario
+    for scenario in scenarios:
+        scenario["values"] = []
+        scenario["error_lowers"] = []
+        scenario["error_uppers"] = []
+        for kpi_data in scenario["kpis_data"]:
+            scenario["values"].append(kpi_data["value"])
+            scenario["error_lowers"].append(kpi_data["error_lower"])
+            scenario["error_uppers"].append(kpi_data["error_upper"])
+
+    kpi_list = []
+    for kpi in kpis:
+        kpi_list.append(kpi["desc"])
+
+    # the label locations
+    x = np.arange(len(kpi_list))
+
+    # width of the bars
+    width = 0.3
+
+    # Ad-hoc to prettify Latency figure
+    if len(kpis) == 1:
+        plt.rcParams["figure.figsize"] = (2.8,4)
+
+    fig, ax = plt.subplots()
+    #ax.set_ylim([50, 120])
+
+    rects = []
+    x_pos = []
+
+    # I can't be bothered to find something better here
+    if len(scenarios) == 1:
+        x_pos = [1]
+    elif len(scenarios) == 2:
+        x_pos = [x - width/2, x + width/2]
+    elif len(scenarios) == 3:
+        x_pos = [x - width, x, x + width]
+    elif len(scenarios) == 12:
+        x_pos = [x - (width*5.5),
+                 x - (width*4.5),
+                 x - (width*3.5),
+                 x - (width*2.5),
+                 x - (width*1.5),
+                 x - (width*0.5),
+                 x + (width*0.5),
+                 x + (width*1.5),
+                 x + (width*2.5),
+                 x + (width*3.5),
+                 x + (width*4.5),
+                 x + (width*5.5)] #TODO
+    elif len(scenarios) == 15:
+        x_pos = [x - (width*7.5),
+                 x - (width*6.5),
+                 x - (width*5.5),
+                 x - (width*4.5),
+                 x - (width*3.5),
+                 x - (width*2.5),
+                 x - (width*1.5),
+                 x - (width*0.5),
+                 x + (width*0.5),
+                 x + (width*1.5),
+                 x + (width*2.5),
+                 x + (width*3.5),
+                 x + (width*4.5),
+                 x + (width*5.5),
+                 x + (width*6.5)]
+        #print("values: " + str(scenario["values"]))
+    else:
+        print("Unsupported num scenarios. Skipping " + name)
+        return
+
+    for idx, scenario in enumerate(scenarios):
+        rect = ax.bar(x_pos[idx], scenario["values"], width, capsize=5,
+                      label=scenario["desc"])
+        rects.append(rect)
+
+    # ax.bar_label would not work for some reason. So we found this online.
+    for rect in itertools.chain(rects[0], rects[-1]):
+        label_format = '%.2f'
+        if "PDR" in kpi_list:
+            label_format = '%.1f'
+        height = rect.get_height()
+        # left side
+        #ax.text(rect.get_x()+rect.get_width() / 6, 1.0*height,
+        #        label_format % height,
+        #        ha='center', va='bottom')
+        # right side
+        ax.text(rect.get_x()+rect.get_width()/2, 1.0*height,
+                label_format % height,
+                ha='center', va='bottom')
+
+    # Add some decoration. AD HOC TODO
+    if "latency" in kpi_list[0]:
+        ax.set_ylabel('Latency (s)')
+    elif "parent_switches_count" in kpi_list[0]:
+        ax.set_ylabel('Num. switches')
+    else:
+        ax.set_ylabel("%")
+    #ax.set_title('Key metrics, normalized to without spatial reuse')
+    ax.set_xticks(x)
+    ax.set_xticklabels(kpi_list)
+
+    if len(kpis) == 1:
+        #print("skipping legend")
+        #plt.legend(loc="lower left")
+        #plt.legend(loc="lower center", bbox_to_anchor=(0.5, -0.8))
+        #fig.subplots_adjust(bottom=0.5)
+        #plt.legend(loc="lower center", bbox_to_anchor=(0.5, -0.4))
+        fig.subplots_adjust(bottom=0.5)
+    elif (len(kpis) == 2):
+        plt.legend(loc="lower center", bbox_to_anchor=(0.5, -0.4))
+        fig.subplots_adjust(bottom=0.5)
+    else:
+        ax.legend()
+
+    # Remove box-frame at top and right
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+    fig_name = ""
+    if name:
+        fig_name += name + "_"
+    fig_name += "comparison_no_bounds"
+    if title:
+        plt.title(fig_name)
+    fig_dir = plot_dir
+    fig_path = fig_dir + fig_name + '.pdf'
+    #ax.relim()
+    ax.autoscale_view()
+    if "PDR" in kpi_list:
+        ymin = int(min(scenario["values"]) - max(scenario["error_lowers"]) - 8)
+        plt.ylim(ymin, 101) # TODO
+    if "latency" in kpi_list[0]:
+        ymax = max(scenario["values"]) + max(scenario["error_uppers"]) + 0.4
+        plt.ylim(0, ymax) # TODO
+    #if "PRR" in kpi_list:
+    #    plt.ylim(50, 101)
+
+    #if len(kpis) == 1:
+    #    fig.tight_layout(rect=[0,0,0.75,1])
+    #else:
+    #    fig.tight_layout()
+    fig.tight_layout()
+
+    plt.savefig(fig_path, bbox_inches='tight')
+    plt.close()
+
+    # Reset size on ad-hoc to prettify Latency figure
+    if len(kpis) == 1:
+        plt.rcParams["figure.figsize"] = plt.rcParamsDefault["figure.figsize"]
+
+    print("Made figure", fig_path)
+
+
+
+#scenarios = [{"name": "spatial_reuse", "desc": "With spatial reuse"},
+#         {"name": "no_spatial_reuse", "desc": "Without spatial reuse"}]
+#
+#kpis = [{"field": "prr_mean", "name": "PRR", "bound": "lower"},
+#        {"field": "pdr_mean", "name": "PDR", "bound": "lower"}]
 def plot_compare_kpis(scenarios_df, scenarios_info, kpis,
                       name, plot_dir, title=False, special=False):
 
@@ -1017,17 +1247,39 @@ def plot_comparison(scenarios, scenarios_df, plot_dir, title=False):
         plot_compare_kpis(scenarios_df, scenarios_to_plot, kpis,
                           "converged_" + str(DEFAULT_PERC) + "p_reliability",
                           plot_dir)
+        plot_compare_kpis_no_bounds(scenarios_df, scenarios_to_plot, kpis,
+                          "converged_" + str(DEFAULT_PERC) + "p_reliability",
+                          plot_dir)
 
         kpis = [{"desc": "Median latency", "name": "converged_latency_50",
                  "percentile": "default", "bound": "upper"}]
         plot_compare_kpis(scenarios_df, scenarios_to_plot, kpis,
                           "converged_" + str(DEFAULT_PERC) + "p_latency_50",
                           plot_dir)
+        plot_compare_kpis_no_bounds(scenarios_df, scenarios_to_plot, kpis,
+                          "converged_" + str(DEFAULT_PERC) + "p_latency_50",
+                          plot_dir)
+
         kpis = [{"desc": "Median latency", "name": "converged_latency_50",
                  "percentile": "adhoc", "bound": "upper"}]
         plot_compare_kpis(scenarios_df, scenarios_to_plot, kpis,
                           "converged_" + str(ADHOC_PERC) + "p_latency_50",
                           plot_dir) # TODO this naming can be done inside compare_kpis?
+        plot_compare_kpis_no_bounds(scenarios_df, scenarios_to_plot, kpis,
+                          "converged_" + str(ADHOC_PERC) + "p_latency_50",
+                          plot_dir)
+
+        kpis = [{"desc": "Median duty cycle", "name": "converged_duty_cycle_50",
+                 "percentile": "default", "bound": "upper"}]
+        plot_compare_kpis_no_bounds(scenarios_df, scenarios_to_plot, kpis,
+                          "converged_" + str(DEFAULT_PERC) + "p_duty_cycle_50",
+                          plot_dir)
+
+        kpis = [{"desc": "Mean duty cycle", "name": "converged_duty_cycle_mean",
+                 "percentile": "default", "bound": "upper"}]
+        plot_compare_kpis(scenarios_df, scenarios_to_plot, kpis,
+                          "converged_" + str(DEFAULT_PERC) + "p_duty_cycle_mean",
+                          plot_dir)
 
         #kpis = [{"desc": "Median queue utilization", "name": "converged_queue_fill_50",
         #         "percentile": "default", "bound": "upper"}]
@@ -1050,6 +1302,10 @@ def plot_spatial_comparison(scenarios_df, plot_dir, title=False):
     plot_compare_kpis(scenarios_df, scenarios, kpis,
                       "reliability_" + str(ADHOC_PERC) + "p_selected_links",
                       plot_dir, special=True)
+    plot_compare_kpis_no_bounds(scenarios_df, scenarios, kpis,
+                      "reliability_" + str(ADHOC_PERC) + "p_selected_links",
+                      plot_dir, special=True)
+
     # Same but converged
     kpis = [{"desc": "PRR", "name": "converged_spatial_cell_prr_mean",
              "percentile": "adhoc", "bound": "lower"},
@@ -1058,7 +1314,9 @@ def plot_spatial_comparison(scenarios_df, plot_dir, title=False):
     plot_compare_kpis(scenarios_df, scenarios, kpis,
                       "converged_reliability_" + str(ADHOC_PERC) + "p_selected_links",
                       plot_dir, special=True)
-
+    plot_compare_kpis_no_bounds(scenarios_df, scenarios, kpis,
+                      "converged_reliability_" + str(ADHOC_PERC) + "p_selected_links",
+                      plot_dir, special=True)
 
      # selected spatial links 50 p
     kpis = [{"desc": "PRR", "name": "spatial_cell_prr_mean",
@@ -1068,12 +1326,19 @@ def plot_spatial_comparison(scenarios_df, plot_dir, title=False):
     plot_compare_kpis(scenarios_df, scenarios, kpis,
                       "reliability_" + str(DEFAULT_PERC) + "p_selected_links",
                       plot_dir, special=True)
+    plot_compare_kpis_no_bounds(scenarios_df, scenarios, kpis,
+                      "reliability_" + str(DEFAULT_PERC) + "p_selected_links",
+                      plot_dir, special=True)
+
     # Same but converged
     kpis = [{"desc": "PRR", "name": "converged_spatial_cell_prr_mean",
              "percentile": "default", "bound": "lower"},
             {"desc": "PDR", "name": "converged_pdr_mean",
              "percentile": "default", "bound": "lower"}]
     plot_compare_kpis(scenarios_df, scenarios, kpis,
+                      "converged_reliability_" + str(DEFAULT_PERC) + "p_selected_links",
+                      plot_dir, special=True)
+    plot_compare_kpis_no_bounds(scenarios_df, scenarios, kpis,
                       "converged_reliability_" + str(DEFAULT_PERC) + "p_selected_links",
                       plot_dir, special=True)
 
