@@ -1059,6 +1059,8 @@ def parse_logfile(file, app_warmup, has_spatial,
 
     outputStats(dfs, "mac_tx", "retransmissions", "sum", "Total retransmission")
     outputStats(dfs, "rpl_stats", "nbr_count", "max", "Max. neighbor count")
+    outputStats(dfs, "rpl_stats", "nbr_count", "min", "Min. neighbor count")
+    outputStats(dfs, "rpl_stats", "nbr_count", "mean", "Mean. neighbor count")
 
     # All dfs for this run
     return dfs, meta
