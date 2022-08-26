@@ -34,3 +34,6 @@
 [submodule "sims/triscale"]
 	path = sims/triscale
 	url = https://github.com/arurke/triscale.git
+[submodule "iot-lab-contiki-ng"]
+	path = iot-lab-contiki-ng
+	url = https://github.com/iot-lab/iot-lab-contiki-ng.git
