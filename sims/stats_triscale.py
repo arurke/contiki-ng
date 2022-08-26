@@ -432,13 +432,16 @@ def calculate_kpi(values, settings, metric, name, plots_dir):
                     #to_plot=["autocorr", "horizontal", "vertical"], plot_out_name=name,
                     # Only "vertical" and "horizontal" prints to file.
                     # Note that they overwrite each other!
-                    #plots=["vertical"], plot_out_name=(plots_dir + "/" + name + ".pdf"),
+                    plots=["vertical"], plot_out_name=(plots_dir + "/" + name + ".pdf"),
                     verbose=False)
 
         if bounds_was_set:
             print("Bounds set: " + str(settings["bounds"]))
         else:
             print("Bounds set by Triscale: " + str(settings["bounds"]))
+        if not bounds_was_set:
+            print("Bounds set by Triscale: " + str(settings["bounds"]))
+
         print("Values:" + str(values.tolist()))
         #return np.nan #uncomment to ignore kpis which are not independent
 
