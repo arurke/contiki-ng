@@ -50,7 +50,7 @@
 
 #include "sys/log.h"
 #define LOG_MODULE "Orchestra"
-#define LOG_LEVEL  LOG_LEVEL_MAC
+#define LOG_LEVEL  LOG_LEVEL_INFO
 
 /* A net-layer sniffer for packets sent and received */
 static void orchestra_packet_received(void);
