@@ -615,9 +615,17 @@ def plot_compare_kpis(scenarios_df, scenarios_info, kpis,
 
     # ax.bar_label would not work for some reason. So we found this online.
     for rect in itertools.chain(rects[0], rects[-1]):
+        label_format = '%.2f'
+        if "PDR" in kpi_list:
+            label_format = '%.1f'
         height = rect.get_height()
-        ax.text(rect.get_x()+rect.get_width()/6, 1.0*height,
-                '%.2f' % height,
+        # left side
+        #ax.text(rect.get_x()+rect.get_width() / 6, 1.0*height,
+        #        label_format % height,
+        #        ha='center', va='bottom')
+        # right side
+        ax.text(rect.get_x()+rect.get_width()/1.15, 1.0*height,
+                label_format % height,
                 ha='center', va='bottom')
 
     # Add some decoration. AD HOC TODO
@@ -644,8 +652,19 @@ def plot_compare_kpis(scenarios_df, scenarios_info, kpis,
         plt.title(fig_name)
     fig_dir = plot_dir
     fig_path = fig_dir + fig_name + '.pdf'
+    #ax.relim()
+    ax.autoscale_view()
     if "PDR" in kpi_list:
-        plt.ylim(80, 101)
+        ymin = int(min(scenario["values"]) - max(scenario["error_lowers"]) - 8)
+        plt.ylim(ymin, 101) # TODO
+    if "latency" in kpi_list[0]:
+        ymax = max(scenario["values"]) + max(scenario["error_uppers"]) + 0.4
+        plt.ylim(0, ymax) # TODO
+    #if "PRR" in kpi_list:
+    #    plt.ylim(50, 101)
+
+    fig.tight_layout()
+
     plt.savefig(fig_path, bbox_inches='tight')
     plt.close()
     print("Made figure", fig_path)
