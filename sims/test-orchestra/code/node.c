@@ -344,7 +344,7 @@ static bool should_transmit(uint16_t our_node_id) {
   return true;
 #endif
 }
-
+#include "../../../iot-lab-contiki-ng/arch/platform/iotlab/openlab/net/phy.h"
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(app_process, ev, data)
 {
@@ -378,10 +378,10 @@ PROCESS_THREAD(app_process, ev, data)
   }
 #endif
 
-  LOG_INFO("Node ID 0x%02x is %s, and %s\n",
+  LOG_INFO("Node ID 0x%02x is %s, and %s, RF %d\n",
            node_id,
            is_coordinator ? "root" : "not root",
-           is_transmitting_node ? "transmitting" : "not transmitting");
+           is_transmitting_node ? "transmitting" : "not transmitting", RF2XX_TX_POWER);
 
   if(is_coordinator) {
     /* Initialize DAG root. This also sets this node as TSCH coordinator */
