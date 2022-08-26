@@ -104,7 +104,16 @@ tsch_queue_add_nbr(const linkaddr_t *addr)
         nbr_table_lock(tsch_neighbors, n);
         /* Initialize neighbor entry */
         memset(n, 0, sizeof(struct tsch_neighbor));
+#if 0
+        if(linkaddr_cmp(addr, &tsch_broadcast_address)) {
+          ringbufindex_init(&n->tx_ringbuf, TSCH_QUEUE_NUM_PER_NEIGHBOR / 2);
+        }
+        else {
+          ringbufindex_init(&n->tx_ringbuf, TSCH_QUEUE_NUM_PER_NEIGHBOR);
+        }
+#else
         ringbufindex_init(&n->tx_ringbuf, TSCH_QUEUE_NUM_PER_NEIGHBOR);
+#endif
         n->is_broadcast = linkaddr_cmp(addr, &tsch_eb_address)
           || linkaddr_cmp(addr, &tsch_broadcast_address);
         tsch_queue_backoff_reset(n);
