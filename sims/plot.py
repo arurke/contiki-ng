@@ -1128,12 +1128,12 @@ def plot_comparison_single_kpi_grouped(scenarios, scenarios_df, plot_dir, title=
         x_label, "Latency (s)",
         plot_dir)
 
-    kpi = {"desc": "maximum latency", "name": "latency_maximum",
-           "bound": "upper"}
-    plot_compare_single_kpi_with_groups_both_percentiles(
-        scenarios_df, scenarios_to_plot, kpi,
-        x_label, "Latency (s)",
-        plot_dir)
+    #kpi = {"desc": "maximum latency", "name": "latency_maximum",
+    #       "bound": "upper"}
+    #plot_compare_single_kpi_with_groups_both_percentiles(
+    #    scenarios_df, scenarios_to_plot, kpi,
+    #    x_label, "Latency (s)",
+    #    plot_dir)
 
     kpi = {"desc": "Mean PDR", "name": "pdr_mean", "bound": "lower"}
     plot_compare_single_kpi_with_groups_both_percentiles(
@@ -1205,16 +1205,16 @@ def plot_comparison(scenarios, scenarios_df, plot_dir, title=False):
                       str(ADHOC_PERC) + "p_latency_50",
                       plot_dir)
 
-    kpis = [{"desc": "Maximum latency", "name": "latency_maximum",
-             "percentile": "adhoc", "bound": "upper"}]
-    plot_compare_kpis(scenarios_df, scenarios_to_plot, kpis,
-                      str(ADHOC_PERC) + "p_latency_max",
-                      plot_dir)
-    kpis = [{"desc": "Maximum latency", "name": "latency_maximum",
-             "percentile": "default", "bound": "upper"}]
-    plot_compare_kpis(scenarios_df, scenarios_to_plot, kpis,
-                      str(DEFAULT_PERC) + "p_latency_max",
-                      plot_dir)
+    #kpis = [{"desc": "Maximum latency", "name": "latency_maximum",
+    #         "percentile": "adhoc", "bound": "upper"}]
+    #plot_compare_kpis(scenarios_df, scenarios_to_plot, kpis,
+    #                  str(ADHOC_PERC) + "p_latency_max",
+    #                  plot_dir)
+    #kpis = [{"desc": "Maximum latency", "name": "latency_maximum",
+    #         "percentile": "default", "bound": "upper"}]
+    #plot_compare_kpis(scenarios_df, scenarios_to_plot, kpis,
+    #                  str(DEFAULT_PERC) + "p_latency_max",
+    #                  plot_dir)
     
     kpis = [{"desc": "99 percentile latency", "name": "latency_99",
              "percentile": "default", "bound": "upper"}]
