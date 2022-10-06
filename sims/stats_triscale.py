@@ -299,7 +299,7 @@ def analyze_run(run_name, spatial_comparison, has_spatial, plots_dir, run_dfs):
 
     # Make the following metrics for the given measures for the given DFs
     # The-per-node is a bit hackish - gave them special prefix
-    default_measures = ["mean", 50, 95, 99, "maximum"]
+    default_measures = ["mean", 50, 99] # 95 "maximum"
 
     metrics_basics = \
         [{"df": "packets_df", "metric": "latency", "measures": default_measures},
