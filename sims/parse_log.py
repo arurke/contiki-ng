@@ -1048,7 +1048,7 @@ def parse_logfile(file, app_warmup, has_spatial,
     #outputStats(dfs, "rpl_stats", "rank", "mean", "RPL rank (ETX-128)")
     outputStats(dfs, "rpl_stats", "hop_count", "max", "Hop count max")
     #outputStats(dfs, "rpl_stats", "hop_count", "min", "Hop count min")
-    #outputStats(dfs, "rpl_stats", "hop_count", "mean", "Hop count mean")
+    outputStats(dfs, "rpl_stats", "hop_count", "mean", "Hop count mean")
     outputStats(dfs, "switches", "pswitch", "count", "RPL parent switches (#)")
     #outputStats(dfs, "dag_inits", "event", "count", "RPL joining DAG (#)")
     #outputStats(dfs, "rpl_stats", "trickle", "mean", "RPL Trickle period (min)")
