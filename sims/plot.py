@@ -189,6 +189,10 @@ def plot_compare_single_kpi_with_groups(scenarios_df, scenarios_info, kpi,
         ax.bar_label(bars)
     plt.xlabel(x_label)
     plt.ylabel(y_label)
+    if "latency" in kpi["name"]:
+        plt.legend(loc="center right")
+    else:
+        plt.legend(loc="lower right")
 
     # Remove some air at on the sides of the first and last bars
     # Probably not a scalable approach
