@@ -1303,6 +1303,9 @@ def plot_comparison(scenarios, scenarios_df, plot_dir, title=False):
         plot_compare_kpis(scenarios_df, scenarios_to_plot, kpis,
                           "converged_" + str(DEFAULT_PERC) + "p_duty_cycle_mean",
                           plot_dir)
+        plot_compare_kpis_no_bounds(scenarios_df, scenarios_to_plot, kpis,
+                          "converged_" + str(DEFAULT_PERC) + "p_duty_cycle_mean",
+                          plot_dir)
 
         #kpis = [{"desc": "Median queue utilization", "name": "converged_queue_fill_50",
         #         "percentile": "default", "bound": "upper"}]
