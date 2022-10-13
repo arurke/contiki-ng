@@ -174,9 +174,9 @@
 // Num nodes supported for layers (including sink)
 //#define LAYERED_CONF_MAX_NUM_NODES            49
 #if LARGER_TOPOLOGY
-#define LAYERED_CONF_MAX_NUM_NODES            29 // Also removed the ad-hoc fix in layered-conf.h
+#define LAYERED_CONF_MAX_NUM_NODES            29
 #else
-#define LAYERED_CONF_MAX_NUM_NODES            17 // Also removed the ad-hoc fix in layered-conf.h
+#define LAYERED_CONF_MAX_NUM_NODES            17
 #endif
 #define LAYERED_CONF_NUM_LAYERS               2
 #if LARGER_TOPOLOGY
