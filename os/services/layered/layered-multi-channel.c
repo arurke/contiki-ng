@@ -499,7 +499,10 @@ calculate_layered_timeslot(const linkaddr_t *linkaddr, uint16_t layer) {
   }
 
   // TODO Because timeslots are 0-indexed
-  timeslot--;
+  // TODO ad-hoc fix for when return timeslot is 0.
+  if(timeslot != 0) {
+    timeslot--;
+  }
 
   // Shift right into correct layer
   timeslot += (LAYERED_NUM_LAYERS - layer) * LAYERED_MAX_NUM_NODES;
