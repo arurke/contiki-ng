@@ -175,8 +175,16 @@ def plot_compare_single_kpi_with_groups(scenarios_df, scenarios_info, kpi,
     # reverse order (not needed after sort=False)
     #df = df.reindex(index=df.index[::-1])
 
+    if "kbytes_per" in kpi["name"]:
+        num_decimals = 1
+    elif "dc_per_kbyte" in kpi["name"]:
+        #df[df.select_dtypes(include=['number']).columns] *= 1000
+        num_decimals = 2
+    else:
+        num_decimals = 1
+
     # Fix decimals
-    df = df.round(decimals = 1)
+    df = df.round(decimals = num_decimals)
 
     # Make plot wider
     plt.rcParams["figure.figsize"] = (10,5)
@@ -191,6 +199,8 @@ def plot_compare_single_kpi_with_groups(scenarios_df, scenarios_info, kpi,
     plt.ylabel(y_label)
     if "latency" in kpi["name"]:
         plt.legend(loc="center right")
+    elif "dc_per_kbyte" in kpi["name"]:
+        plt.legend(loc="upper right")
     else:
         plt.legend(loc="lower right")
 
@@ -1161,6 +1171,22 @@ def plot_comparison_single_kpi_grouped(scenarios, scenarios_df, plot_dir, title=
     plot_compare_single_kpi_with_groups_both_percentiles(
         scenarios_df, scenarios_to_plot, kpi,
         x_label, "Num. parent switches",
+        plot_dir)
+
+    kpi = {"desc": "Kilobytes app. data per duty cycle %",
+           "name": "kbytes_per_mean_dc",
+           "bound": "lower"}
+    plot_compare_single_kpi_with_groups_both_percentiles(
+        scenarios_df, scenarios_to_plot, kpi,
+        x_label, "Kilobytes app. data per % duty cycle",
+        plot_dir)
+
+    kpi = {"desc": "Duty cycle per kilobyte app. data",
+           "name": "mean_dc_per_kbyte",
+           "bound": "upper"}
+    plot_compare_single_kpi_with_groups_both_percentiles(
+        scenarios_df, scenarios_to_plot, kpi,
+        x_label, "Duty cycle (%) per kilobyte app. data",
         plot_dir)
 
 

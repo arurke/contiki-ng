@@ -264,6 +264,30 @@ def add_metrics_for_spatial_comparison(metrics, has_spatial, app_cell_df, run_df
     if not has_spatial:
         metrics.extend(metrics_on_selected_links)
 
+def goodput_in_kbytes(packets_df):
+    # Find total bytes received
+    app_packets_df = packets_df[packets_df["app_started"] == 1]
+    app_packets_rx_df = app_packets_df[app_packets_df["pdr"] == 100]
+    num_packets_rx = len(app_packets_rx_df);
+    # Payload example: "num 0614 oTick 000158533" -> 24 bytes payload
+    num_bytes_rx = num_packets_rx * 24
+    return num_bytes_rx / 1000
+
+def calculate_kbytes_per_energy_metric(metrics, run_dfs, duty_cycle):
+    num_kbytes_rx = goodput_in_kbytes(run_dfs["packets_df"])
+
+    if duty_cycle == 0 or num_kbytes_rx == 0:
+        return 0
+
+    return num_kbytes_rx / duty_cycle
+
+def calculate_energy_per_kbyte_metric(metrics, run_dfs, duty_cycle):
+    num_kbytes_rx = goodput_in_kbytes(run_dfs["packets_df"])
+    if duty_cycle == 0 or num_kbytes_rx == 0:
+        return 0
+
+    return duty_cycle / num_kbytes_rx
+
 def analyze_run(run_name, spatial_comparison, has_spatial, plots_dir, run_dfs):
     run_entry = {"name": run_name}
 
@@ -354,6 +378,20 @@ def analyze_run(run_name, spatial_comparison, has_spatial, plots_dir, run_dfs):
             run_entry[run_metric_name] = \
                 calculate_metric(run_dfs[metric["df"]], metric["metric"], measure,
                                  run_name + "_" + run_metric_name, plots_dir)
+
+    # Add ad-hoc metric for energy efficiency
+    kbytes_per_mean_dc = calculate_kbytes_per_energy_metric(
+                            metrics, run_dfs, run_entry["duty_cycle_mean"])
+    run_entry["kbytes_per_mean_dc"] = kbytes_per_mean_dc
+
+    mean_dc_per_kbyte = calculate_energy_per_kbyte_metric(
+                            metrics, run_dfs, run_entry["duty_cycle_mean"])
+    run_entry["mean_dc_per_kbyte"] = mean_dc_per_kbyte
+
+    num_kbytes_rx = goodput_in_kbytes(run_dfs["packets_df"])
+    #print("kbytes: " + str(num_kbytes_rx) + " mean DC: " + str(run_entry["duty_cycle_mean"]))
+    #print("kbytes per mean duty cycle: " + str(kbytes_per_mean_dc))
+    #print("mean duty cycle per kbyte: " + str(mean_dc_per_kbyte))
 
     # Make DF out of the entry
     df = pd.DataFrame([run_entry])
@@ -504,6 +542,12 @@ def analyze_scenario(runs_df, scenario_name,
     add_kpi(kpis, "duty_cycle",
             percentile=adhoc_percentile_high, confidence=adhoc_confidence,
             bounds=[0.001,100])
+    add_kpi(kpis, "kbytes_per_mean_dc",
+            percentile=adhoc_percentile_low, confidence=adhoc_confidence)
+    add_kpi(kpis, "mean_dc_per_kbyte",
+            percentile=adhoc_percentile_high, confidence=adhoc_confidence)
+    add_kpi(kpis, "kbytes_per_mean_dc")
+    add_kpi(kpis, "mean_dc_per_kbyte")
     add_kpi(kpis, "parent_switches",
         percentile=adhoc_percentile_high, confidence=adhoc_confidence,
         bounds=[0, 10000])
