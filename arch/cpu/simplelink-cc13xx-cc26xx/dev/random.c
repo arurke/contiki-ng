@@ -46,8 +46,7 @@
  *        Edvard Pettersen <e.pettersen@ti.com>
  */
 /*---------------------------------------------------------------------------*/
-#include <contiki.h>
-/*---------------------------------------------------------------------------*/
+#include "contiki.h"
 #include <stdint.h>
 /*---------------------------------------------------------------------------*/
 typedef struct {
@@ -68,9 +67,7 @@ static ranctx_t ranctx;
 unsigned short
 random_rand(void)
 {
-  uint32_t e;
-
-  e        = ranctx.a - rot32(ranctx.b, 27);
+  unit32_t e = ranctx.a - rot32(ranctx.b, 27);
   ranctx.a = ranctx.b ^ rot32(ranctx.c, 17);
   ranctx.b = ranctx.c + ranctx.d;
   ranctx.c = ranctx.d + e;
@@ -86,11 +83,9 @@ random_rand(void)
 void
 random_init(unsigned short seed)
 {
-  uint32_t i;
-
   ranctx.a = 0xf1ea5eed;
   ranctx.b = ranctx.c = ranctx.d = (uint32_t)seed;
-  for(i = 0; i < 20; ++i) {
+  for(uint32_t i = 0; i < 20; ++i) {
     (void)random_rand();
   }
 }
