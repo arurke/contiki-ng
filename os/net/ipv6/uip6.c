@@ -668,12 +668,8 @@ uip_reass(uint8_t *prev_proto_ptr)
        */
       *prev_proto_ptr = frag_buf->next;
       memcpy(FBUF, UIP_IP_BUF, uip_ext_len + UIP_IPH_LEN);
-      LOG_INFO("src ");
-      LOG_INFO_6ADDR(&FBUF->srcipaddr);
-      LOG_INFO_("dest ");
-      LOG_INFO_6ADDR(&FBUF->destipaddr);
-      LOG_INFO_("next %d\n", UIP_IP_BUF->proto);
-
+      LOG_INFO("src %pI dest %pI next %d\n", &FBUF->srcipaddr, &FBUF->destipaddr
+                                           , UIP_IP_BUF->proto);
     }
 
     /* If the offset or the offset + fragment length overflows the
@@ -1226,11 +1222,7 @@ uip_process(uint8_t flag)
   /* Set uip_ext_len */
   uip_ext_len = last_header - UIP_IP_PAYLOAD(0);
 
-  LOG_INFO("packet received from ");
-  LOG_INFO_6ADDR(&UIP_IP_BUF->srcipaddr);
-  LOG_INFO_(" to ");
-  LOG_INFO_6ADDR(&UIP_IP_BUF->destipaddr);
-  LOG_INFO_("\n");
+  LOG_INFO("packet received from %pI to %pI\n", &UIP_IP_BUF->srcipaddr, &UIP_IP_BUF->destipaddr);
 
   if(uip_is_addr_mcast(&UIP_IP_BUF->srcipaddr)){
     UIP_STAT(++uip_stat.ip.drop);
@@ -1301,9 +1293,7 @@ uip_process(uint8_t flag)
         goto send;
       }
 
-      LOG_INFO("Forwarding packet to next hop, dest: ");
-      LOG_INFO_6ADDR(&UIP_IP_BUF->destipaddr);
-      LOG_INFO_("\n");
+      LOG_INFO("Forwarding packet to next hop, dest:%pI\n", &UIP_IP_BUF->destipaddr);
       UIP_STAT(++uip_stat.ip.forwarded);
       goto send;
     } else {
@@ -1419,9 +1409,7 @@ uip_process(uint8_t flag)
             goto send;
           }
 
-          LOG_INFO("Forwarding packet to next hop, dest: ");
-          LOG_INFO_6ADDR(&UIP_IP_BUF->destipaddr);
-          LOG_INFO_("\n");
+          LOG_INFO("Forwarding packet to next hop, dest:%pI\n", &UIP_IP_BUF->destipaddr);
           UIP_STAT(++uip_stat.ip.forwarded);
 
           goto send; /* Proceed to forwarding */
@@ -2285,11 +2273,7 @@ uip_process(uint8_t flag)
 
   uip_ipaddr_copy(&UIP_IP_BUF->destipaddr, &uip_connr->ripaddr);
   uip_ds6_select_src(&UIP_IP_BUF->srcipaddr, &UIP_IP_BUF->destipaddr);
-  LOG_INFO("Sending TCP packet to ");
-  LOG_INFO_6ADDR(&UIP_IP_BUF->destipaddr);
-  LOG_INFO_(" from ");
-  LOG_INFO_6ADDR(&UIP_IP_BUF->srcipaddr);
-  LOG_INFO_("\n");
+  LOG_INFO("Sending TCP packet to %pI from %pI\n", &UIP_IP_BUF->destipaddr, &UIP_IP_BUF->srcipaddr);
 
   if(uip_connr->tcpstateflags & UIP_STOPPED) {
     /* If the connection has issued uip_stop(), we advertise a zero
