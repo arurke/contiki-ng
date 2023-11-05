@@ -31,9 +31,12 @@
 /*---------------------------------------------------------------------------*/
 #include "contiki.h"
 #include <stdint.h>
+#include <stdbool.h>
 #include <stddef.h>
 
 #include <string.h>
+#include "sys/cc.h"
+
 #include "strformat.h"
 /*---------------------------------------------------------------------------*/
 #ifndef PRINTF_CONF_HAVE_DOUBLE
@@ -220,10 +223,10 @@ output_uint_decimal(char **posp, LARGEST_UNSIGNED v)
   unsigned int len;
   char *pos = *posp;
 
-  while(v > 0) {
+  do {
     *--pos = (v % 10) + '0';
     v /= 10;
-  }
+  } while (v > 0);
 
   len = *posp - pos;
   *posp = pos;
@@ -238,10 +241,10 @@ output_uint_hex(char **posp, LARGEST_UNSIGNED v, unsigned int flags)
   const char *hex = (flags & CAPS_YES) ? "0123456789ABCDEF" : "0123456789abcdef";
   char *pos = *posp;
 
-  while(v > 0) {
+  do {
     *--pos = hex[(v % 16)];
     v /= 16;
-  }
+  } while(v > 0);
 
   len = *posp - pos;
   *posp = pos;
@@ -255,15 +258,25 @@ output_uint_octal(char **posp, LARGEST_UNSIGNED v)
   unsigned int len;
   char *pos = *posp;
 
-  while(v > 0) {
+  do {
     *--pos = (v % 8) + '0';
     v /= 8;
-  }
+  } while(v > 0);
 
   len = *posp - pos;
   *posp = pos;
 
   return len;
+}
+
+static
+unsigned output_radix_num(char **conv_pos, FormatFlags flags, LARGEST_UNSIGNED uvalue ){
+    switch(flags & (RADIX_MASK)) {
+    case RADIX_DECIMAL: return output_uint_decimal(conv_pos, uvalue);
+    case RADIX_OCTAL:   return output_uint_octal(conv_pos, uvalue);
+    case RADIX_HEX:     return output_uint_hex(conv_pos, uvalue, flags);
+    }
+    return 0;
 }
 /*---------------------------------------------------------------------------*/
 static strformat_result
@@ -318,16 +331,119 @@ format_str(const strformat_context_t *ctxt, const char *format, ...)
   return ret;
 }
 /*---------------------------------------------------------------------------*/
+struct FormatCtx {
+    const strformat_context_t *ctxt;
+    FormatFlags     flags;
+    unsigned int    minwidth;
+    int             precision; /* Negative means no precision */
+    unsigned int    width;
+    int             negative;
+
+    char *          prefix;               /* sign, "0x" or "0X" */
+    unsigned int    prefix_len;
+
+    char *          conv_pos;
+    unsigned int    conv_len;
+};
+
+int output_fctx( struct FormatCtx* self ){
+    const strformat_context_t *ctxt = self->ctxt;
+
+    int written = 0;
+    unsigned int precision_fill;
+    unsigned int field_fill;
+
+    self->width += self->conv_len;
+
+    if (self->prefix == NULL){
+        self->prefix_len = 0;
+
+        if(self->flags & SIGNED_YES) {
+          if(self->negative) {
+              self->prefix = "-";
+              self->prefix_len = 1;
+          } else {
+            switch(self->flags & POSITIVE_MASK) {
+            case POSITIVE_SPACE:
+                self->prefix = " ";
+                self->prefix_len = 1;
+                break;
+            case POSITIVE_PLUS:
+                self->prefix = "+";
+                self->prefix_len = 1;
+                break;
+            }
+          }
+        }
+    }
+
+    self->width += self->prefix_len;
+
+    if ( self->precision > (int)self->conv_len )
+        precision_fill =  self->precision - self->conv_len;
+    else
+        precision_fill = 0;
+
+    if( (self->flags & (RADIX_MASK | ALTERNATE_FORM)) == (RADIX_OCTAL | ALTERNATE_FORM))
+    {
+      if(precision_fill < 1) {
+        precision_fill = 1;
+      }
+    }
+
+    self->width += precision_fill;
+
+    field_fill = 0;
+    if (self->minwidth > self->width)
+        field_fill = self->minwidth - self->width;
+
+    if (field_fill > 0)
+    if((self->flags & JUSTIFY_MASK) == JUSTIFY_RIGHT) {
+      if(self->flags & PAD_ZERO) {
+        precision_fill += field_fill;
+        field_fill = 0; /* Do not double count padding */
+      } else {
+        CHECKCB(fill_space(ctxt, field_fill));
+        written += field_fill;
+      }
+    }
+
+    if(self->prefix_len > 0) {
+      CHECKCB(ctxt->write_str(ctxt->user_data, self->prefix, self->prefix_len));
+      written += self->prefix_len;
+    }
+
+    if (precision_fill > 0) {
+        CHECKCB(fill_zero(ctxt, precision_fill));
+        written += precision_fill;
+    }
+
+    CHECKCB(ctxt->write_str(ctxt->user_data, self->conv_pos, self->conv_len));
+    written += self->conv_len;
+
+    if (field_fill > 0)
+    if((self->flags & JUSTIFY_MASK) == JUSTIFY_LEFT) {
+      CHECKCB(fill_space(ctxt, field_fill));
+      written += field_fill;
+    }
+
+    return written;
+}
+/*---------------------------------------------------------------------------*/
 int
 format_str_v(const strformat_context_t *ctxt, const char *format, va_list ap)
 {
   unsigned int written = 0;
   const char *pos = format;
+  struct FormatCtx self;
+  self.ctxt = ctxt;
 
   while(*pos != '\0') {
-    FormatFlags flags;
-    unsigned int minwidth = 0;
-    int precision = -1; /* Negative means no precision */
+      self.precision= -1; /* Negative means no precision */
+      self.minwidth = 0;
+      self.width    = 0;
+      self.prefix   = NULL;
+
     char ch;
     const char *start = pos;
 
@@ -350,19 +466,19 @@ format_str_v(const strformat_context_t *ctxt, const char *format, va_list ap)
       return written;
     }
 
-    flags = parse_flags(&pos);
+    self.flags = parse_flags(&pos);
 
     /* parse width */
     if(*pos >= '1' && *pos <= '9') {
-      minwidth = parse_uint(&pos);
+        self.minwidth = parse_uint(&pos);
     } else if(*pos == '*') {
       int w = va_arg(ap, int);
 
       if(w < 0) {
-        flags |= JUSTIFY_LEFT;
-        minwidth = w;
+          self.flags |= JUSTIFY_LEFT;
+          self.minwidth = w;
       } else {
-        minwidth = w;
+          self.minwidth = w;
       }
 
       pos++;
@@ -373,10 +489,10 @@ format_str_v(const strformat_context_t *ctxt, const char *format, va_list ap)
       pos++;
 
       if(*pos >= '0' && *pos <= '9') {
-        precision = parse_uint(&pos);
+        self.precision = parse_uint(&pos);
       } else if(*pos == '*') {
         pos++;
-        precision = va_arg(ap, int);
+        self.precision = va_arg(ap, int);
       }
     }
 
@@ -384,29 +500,29 @@ format_str_v(const strformat_context_t *ctxt, const char *format, va_list ap)
       pos++;
 
       if(*pos == 'l') {
-        flags |= SIZE_LONGLONG;
+        self.flags |= SIZE_LONGLONG;
         pos++;
       } else {
-        flags |= SIZE_LONG;
+        self.flags |= SIZE_LONG;
       }
     } else if(*pos == 'h') {
       pos++;
 
       if(*pos == 'h') {
-        flags |= SIZE_CHAR;
+        self.flags |= SIZE_CHAR;
         pos++;
       } else {
-        flags |= SIZE_SHORT;
+        self.flags |= SIZE_SHORT;
       }
     } else if(*pos == 'z') {
       if(sizeof(size_t) == sizeof(short)) {
-        flags |= SIZE_SHORT;
+        self.flags |= SIZE_SHORT;
       } else if(sizeof(size_t) == sizeof(long)) {
-        flags |= SIZE_LONG;
+        self.flags |= SIZE_LONG;
       }
 #if HAVE_LONGLONG
       else if(sizeof(size_t) == sizeof(long long)) {
-        flags |= SIZE_LONGLONG;
+        self.flags |= SIZE_LONGLONG;
       }
 #endif
       pos++;
@@ -416,95 +532,92 @@ format_str_v(const strformat_context_t *ctxt, const char *format, va_list ap)
     switch(*pos) {
     case 'd':
     case 'i':
-      flags |= CONV_INTEGER | RADIX_DECIMAL | SIGNED_YES;
+      self.flags |= CONV_INTEGER | RADIX_DECIMAL | SIGNED_YES;
       break;
     case 'u':
-      flags |= CONV_INTEGER | RADIX_DECIMAL | SIGNED_NO;
+      self.flags |= CONV_INTEGER | RADIX_DECIMAL | SIGNED_NO;
       break;
     case 'o':
-      flags |= CONV_INTEGER | RADIX_OCTAL | SIGNED_NO;
+      self.flags |= CONV_INTEGER | RADIX_OCTAL | SIGNED_NO;
       break;
     case 'x':
-      flags |= CONV_INTEGER | RADIX_HEX | SIGNED_NO;
+      self.flags |= CONV_INTEGER | RADIX_HEX | SIGNED_NO;
       break;
     case 'X':
-      flags |= CONV_INTEGER | RADIX_HEX | SIGNED_NO | CAPS_YES;
+      self.flags |= CONV_INTEGER | RADIX_HEX | SIGNED_NO | CAPS_YES;
       break;
 #if HAVE_DOUBLE
     case 'f':
-      flags |= CONV_FLOAT | FLOAT_NORMAL;
+      self.flags |= CONV_FLOAT | FLOAT_NORMAL;
       break;
     case 'F':
-      flags |= CONV_FLOAT | FLOAT_NORMAL | CAPS_YES;
+      self.flags |= CONV_FLOAT | FLOAT_NORMAL | CAPS_YES;
       break;
     case 'e':
-      flags |= CONV_FLOAT | FLOAT_EXPONENT;
+      self.flags |= CONV_FLOAT | FLOAT_EXPONENT;
       break;
     case 'E':
-      flags |= CONV_FLOAT | FLOAT_EXPONENT | CAPS_YES;
+      self.flags |= CONV_FLOAT | FLOAT_EXPONENT | CAPS_YES;
       break;
     case 'g':
-      flags |= CONV_FLOAT | FLOAT_DEPENDANT;
+      self.flags |= CONV_FLOAT | FLOAT_DEPENDANT;
       break;
     case 'G':
-      flags |= CONV_FLOAT | FLOAT_DEPENDANT | CAPS_YES;
+      self.flags |= CONV_FLOAT | FLOAT_DEPENDANT | CAPS_YES;
       break;
     case 'a':
-      flags |= CONV_FLOAT | FLOAT_HEX;
+      self.flags |= CONV_FLOAT | FLOAT_HEX;
       break;
     case 'A':
-      flags |= CONV_FLOAT | FLOAT_HEX | CAPS_YES;
+      self.flags |= CONV_FLOAT | FLOAT_HEX | CAPS_YES;
       break;
 #endif
     case 'c':
-      flags |= CONV_CHAR;
+      self.flags |= CONV_CHAR;
       break;
     case 's':
-      flags |= CONV_STRING;
+      self.flags |= CONV_STRING;
       break;
     case 'p':
-      flags |= CONV_POINTER;
+      self.flags |= CONV_POINTER;
       break;
     case 'n':
-      flags |= CONV_WRITTEN;
+      self.flags |= CONV_WRITTEN;
       break;
     case '%':
-      flags |= CONV_PERCENT;
+      self.flags |= CONV_PERCENT;
       break;
     case '\0':
       return written;
     }
     pos++;
 
-    switch(flags & CONV_MASK) {
+    switch(self.flags & CONV_MASK) {
     case CONV_PERCENT:
       CHECKCB(ctxt->write_str(ctxt->user_data, "%", 1));
       written++;
       break;
+
     case CONV_INTEGER:
     {
       /* unsigned integers */
-      char *prefix = 0; /* sign, "0x" or "0X" */
-      unsigned int prefix_len = 0;
       char buffer[MAXCHARS];
-      char *conv_pos = buffer + MAXCHARS;
-      unsigned int conv_len = 0;
-      unsigned int width = 0;
-      unsigned int precision_fill;
-      unsigned int field_fill;
+        self.conv_pos = buffer + MAXCHARS;
+        self.conv_len = 0;
       LARGEST_UNSIGNED uvalue = 0;
-      int negative = 0;
+        self.negative = 0;
+        self.prefix_len = 0;
 
-      if(precision < 0) {
-        precision = 1;
+      if(self.precision < 0) {
+          self.precision = 1;
       } else {
-        flags &= ~PAD_ZERO;
+          self.flags &= ~PAD_ZERO;
       }
 
-      if(flags & SIGNED_YES) {
+      if(self.flags & SIGNED_YES) {
         /* signed integers */
         LARGEST_SIGNED value = 0;
-        switch(flags & SIZE_MASK) {
+        switch(self.flags & SIZE_MASK) {
         case SIZE_CHAR:
           value = (signed char)va_arg(ap, int);
           break;
@@ -528,13 +641,14 @@ format_str_v(const strformat_context_t *ctxt, const char *format, va_list ap)
         }
         if(value < 0) {
           uvalue = -value;
-          negative = 1;
+          self.negative = 1;
         } else {
           uvalue = value;
+          self.negative = 0;
         }
       } else {
 
-        switch(flags & SIZE_MASK) {
+        switch(self.flags & SIZE_MASK) {
         case SIZE_CHAR:
           uvalue = (unsigned char)va_arg(ap, unsigned int);
           break;
@@ -556,100 +670,37 @@ format_str_v(const strformat_context_t *ctxt, const char *format, va_list ap)
           break;
 #endif
         }
+
+        self.negative = 0;
       }
 
-      switch(flags & (RADIX_MASK)) {
-      case RADIX_DECIMAL:
-        conv_len = output_uint_decimal(&conv_pos, uvalue);
-        break;
-      case RADIX_OCTAL:
-        conv_len = output_uint_octal(&conv_pos, uvalue);
-        break;
-      case RADIX_HEX:
-        conv_len = output_uint_hex(&conv_pos, uvalue, flags);
-        break;
-      }
-
-      width += conv_len;
-      precision_fill = (precision > (int)conv_len) ? precision - conv_len : 0;
-      if((flags & (RADIX_MASK | ALTERNATE_FORM))
-         == (RADIX_OCTAL | ALTERNATE_FORM)) {
-        if(precision_fill < 1) {
-          precision_fill = 1;
-        }
-      }
-
-      width += precision_fill;
-
-      if((flags & (RADIX_MASK | ALTERNATE_FORM))
-         == (RADIX_HEX | ALTERNATE_FORM) && uvalue != 0) {
-        prefix_len = 2;
-        if(flags & CAPS_YES) {
-          prefix = "0X";
+      if(  (self.flags & (RADIX_MASK | ALTERNATE_FORM))
+              == (RADIX_HEX | ALTERNATE_FORM)
+         && uvalue != 0)
+      {
+        self.prefix_len = 2;
+        if(self.flags & CAPS_YES) {
+            self.prefix = "0X";
         } else {
-          prefix = "0x";
+            self.prefix = "0x";
         }
       }
 
-      if(flags & SIGNED_YES) {
-        if(negative) {
-          prefix = "-";
-          prefix_len = 1;
-        } else {
-          switch(flags & POSITIVE_MASK) {
-          case POSITIVE_SPACE:
-            prefix = " ";
-            prefix_len = 1;
-            break;
-          case POSITIVE_PLUS:
-            prefix = "+";
-            prefix_len = 1;
-            break;
-          }
-        }
-      }
-
-      width += prefix_len;
-
-      field_fill = (minwidth > width) ? minwidth - width : 0;
-
-      if((flags & JUSTIFY_MASK) == JUSTIFY_RIGHT) {
-        if(flags & PAD_ZERO) {
-          precision_fill += field_fill;
-          field_fill = 0; /* Do not double count padding */
-        } else {
-          CHECKCB(fill_space(ctxt, field_fill));
-        }
-      }
-
-      if(prefix_len > 0) {
-        CHECKCB(ctxt->write_str(ctxt->user_data, prefix, prefix_len));
-      }
-      written += prefix_len;
-
-      CHECKCB(fill_zero(ctxt, precision_fill));
-      written += precision_fill;
-
-      CHECKCB(ctxt->write_str(ctxt->user_data, conv_pos, conv_len));
-      written += conv_len;
-
-      if((flags & JUSTIFY_MASK) == JUSTIFY_LEFT) {
-        CHECKCB(fill_space(ctxt, field_fill));
-      }
-      written += field_fill;
+      self.conv_len = output_radix_num(&self.conv_pos, self.flags, uvalue);
+      written += output_fctx(&self);
     }
     break;
+
     case CONV_STRING:
     {
-      unsigned int field_fill;
       unsigned int len;
       const char *str = va_arg(ap, const char *);
 
       if(str) {
         const char *pos = str;
         const char *limit = NULL;
-        if ( precision >= 0 )
-            limit = pos + precision;
+        if ( self.precision >= 0 )
+            limit = pos + self.precision;
         while( (*pos != '\0') && (pos != limit) )
             pos++;
         len = pos - str;
@@ -658,31 +709,17 @@ format_str_v(const strformat_context_t *ctxt, const char *format, va_list ap)
         len = 6;
       }
 
-      if(precision >= 0 && precision < (int)len) {
-        len = precision;
+      if(self.precision >= 0 && self.precision < (int)len) {
+        len = self.precision;
       }
-
-      field_fill = (minwidth > len) ? minwidth - len : 0;
-
-      if (field_fill > 0)
-      if((flags & JUSTIFY_MASK) == JUSTIFY_RIGHT) {
-        CHECKCB(fill_space(ctxt, field_fill));
-      }
-
-      CHECKCB(ctxt->write_str(ctxt->user_data, str, len));
-      written += len;
-
-      if((flags & JUSTIFY_MASK) == JUSTIFY_LEFT) {
-        CHECKCB(fill_space(ctxt, field_fill));
-      }
-      written += field_fill;
+      self.conv_len = len;
+      self.conv_pos = (char*)str;
+      written += output_fctx(&self);
     }
     break;
+
     case CONV_POINTER:
     {
-        char *conv_pos;
-        unsigned int conv_len;
-        unsigned int field_fill = 0;
 
 #if HAVE_NETADDR
         char buffer[UIPLIB_IPV6_MAX_STR_LEN];
@@ -691,30 +728,30 @@ format_str_v(const strformat_context_t *ctxt, const char *format, va_list ap)
           ++pos;
           const linkaddr_t* lladdr = (const linkaddr_t *)va_arg(ap, void *);
           if(lladdr == NULL) {
-              conv_pos = "(LL nil)";
-              conv_len = 8;
+              self.conv_pos = "(LL nil)";
+              self.conv_len = 8;
           } else {
-            conv_pos = buffer + sizeof(buffer)-1;
-            conv_len = 0;
+              self.conv_pos = buffer + sizeof(buffer)-1;
+              self.conv_len = 0;
             unsigned int i;
             const uint8_t* adrch = lladdr->u8 + LINKADDR_SIZE-1;
             for(i = 0; i < LINKADDR_SIZE; ++i, --adrch) {
 
               if ( (i > 0) && ((i % 2 )== 0) && (LINKADDR_SIZE > 2)) {
-                conv_len++;
-                *(--conv_pos) = '.';
+                  self.conv_len++;
+                *(--self.conv_pos) = '.';
               }
 
-              unsigned olen = output_uint_hex(&conv_pos, *adrch, flags);
+              unsigned olen = output_uint_hex(&self.conv_pos, *adrch, self.flags);
               if ( olen == 0){
-                  *(--conv_pos) = '0';
+                  *(--self.conv_pos) = '0';
                   ++olen;
               }
               if ( olen == 1){
-                  *(--conv_pos) = '0';
+                  *(--self.conv_pos) = '0';
                   ++olen;
               }
-              conv_len += olen;
+              self.conv_len += olen;
             }
           }
       }
@@ -722,8 +759,8 @@ format_str_v(const strformat_context_t *ctxt, const char *format, va_list ap)
       else if (*pos == 'I'){                         // ipv6
           ++pos;
           const uip_ipaddr_t* ipaddr = (const uip_ipaddr_t *)va_arg(ap, void *);
-          conv_len = uiplib_ipaddr_snprint(buffer, sizeof(buffer), ipaddr);
-          conv_pos = buffer;
+          self.conv_len = uiplib_ipaddr_snprint(buffer, sizeof(buffer), ipaddr);
+          self.conv_pos = buffer;
       }
 #endif
       else {
@@ -732,58 +769,34 @@ format_str_v(const strformat_context_t *ctxt, const char *format, va_list ap)
      {
 #endif
 
-      {
-      LARGEST_UNSIGNED uvalue =
-        (LARGEST_UNSIGNED)(uintptr_t)va_arg(ap, void *);
+          LARGEST_UNSIGNED uvalue = (LARGEST_UNSIGNED)(uintptr_t)va_arg(ap, void *);
 
-      conv_pos = buffer + MAXCHARS_HEX + 3;
-      conv_len = output_uint_hex(&conv_pos, uvalue, flags);
+          self.conv_pos = buffer + MAXCHARS_HEX + 3;
+          self.conv_len = output_uint_hex(&self.conv_pos, uvalue, self.flags);
 
-      if(conv_len == 0) {
-        *--conv_pos = '0';
-        conv_len++;
+          if(self.conv_len == 0) {
+            *--self.conv_pos = '0';
+            self.conv_len++;
+          }
+
+          self.prefix_len = 3;
+          if(self.flags & CAPS_YES) {
+              self.prefix = "#0X";
+          } else {
+              self.prefix = "#0x";
+          }
       }
-
-      *--conv_pos = 'x';
-      *--conv_pos = '0';
-      *--conv_pos = '#';
-      conv_len += 3;
-
-      field_fill = (minwidth > conv_len) ? minwidth - conv_len : 0;
-
-      if((flags & JUSTIFY_MASK) == JUSTIFY_RIGHT) {
-        CHECKCB(fill_space(ctxt, field_fill));
-      }
-
-      }
-
-      CHECKCB(ctxt->write_str(ctxt->user_data, conv_pos, conv_len));
-      written += conv_len;
-
-      if((flags & JUSTIFY_MASK) == JUSTIFY_LEFT) {
-        CHECKCB(fill_space(ctxt, field_fill));
-      }
-
-      written += field_fill;
+      written += output_fctx(&self);
     }
     break;
+
     case CONV_CHAR:
     {
       char ch = va_arg(ap, int);
-      unsigned int field_fill = (minwidth > 1) ? minwidth - 1 : 0;
 
-      if((flags & JUSTIFY_MASK) == JUSTIFY_RIGHT) {
-        CHECKCB(fill_space(ctxt, field_fill));
-        written += field_fill;
-      }
-
-      CHECKCB(ctxt->write_str(ctxt->user_data, &ch, 1));
-      written++;
-
-      if((flags & JUSTIFY_MASK) == JUSTIFY_LEFT) {
-        CHECKCB(fill_space(ctxt, field_fill));
-      }
-      written += field_fill;
+      self.conv_len = 1;
+      self.conv_pos = &ch;
+      written += output_fctx(&self);
     }
     break;
     case CONV_WRITTEN:
@@ -797,4 +810,5 @@ format_str_v(const strformat_context_t *ctxt, const char *format, va_list ap)
 
   return written;
 }
+
 /*---------------------------------------------------------------------------*/
