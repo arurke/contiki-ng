@@ -775,16 +775,21 @@ format_str_v(const strformat_context_t *ctxt, const char *format, va_list ap)
           self.conv_len = output_uint_hex(&self.conv_pos, uvalue, self.flags);
 
           if(self.conv_len == 0) {
-            *--self.conv_pos = '0';
-            self.conv_len++;
+            self.conv_len = 6;
+            if(self.flags & CAPS_YES)
+                self.conv_pos = "(NULL)";
+            else
+                self.conv_pos = "(null)";
+          }
+          else {
+              self.prefix_len = 3;
+              if(self.flags & CAPS_YES) {
+                  self.prefix = "#0X";
+              } else {
+                  self.prefix = "#0x";
+              }
           }
 
-          self.prefix_len = 3;
-          if(self.flags & CAPS_YES) {
-              self.prefix = "#0X";
-          } else {
-              self.prefix = "#0x";
-          }
       }
       written += output_fctx(&self);
     }
