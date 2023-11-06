@@ -46,6 +46,7 @@
 
 #ifndef PRINTF_CONF_HAVE_DOUBLE
 #define HAVE_DOUBLE     (HAVE_DOUBLE_EXP | HAVE_DOUBLE_HEX )
+//#define HAVE_DOUBLE     (HAVE_DOUBLE_HEX )
 #else
 #define HAVE_DOUBLE     PRINTF_CONF_HAVE_DOUBLE
 #endif
@@ -329,11 +330,6 @@ fill_zero(const strformat_context_t *ctxt, unsigned int len)
 
 /*---------------------------------------------------------------------------*/
 #if (HAVE_DOUBLE > 0)
-#define PRINTF_SUPPORT_DECIMAL_SPECIFIERS   (HAVE_DOUBLE > 0)
-
-#if (HAVE_DOUBLE & HAVE_DOUBLE_EXP) != 0
-#define PRINTF_SUPPORT_EXPONENTIAL_SPECIFIERS 1
-#endif
 
 // just use double always, since va_args pass doubles only
 #define PRINTF_USE_DOUBLE_INTERNALLY         1
@@ -343,6 +339,8 @@ typedef double floating_point_t;
 #else
 typedef float  floating_point_t;
 #endif
+
+static inline int get_sign_bit(floating_point_t x);
 
 
 
@@ -362,11 +360,6 @@ unsigned print_floating_point(char* buf, floating_point_t value
                         , int precision, unsigned width
                         , printf_flags_t flags);
 
-enum {
-    PRINTF_PREFER_DECIMAL     = false,
-    PRINTF_PREFER_EXPONENTIAL = true,
-};
-
 #endif  //#if (HAVE_DOUBLE
 
 #define NUM_DECIMAL_DIGITS_IN_INT64_T 18
@@ -375,6 +368,13 @@ enum {
 // library will be correct up to this precision; it is just an upper-bound for
 // avoiding buffer overruns and such
 #define PRINTF_MAX_SUPPORTED_PRECISION (NUM_DECIMAL_DIGITS_IN_INT64_T - 1)
+
+#if (HAVE_DOUBLE & HAVE_DOUBLE_EXP) != 0
+
+#define PRINTF_SUPPORT_EXPONENTIAL_SPECIFIERS   1
+#define PRINTF_SUPPORT_DECIMAL_SPECIFIERS       1
+
+#endif
 
 
 
@@ -417,23 +417,37 @@ int output_fctx( struct FormatCtx* self ){
     if (self->prefix == NULL){
         self->prefix_len = 0;
 
-        if(self->flags & SIGNED_YES) {
-          if(self->negative) {
-              self->prefix = "-";
-              self->prefix_len = 1;
+        if(  (self->flags & (RADIX_MASK | ALTERNATE_FORM))
+                == (RADIX_HEX | ALTERNATE_FORM)
+          )
+        {
+          self->prefix_len = 2;
+          if(self->flags & CAPS_YES) {
+              self->prefix = "0X";
           } else {
-            switch(self->flags & POSITIVE_MASK) {
-            case POSITIVE_SPACE:
-                self->prefix = " ";
-                self->prefix_len = 1;
-                break;
-            case POSITIVE_PLUS:
-                self->prefix = "+";
-                self->prefix_len = 1;
-                break;
-            }
+              self->prefix = "0x";
           }
         }
+
+    }
+
+    char csign = '\0';
+    if(self->flags & SIGNED_YES) {
+      if(self->negative) {
+          csign = '-';
+          ++self->width;
+      } else {
+        switch(self->flags & POSITIVE_MASK) {
+        case POSITIVE_SPACE:
+            csign = ' ';
+            ++self->width;
+            break;
+        case POSITIVE_PLUS:
+            csign = '+';
+            ++self->width;
+            break;
+        }
+      }
     }
 
     self->width += self->prefix_len;
@@ -465,6 +479,11 @@ int output_fctx( struct FormatCtx* self ){
         CHECKCB(fill_space(ctxt, field_fill));
         written += field_fill;
       }
+    }
+
+    if (csign){
+      CHECKCB(ctxt->write_str(ctxt->user_data, &csign, 1));
+      ++written;
     }
 
     if(self->prefix_len > 0) {
@@ -606,6 +625,8 @@ format_str_v(const strformat_context_t *ctxt, const char *format, va_list ap)
       self.flags |= CONV_INTEGER | RADIX_HEX | SIGNED_NO | CAPS_YES;
       break;
 #if HAVE_DOUBLE
+
+# if (HAVE_DOUBLE & HAVE_DOUBLE_EXP) != 0
     case 'f':
       self.flags |= CONV_FLOAT | FLOAT_NORMAL            | SIGNED_YES;
       break;
@@ -624,6 +645,21 @@ format_str_v(const strformat_context_t *ctxt, const char *format, va_list ap)
     case 'G':
       self.flags |= CONV_FLOAT | FLOAT_DEPENDANT | CAPS_YES | SIGNED_YES;
       break;
+# else
+      // use HEX printer if not provides normal
+    case 'f':
+    case 'e':
+    case 'g':
+        self.flags |= CONV_FLOAT | FLOAT_HEX                 | SIGNED_YES;
+        break;
+
+    case 'F':
+    case 'E':
+    case 'G':
+        self.flags |= CONV_FLOAT | FLOAT_HEX | CAPS_YES      | SIGNED_YES;
+        break;
+# endif
+
     case 'a':
       self.flags |= CONV_FLOAT | FLOAT_HEX                 | SIGNED_YES;
       break;
@@ -733,16 +769,8 @@ format_str_v(const strformat_context_t *ctxt, const char *format, va_list ap)
         self.negative = 0;
       }
 
-      if(  (self.flags & (RADIX_MASK | ALTERNATE_FORM))
-              == (RADIX_HEX | ALTERNATE_FORM)
-         && uvalue != 0)
-      {
-        self.prefix_len = 2;
-        if(self.flags & CAPS_YES) {
-            self.prefix = "0X";
-        } else {
-            self.prefix = "0x";
-        }
+      if (uvalue == 0) {
+          self.flags &= ~ALTERNATE_FORM;
       }
 
       self.conv_len = output_radix_num(&self.conv_pos, self.flags, uvalue);
@@ -870,6 +898,7 @@ format_str_v(const strformat_context_t *ctxt, const char *format, va_list ap)
     }
     break;
 
+#if HAVE_DOUBLE
     case CONV_FLOAT:
     {
         char buf[PRINTF_DECIMAL_BUFFER_SIZE];
@@ -877,21 +906,21 @@ format_str_v(const strformat_context_t *ctxt, const char *format, va_list ap)
         /// va_arg always pass float as double
         floating_point_t value = va_arg(ap, double);
 
-        if (value < 0) {
-          value = -value;
-          self.negative = 1;
-        }
-        else
-        	self.negative = 0;
+        self.negative = get_sign_bit(value);
 
         self.conv_pos = buf+ PRINTF_DECIMAL_BUFFER_SIZE-1;
+
         self.conv_len = print_floating_point(self.conv_pos, value
                                 , self.precision, self.minwidth, self.flags);
         self.conv_pos -= self.conv_len;
 
+        if ( (self.flags & FLOAT_MASK) == FLOAT_HEX)
+            self.flags |= RADIX_HEX | ALTERNATE_FORM;    // force 0X prefix
+
         written += output_fctx(&self);
     }
     break;
+#endif
 
     }
   }
@@ -955,7 +984,7 @@ format_str_v(const strformat_context_t *ctxt, const char *format, va_list ap)
 
 
 
-#if (PRINTF_SUPPORT_DECIMAL_SPECIFIERS || PRINTF_SUPPORT_EXPONENTIAL_SPECIFIERS)
+#if HAVE_DOUBLE > 0
 #include <float.h>
 #if FLT_RADIX != 2
 #error "Non-binary-radix floating-point types are unsupported."
@@ -1031,9 +1060,7 @@ static inline int get_exp2(floating_point_with_bit_access x)
 }
 #define PRINTF_ABS(_x) ( (_x) > 0 ? (_x) : -(_x) )
 
-#endif // (PRINTF_SUPPORT_DECIMAL_SPECIFIERS || PRINTF_SUPPORT_EXPONENTIAL_SPECIFIERS)
 
-#if (PRINTF_SUPPORT_DECIMAL_SPECIFIERS || PRINTF_SUPPORT_EXPONENTIAL_SPECIFIERS)
 
 // Stores a fixed-precision representation of a floating-point number relative
 // to a fixed precision (which cannot be determined by examining this structure)
@@ -1045,6 +1072,76 @@ struct floating_point_components {
     // by the precision value
   bool is_negative;
 };
+
+
+static
+unsigned print_broken_up_decimal(char* output,
+                    struct floating_point_components number_,
+                    printf_flags_t flags)
+{
+    char* buf = output;
+    unsigned len = 0;
+
+    int precision = number_.precision;
+  if (precision != 0U) {
+    // do fractional part, as an unsigned number
+
+    if (precision > PRINTF_DECIMAL_BUFFER_SIZE)
+        return 0;
+
+    unsigned count = precision;
+
+    // %g/%G mandates we skip the trailing 0 digits...
+    if ((flags & FLAGS_ADAPT_EXP) && !(flags & FLAGS_HASH)
+        && (number_.fractional > 0))
+    {
+        while(true) {
+          int_fast64_t digit = number_.fractional % 10U;
+          if (digit != 0) {
+            break;
+          }
+          --count;
+          number_.fractional /= 10U;
+
+        }
+      // ... and even the decimal point if there are no
+      // non-zero fractional part digits (see below)
+    }
+
+    if (        (number_.fractional > 0)
+            || !(flags & FLAGS_ADAPT_EXP)
+            || (flags & FLAGS_HASH)
+            )
+    {
+        count -= output_radix_num(&buf, flags, number_.fractional );
+
+      // add extra 0s
+      for (; count > 0U; --count) {
+        *(--buf) = '0';
+      }
+      *(--buf) = '.';
+    }
+  }
+  else {
+    if ((flags & FLAGS_HASH)) {
+      *(--buf) = '.';
+    }
+  }
+
+  // Write the integer part of the number (it comes after the fractional
+  // since the character order is reversed)
+  output_radix_num(&buf, flags, number_.integral );
+
+  len = output - buf;
+  if (len <= PRINTF_DECIMAL_BUFFER_SIZE)
+      return len;
+  else
+      return 0;
+}
+
+#endif // HAVE_DOUBLE > 0
+
+#if (PRINTF_SUPPORT_DECIMAL_SPECIFIERS || PRINTF_SUPPORT_EXPONENTIAL_SPECIFIERS)
 
 static const floating_point_t powers_of_10[PRINTF_MAX_PRECOMPUTED_POWER_OF_10 + 1] = {
   1e00, 1e01, 1e02, 1e03, 1e04, 1e05, 1e06, 1e07, 1e08, 1e09, 1e10
@@ -1179,80 +1276,16 @@ floating_point_components get_normalized_components(floating_point_t non_normali
 }
 #endif // PRINTF_SUPPORT_EXPONENTIAL_SPECIFIERS
 
-static
-unsigned print_broken_up_decimal(char* output,
-                    struct floating_point_components number_,
-                   unsigned width, printf_flags_t flags)
-{
-    char* buf = output;
-    unsigned len = 0;
-
-    int precision = number_.precision;
-  if (precision != 0U) {
-    // do fractional part, as an unsigned number
-
-    if (precision > PRINTF_DECIMAL_BUFFER_SIZE)
-        return 0;
-
-    unsigned count = precision;
-
-    // %g/%G mandates we skip the trailing 0 digits...
-    if ((flags & FLAGS_ADAPT_EXP) && !(flags & FLAGS_HASH)
-        && (number_.fractional > 0))
-    {
-        while(true) {
-          int_fast64_t digit = number_.fractional % 10U;
-          if (digit != 0) {
-            break;
-          }
-          --count;
-          number_.fractional /= 10U;
-
-        }
-      // ... and even the decimal point if there are no
-      // non-zero fractional part digits (see below)
-    }
-
-    if (        (number_.fractional > 0)
-            || !(flags & FLAGS_ADAPT_EXP)
-            || (flags & FLAGS_HASH)
-            )
-    {
-        count -= output_uint_decimal(&buf, number_.fractional );
-
-      // add extra 0s
-      for (; count > 0U; --count) {
-        *(--buf) = '0';
-      }
-      *(--buf) = '.';
-    }
-  }
-  else {
-    if ((flags & FLAGS_HASH)) {
-      *(--buf) = '.';
-    }
-  }
-
-  // Write the integer part of the number (it comes after the fractional
-  // since the character order is reversed)
-  output_uint_decimal(&buf, number_.integral );
-
-  len = output - buf;
-  if (len <= PRINTF_DECIMAL_BUFFER_SIZE)
-      return len;
-  else
-	  return 0;
-}
-
 // internal ftoa for fixed decimal floating point
 static unsigned print_decimal_number(char* output, floating_point_t number
-                                , int precision, unsigned width
-                                , printf_flags_t flags
+                                , int precision, printf_flags_t flags
                                 )
 {
   struct floating_point_components value_ = get_components(number, precision);
-  return print_broken_up_decimal(output, value_, width, flags);
+  return print_broken_up_decimal(output, value_, flags);
 }
+
+
 
 #if PRINTF_SUPPORT_EXPONENTIAL_SPECIFIERS
 
@@ -1425,33 +1458,79 @@ unsigned print_exponential_number(char* output, floating_point_t number
   char* buf = output;
   unsigned len = 0;
   if (! fall_back_to_decimal_only_mode) {
-      len += output_uint_decimal(&buf, ABS(floored_exp10) );
-      *(--buf) = (floored_exp10 >= 0)? '+' : '-';
-      *(--buf) = (flags & FLAGS_UPPERCASE)? 'E' : 'e';
-      len += 2;
+    len = output_uint_decimal(&buf, ABS(floored_exp10) );
+    *(--buf) = (floored_exp10 >= 0)? '+' : '-';
+    *(--buf) = (flags & FLAGS_UPPERCASE)? 'E' : 'e';
+    len += 2;
   }
 
-  // the floored_exp10 format is "E%+03d" and largest possible floored_exp10 value for a 64-bit double
-  // is "307" (for 2^1023), so we set aside 4-5 characters overall
-  printf_size_t exp10_part_width = len;
-  printf_size_t decimal_part_width = 0U;
-  if (!fall_back_to_decimal_only_mode) {
-
-      // We're padding on the left; so the width constraint is the decimal part's problem.
-      // Well, can both the decimal part and the exponent part fit within our overall width?
-      if ( !(flags & FLAGS_LEFT) && (width > exp10_part_width) )
-          // Yes, so we limit our decimal part's width.
-          // (Note this is trivially valid even if we've fallen back to "%f" mode)
-          decimal_part_width = width - exp10_part_width;
-
-  }
-
-  len += print_broken_up_decimal(buf, decimal_part_components
-                              , decimal_part_width, flags
-                              );
+  len += print_broken_up_decimal(buf, decimal_part_components, flags );
   return len;
 }
 #endif  // PRINTF_SUPPORT_EXPONENTIAL_SPECIFIERS
+#endif  // (PRINTF_SUPPORT_DECIMAL_SPECIFIERS || PRINTF_SUPPORT_EXPONENTIAL_SPECIFIERS)
+
+
+#if HAVE_DOUBLE > 0
+
+static
+unsigned print_hex_float(char* output, floating_point_t value
+                        , int precision, printf_flags_t flags)
+{
+    struct floating_point_components number_;
+    enum {
+        ALIGNED_MANTISSA_BITS = (FP_TYPE_STORED_MANTISSA_BITS-4),
+        FP_MANTISSA_MASK       = (1ull <<(FP_TYPE_STORED_MANTISSA_BITS-1))-1,
+    };
+
+    number_.is_negative = 0; //get_sign_bit(value);
+    //floating_point_t abs_number = (number_.is_negative) ? -value : value;
+    number_.fractional = get_bit_access(value).U & FP_MANTISSA_MASK;
+    int exp2 = get_exp2( get_bit_access(value) );
+
+    if ((flags & FLAGS_HASH) == 0){
+        if ( exp2 > (-FP_TYPE_BASE_EXPONENT) ){
+            // prints as comma aligned 0xX.xxFEP(n-3)
+            number_.integral   = (number_.fractional >> ALIGNED_MANTISSA_BITS) | 8;
+            number_.fractional = (number_.fractional << 3) & FP_MANTISSA_MASK;
+            exp2 -= 3;
+        }
+        else {
+            number_.integral   = 0;
+            if (number_.fractional == 0)
+                exp2 = 0;
+            else
+                ++exp2;     // subnormal number
+        }
+    }
+    else {
+        // prints as origin 0x1.xxFEPn
+        number_.integral   = 1;
+    };
+
+    if (precision < 0)
+        precision = 0;
+
+    number_.precision = FP_TYPE_STORED_MANTISSA_BITS/4;
+    while ((number_.fractional & 0xf) == 0){
+        if (number_.precision <= precision)
+            break;
+        --number_.precision;
+        number_.fractional = number_.fractional >>4;
+    }
+
+    // print binary Exponent
+    unsigned len = output_uint_decimal(&output, ABS(exp2) );
+    *(--output) = (exp2 >= 0)? '+' : '-';
+    *(--output) = (flags & FLAGS_UPPERCASE)? 'P' : 'p';
+    len += 2;
+
+    flags |= RADIX_HEX;
+    if (number_.precision > 0)
+        flags |= FLAGS_HASH;
+
+    return len + print_broken_up_decimal(output, number_, flags);
+}
 
 static
 unsigned print_floating_point(char* output, floating_point_t value
@@ -1480,31 +1559,42 @@ unsigned print_floating_point(char* output, floating_point_t value
           return 3;
   }
 
-  bool prefer_exponential = (flags & (FLOAT_DEPENDANT | FLOAT_EXPONENT)) != 0;
-  if ( !prefer_exponential )
+
+#if (HAVE_DOUBLE & HAVE_DOUBLE_EXP) != 0
+  if ( (flags & FLOAT_MASK) != FLOAT_HEX)
   {
-    // The required behavior of standard printf is to print _every_ integral-part digit -- which could mean
-    // printing hundreds of characters, overflowing any fixed internal buffer and necessitating a more complicated
-    // implementation.
-      prefer_exponential = (value > PRINTF_FLOAT_NOTATION_THRESHOLD)
-                         || (value < -PRINTF_FLOAT_NOTATION_THRESHOLD)
-                         ;
+      bool prefer_exponential = (flags & (FLOAT_DEPENDANT | FLOAT_EXPONENT)) != 0;
+      if ( !prefer_exponential )
+      {
+        // The required behavior of standard printf is to print _every_ integral-part digit -- which could mean
+        // printing hundreds of characters, overflowing any fixed internal buffer and necessitating a more complicated
+        // implementation.
+          prefer_exponential = (value > PRINTF_FLOAT_NOTATION_THRESHOLD)
+                             || (value < -PRINTF_FLOAT_NOTATION_THRESHOLD)
+                             ;
+      }
+
+      // set default precision, if not set explicitly
+      if ( precision < 0 ) {
+        precision = PRINTF_DEFAULT_FLOAT_PRECISION;
+      }
+
+      flags |= RADIX_DECIMAL;
+
+    #if PRINTF_SUPPORT_EXPONENTIAL_SPECIFIERS
+      if (prefer_exponential)
+        return print_exponential_number(output, value, precision, width, flags);
+      else
+    #endif
+        return print_decimal_number(output, value, precision, flags);
   }
-
-  // set default precision, if not set explicitly
-  if ( precision < 0 ) {
-    precision = PRINTF_DEFAULT_FLOAT_PRECISION;
-    flags |= FLAGS_ADAPT_EXP;
-  }
-
-
-#if PRINTF_SUPPORT_EXPONENTIAL_SPECIFIERS
-  if (prefer_exponential)
-    return print_exponential_number(output, value, precision, width, flags);
   else
 #endif
-    return print_decimal_number(output, value, precision, width, flags);
+  {
+      return print_hex_float(output, value, precision, flags);
+  }
+
 }
 
-#endif  // (PRINTF_SUPPORT_DECIMAL_SPECIFIERS || PRINTF_SUPPORT_EXPONENTIAL_SPECIFIERS)
+#endif
 

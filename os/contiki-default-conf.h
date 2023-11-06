@@ -218,6 +218,11 @@
 /*  lib/dbg-io/strformat: printf formater options.
  * */
 
+// provide functionality 'a','e','f','g' formaters
+#define PRINTF_CONF_HAVE_DOUBLE_FLOAT   1
+// provide functionality 'a' formater hex-float
+#define PRINTF_CONF_HAVE_DOUBLE_HEX     2
+
 // supports float numbers print
 //#define PRINTF_CONF_HAVE_DOUBLE       1
 
