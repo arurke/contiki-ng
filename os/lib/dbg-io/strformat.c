@@ -1598,3 +1598,34 @@ unsigned print_floating_point(char* output, floating_point_t value
 
 #endif
 
+
+
+/*---------------------------------------------------------------------------*/
+#include <stdio.h>
+
+static strformat_result
+write_str(void *user_data, const char *data, unsigned int len)
+{
+  for (; len > 0; --len) {
+    putchar( *data++ );
+  }
+  return STRFORMAT_OK;
+}
+/*---------------------------------------------------------------------------*/
+static strformat_context_t ctxt =
+{
+  write_str,
+  NULL
+};
+/*---------------------------------------------------------------------------*/
+int
+printfck(const char *fmt, ...)
+{
+  int res;
+  va_list ap;
+  va_start(ap, fmt);
+  res = format_str_v(&ctxt, fmt, ap);
+  va_end(ap);
+  return res;
+}
+/*---------------------------------------------------------------------------*/

@@ -22,6 +22,11 @@ endif
 
 WRAPPED_FUNS = printf putchar puts
 
+# provide printfck for LOG
+EXTERNALDIRS += $(CONTIKI)/os/lib/dbg-io
+CONTIKI_TARGET_SOURCEFILES += strformat.c
+
+
 CC = gcc
 
 CFLAGS += -pthread

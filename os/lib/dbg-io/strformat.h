@@ -58,5 +58,10 @@ int
 format_str_v(const strformat_context_t *ctxt, const char *format, va_list ap)
      __attribute__ ((__format__ (__printf__, 2, 0)));
 /*---------------------------------------------------------------------------*/
+/* this printer provides format_str_.
+ * */
+int
+printfck(const char *fmt, ...);
+/*---------------------------------------------------------------------------*/
 #endif /* STRFORMAT_H_ */
 /*---------------------------------------------------------------------------*/

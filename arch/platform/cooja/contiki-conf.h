@@ -46,6 +46,11 @@
 
 #define LOG_CONF_ENABLED 1
 
+// use contiki-kernel specific printer
+#include "dbg-io/strformat.h"
+#define LOG_CONF_OUTPUT(...) printfck(__VA_ARGS__)
+
+
 #define COOJA 1
 
 #define ASSERT_CONF_RETURNS  1
