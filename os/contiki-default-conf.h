@@ -214,4 +214,27 @@
 #define SICSLOWPAN_CONF_COMPRESSION SICSLOWPAN_COMPRESSION_IPHC
 #endif /* SICSLOWPAN_CONF_COMPRESSION */
 
+/*---------------------------------------------------------------------------*/
+/*  lib/dbg-io/strformat: printf formater options.
+ * */
+
+// provide functionality 'a','e','f','g' formaters
+#define PRINTF_CONF_HAVE_DOUBLE_FLOAT   1
+// provide functionality 'a' formater hex-float
+#define PRINTF_CONF_HAVE_DOUBLE_HEX     2
+
+// supports float numbers print
+//#define PRINTF_CONF_HAVE_DOUBLE       1
+
+// supports %l specifier
+//#define PRINTF_CONF_HAVE_LONGLONG     1
+
+/* provides pointer format specifier %p with more info:
+ *      %pL - dumps pointer as linkaddr_t*
+ *      %pI - dumps pointer as uip_ipaddr_t*
+ * */
+//#define PRINTF_CONF_HAVE_NETADDR      1
+
+
+
 #endif /* CONTIKI_DEFAULT_CONF_H */

@@ -97,6 +97,10 @@ typedef unsigned int uip_stats_t;
 
 #define LOG_CONF_ENABLED 1
 
+// use contiki-kernel specific printer
+#include "dbg-io/strformat.h"
+#define LOG_CONF_OUTPUT(...) printfck(__VA_ARGS__)
+
 #define PLATFORM_SUPPORTS_BUTTON_HAL 1
 #define PLATFORM_CONF_PROVIDES_MAIN_LOOP 1
 #define PLATFORM_CONF_MAIN_ACCEPTS_ARGS  1

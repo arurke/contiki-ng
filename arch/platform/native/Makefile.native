@@ -31,6 +31,10 @@ MODULES_SOURCES_EXCLUDES += slip.c
 # No sensor drivers on Native.
 MODULES_SOURCES_EXCLUDES += sensors.c
 
+# provide printfck for LOG
+EXTERNALDIRS += $(CONTIKI)/os/lib/dbg-io
+CONTIKI_TARGET_SOURCEFILES += strformat.c
+
 CONTIKI_TARGET_SOURCEFILES += tun6-net.c
 
 ifeq ($(HOST_OS),Linux)
